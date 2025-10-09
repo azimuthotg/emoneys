@@ -637,9 +637,13 @@ class ReceiptPDFGenerator:
             if not qr_img:
                 return
 
-            # แปลงวันที่สร้างเป็นไทย
-            created_thai = self._convert_to_thai_date(receipt.created_at)
-            time_thai = receipt.created_at.strftime('%H:%M:%S')
+            # แปลงวันที่สร้างเป็นไทย (timezone-aware)
+            from django.utils import timezone
+
+            # แปลง created_at เป็น timezone ของไทย
+            local_time = timezone.localtime(receipt.created_at)
+            created_thai = self._convert_to_thai_date(local_time)
+            time_thai = local_time.strftime('%H:%M:%S')
 
             # ถ้าเป็น draft ใช้ข้อความตัวอย่าง
             if not receipt.receipt_number:

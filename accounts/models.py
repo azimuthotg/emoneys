@@ -906,7 +906,6 @@ class Receipt(models.Model):
         max_length=15,
         null=True,
         blank=True,
-        unique=True,
         verbose_name="เลขที่ใบสำคัญรับเงิน",
         help_text="รูปแบบ: ddmmyy/xxxx เช่น 240968/0001 (ร่างยังไม่มีเลข จะได้เลขเมื่อเปลี่ยนเป็นเสร็จสิ้น)"
     )
@@ -1002,7 +1001,11 @@ class Receipt(models.Model):
     def volume_code(self):
         """รหัสเล่มเอกสาร เช่น MIT68"""
         from utils.fiscal_year import get_volume_code, get_fiscal_year_from_date
-        fiscal_year = get_fiscal_year_from_date(self.receipt_date)
+        from datetime import datetime
+
+        # ถ้าไม่มี receipt_date (draft) ให้ใช้วันที่ปัจจุบัน
+        target_date = self.receipt_date or datetime.now().date()
+        fiscal_year = get_fiscal_year_from_date(target_date)
         return get_volume_code(self.department.code, fiscal_year)
     
     def save(self, *args, **kwargs):
@@ -1029,29 +1032,33 @@ class Receipt(models.Model):
         """สร้างเลขที่ใบสำคัญรับเงินแบบ ddmmyy/xxxx"""
         from datetime import datetime
         from django.db.models import Max
-        
+        from django.db import transaction
+
         today = self.receipt_date or datetime.now().date()
-        
+
         # Format: ddmmyy
         date_part = today.strftime("%d%m%y")
-        
+
         # หาเลข running number สำหรับวันนี้และหน่วยงานนี้
         prefix = f"{date_part}/"
-        
-        last_receipt = Receipt.objects.filter(
-            receipt_number__startswith=prefix,
-            department=self.department
-        ).aggregate(
-            max_number=Max('receipt_number')
-        )['max_number']
-        
-        if last_receipt:
-            # ดึงตัวเลขท้ายสุด
-            last_number = int(last_receipt.split('/')[-1])
-            next_number = last_number + 1
-        else:
-            next_number = 1
-        
+
+        # ใช้ transaction เพื่อป้องกัน race condition
+        with transaction.atomic():
+            # Lock rows เพื่อป้องกันการอ่านพร้อมกัน
+            last_receipt = Receipt.objects.filter(
+                receipt_number__startswith=prefix,
+                department=self.department
+            ).select_for_update().aggregate(
+                max_number=Max('receipt_number')
+            )['max_number']
+
+            if last_receipt:
+                # ดึงตัวเลขท้ายสุด
+                last_number = int(last_receipt.split('/')[-1])
+                next_number = last_number + 1
+            else:
+                next_number = 1
+
         # Format: ddmmyy/xxxx
         return f"{date_part}/{next_number:04d}"
     
@@ -1282,6 +1289,11 @@ class Receipt(models.Model):
         verbose_name = "ใบสำคัญรับเงิน"
         verbose_name_plural = "ใบสำคัญรับเงิน"
         ordering = ['-created_at']
+        unique_together = [['receipt_number', 'department']]
+        indexes = [
+            models.Index(fields=['receipt_number', 'department']),
+            models.Index(fields=['status', 'created_at']),
+        ]
 
 
 class ReceiptItem(models.Model):

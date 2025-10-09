@@ -6,6 +6,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.db import IntegrityError
 import json
 
 from .forms import LoginForm, ReceiptEditRequestForm, EditRequestApprovalForm, ReceiptEditRequestItemFormSet
@@ -1665,8 +1666,17 @@ def receipt_save_ajax(request):
         except Department.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'ไม่พบหน่วยงานของคุณในระบบ'}, status=400)
         
-        # สร้างใบสำคัญรับเงิน (ร่างจะไม่มี receipt_date)
+        # สร้างใบสำคัญรับเงิน
         from datetime import datetime
+
+        status = data.get('status', 'draft')
+
+        # ตั้งค่า receipt_date ตามสถานะ
+        receipt_date = None
+        if status == 'completed':
+            # ถ้าบันทึกเป็นเสร็จสิ้น ให้ใช้วันที่ปัจจุบัน
+            receipt_date = datetime.now().date()
+
         receipt = Receipt.objects.create(
             department=department,
             created_by=request.user,
@@ -1676,8 +1686,8 @@ def receipt_save_ajax(request):
             recipient_id_card=data.get('recipient_id_card', ''),
             is_loan=data.get('is_loan', False),
             total_amount=total_amount,
-            status=data.get('status', 'draft')
-            # receipt_date จะถูกตั้งค่าเมื่อบันทึกเป็นเสร็จสิ้น
+            status=status,
+            receipt_date=receipt_date
         )
         
         # สร้างรายการ
@@ -1734,9 +1744,18 @@ def receipt_save_ajax(request):
         
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'message': 'ข้อมูล JSON ไม่ถูกต้อง'}, status=400)
+    except IntegrityError as e:
+        import logging
+        logging.error(f'Receipt save IntegrityError: {str(e)}')
+        # ถ้าเกิด duplicate receipt number ให้ลองใหม่
+        if 'Duplicate entry' in str(e) or 'UNIQUE constraint' in str(e):
+            return JsonResponse({'success': False, 'message': 'เลขที่ใบสำคัญซ้ำ กรุณาลองใหม่อีกครั้ง'}, status=409)
+        return JsonResponse({'success': False, 'message': f'เกิดข้อผิดพลาดในการบันทึก: {str(e)}'}, status=500)
     except Exception as e:
         import logging
+        import traceback
         logging.error(f'Receipt save error: {str(e)}')
+        logging.error(traceback.format_exc())
         return JsonResponse({'success': False, 'message': f'เกิดข้อผิดพลาด: {str(e)}'}, status=500)
 
 
