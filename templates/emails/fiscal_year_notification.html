@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แจ้งเตือนระบบใบสำคัญรับเงิน</title>
+    <style>
+        body {
+            font-family: 'Sarabun', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #002F6C 0%, #0056b3 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        .header .university {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        .content {
+            background: white;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .fiscal-year-info {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #CFAE43;
+        }
+        .fiscal-year-info h2 {
+            color: #002F6C;
+            margin: 0 0 5px 0;
+            font-size: 1.1rem;
+        }
+        .warning-section {
+            margin-bottom: 20px;
+        }
+        .warning-level-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+        .level-danger {
+            background-color: #fee2e2;
+            color: #dc2626;
+            border-left: 4px solid #dc2626;
+        }
+        .level-warning {
+            background-color: #fef3c7;
+            color: #d97706;
+            border-left: 4px solid #CFAE43;
+        }
+        .level-info {
+            background-color: #e0f2fe;
+            color: #0369a1;
+            border-left: 4px solid #0369a1;
+        }
+        .notification-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        .notification-item h3 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            color: #374151;
+        }
+        .notification-item p {
+            margin: 0 0 10px 0;
+            color: #6b7280;
+        }
+        .notification-details {
+            background: #f9fafb;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            margin: 10px 0;
+        }
+        .notification-details strong {
+            color: #374151;
+        }
+        .actions {
+            margin-top: 10px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            margin-right: 8px;
+            margin-top: 5px;
+        }
+        .btn-danger {
+            background-color: #dc2626;
+            color: white;
+        }
+        .btn-warning {
+            background-color: #CFAE43;
+            color: white;
+        }
+        .btn-info {
+            background-color: #0369a1;
+            color: white;
+        }
+        .footer {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+        .footer .logo {
+            color: #002F6C;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-university"></i> แจ้งเตือนระบบใบสำคัญรับเงิน</h1>
+        <div class="university">{{ site_name|default:"มหาวิทยาลัยนครพนม" }}</div>
+    </div>
+    
+    <div class="content">
+        <div class="fiscal-year-info">
+            <h2>ข้อมูลปีงบประมาณปัจจุบัน</h2>
+            <p><strong>{{ notifications.fiscal_year_info.display_name }}</strong></p>
+            
+            {% if notifications.fiscal_year_info.is_transition %}
+            <div style="background: #fef3c7; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                <strong>🚨 อยู่ในช่วงเปลี่ยนปีงบประมาณ</strong><br>
+                {{ notifications.fiscal_year_info.transition_info.warning_message }}
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if notifications.total_warnings > 0 %}
+            <p>พบการแจ้งเตือน <strong>{{ notifications.total_warnings }}</strong> รายการ กรุณาตรวจสอบและดำเนินการตามที่จำเป็น</p>
+            
+            <!-- Critical Warnings -->
+            {% if notifications.warnings.danger %}
+            <div class="warning-section">
+                <div class="warning-level-title level-danger">
+                    🚨 ต้องดำเนินการด่วน ({{ notifications.warnings.danger|length }} รายการ)
+                </div>
+                
+                {% for warning in notifications.warnings.danger %}
+                <div class="notification-item">
+                    <h3>{{ warning.title }}</h3>
+                    <p>{{ warning.message }}</p>
+                    
+                    {% if warning.details %}
+                    <div class="notification-details">
+                        {% for key, value in warning.details.items %}
+                            {% if key == 'volume_code' %}
+                                <strong>รหัสเล่ม:</strong> {{ value }}<br>
+                            {% elif key == 'department' %}
+                                <strong>หน่วยงาน:</strong> {{ value }}<br>
+                            {% elif key == 'usage_percentage' %}
+                                <strong>การใช้งาน:</strong> {{ value|floatformat:1 }}%<br>
+                            {% elif key == 'remaining' %}
+                                <strong>เหลือ:</strong> {{ value }} เอกสาร<br>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if warning.actions %}
+                    <div class="actions">
+                        {% for action in warning.actions %}
+                        <a href="{{ action.url }}" class="btn btn-{{ action.type }}">{{ action.label }}</a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- Warning Level -->
+            {% if notifications.warnings.warning %}
+            <div class="warning-section">
+                <div class="warning-level-title level-warning">
+                    ⚠️ ควรตรวจสอบ ({{ notifications.warnings.warning|length }} รายการ)
+                </div>
+                
+                {% for warning in notifications.warnings.warning %}
+                <div class="notification-item">
+                    <h3>{{ warning.title }}</h3>
+                    <p>{{ warning.message }}</p>
+                    
+                    {% if warning.details %}
+                    <div class="notification-details">
+                        {% for key, value in warning.details.items %}
+                            {% if key == 'volume_code' %}
+                                <strong>รหัสเล่ม:</strong> {{ value }}<br>
+                            {% elif key == 'department' %}
+                                <strong>หน่วยงาน:</strong> {{ value }}<br>
+                            {% elif key == 'usage_percentage' %}
+                                <strong>การใช้งาน:</strong> {{ value|floatformat:1 }}%<br>
+                            {% elif key == 'current_fiscal_year' %}
+                                <strong>ปีงบประมาณปัจจุบัน:</strong> {{ value }}<br>
+                            {% elif key == 'days_remaining' %}
+                                <strong>เหลือเวลา:</strong> {{ value }} วัน<br>
+                            {% elif key == 'restriction' %}
+                                <strong>ข้อจำกัด:</strong> {{ value }}<br>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if warning.actions %}
+                    <div class="actions">
+                        {% for action in warning.actions %}
+                        <a href="{{ action.url }}" class="btn btn-{{ action.type }}">{{ action.label }}</a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- Info Level -->
+            {% if notifications.warnings.info %}
+            <div class="warning-section">
+                <div class="warning-level-title level-info">
+                    ℹ️ ข้อมูลทั่วไป ({{ notifications.warnings.info|length }} รายการ)
+                </div>
+                
+                {% for warning in notifications.warnings.info %}
+                <div class="notification-item">
+                    <h3>{{ warning.title }}</h3>
+                    <p>{{ warning.message }}</p>
+                    
+                    {% if warning.details %}
+                    <div class="notification-details">
+                        {% for key, value in warning.details.items %}
+                            {% if key == 'department' %}
+                                <strong>หน่วยงาน:</strong> {{ value }}<br>
+                            {% elif key == 'department_code' %}
+                                <strong>รหัสหน่วยงาน:</strong> {{ value }}<br>
+                            {% elif key == 'fiscal_year' %}
+                                <strong>ปีงบประมาณ:</strong> {{ value }}<br>
+                            {% elif key == 'note' %}
+                                <strong>หมายเหตุ:</strong> {{ value }}<br>
+                            {% elif key == 'next_fiscal_year' %}
+                                <strong>ปีงบประมาณถัดไป:</strong> {{ value }}<br>
+                            {% elif key == 'preparation_needed' %}
+                                <strong>การเตรียมการ:</strong> {{ value }}<br>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if warning.actions %}
+                    <div class="actions">
+                        {% for action in warning.actions %}
+                        <a href="{{ action.url }}" class="btn btn-{{ action.type }}">{{ action.label }}</a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+        {% else %}
+            <div style="background: #f0f9ff; padding: 15px; border-radius: 6px; text-align: center; color: #0369a1;">
+                <strong>✅ ระบบทำงานปกติ</strong><br>
+                ไม่พบสิ่งที่ต้องแจ้งเตือนในขณะนี้
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="footer">
+        <div class="logo">{{ site_name|default:"ระบบออกใบสำคัญรับเงิน มหาวิทยาลัยนครพนม" }}</div>
+        <p>อีเมลนี้ถูกส่งโดยระบบอัตโนมัติ กรุณาอย่าตอบกลับ</p>
+        <p style="font-size: 0.8rem; color: #9ca3af;">
+            หากไม่ต้องการรับอีเมลแจ้งเตือน กรุณาติดต่อผู้ดูแลระบบ
+        </p>
+    </div>
+</body>
+</html>

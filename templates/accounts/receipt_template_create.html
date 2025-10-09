@@ -1,0 +1,150 @@
+{% extends 'base_sidebar.html' %}
+{% block title %}{{ title }} - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #CFAE43 0%, #b8951a 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas fa-plus-circle me-2" style="color: #002F6C;"></i>
+                            เพิ่มรายการสำเร็จรูป
+                        </h5>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-info-circle me-2"></i>
+                            สร้างรายการที่ใช้บ่อย เช่น ค่าอาหาร ค่าประกัน
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <a href="{% url 'receipt_templates_list' %}" class="btn btn-light">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            กลับ
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template Form -->
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-primary">
+                    <i class="fas fa-form me-2"></i>
+                    ข้อมูลรายการสำเร็จรูป
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="name" class="form-label fw-bold">ชื่อรายการ <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                            <div class="form-text">เช่น ค่าอาหารว่างและเครื่องดื่ม</div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label for="category" class="form-label fw-bold">หมวดหมู่</label>
+                            <input type="text" class="form-control" id="category" name="category">
+                            <div class="form-text">เช่น ค่าอาหาร, ค่าประกัน</div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="fixed_amount" class="form-label fw-bold">จำนวนเงินคงที่</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="fixed_amount" name="fixed_amount" 
+                                       step="0.01" min="0" oninput="handleAmountInput('fixed')">
+                                <span class="input-group-text">บาท</span>
+                            </div>
+                            <div class="form-text">ถ้ากำหนดจำนวนเงินคงที่ (เช่น 1,000 บาท)</div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="max_amount" class="form-label fw-bold">จำนวนเงินสูงสุด</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="max_amount" name="max_amount" 
+                                       step="0.01" min="0" oninput="handleAmountInput('max')">
+                                <span class="input-group-text">บาท</span>
+                            </div>
+                            <div class="form-text">ถ้ากำหนดขีดจำกัดสูงสุด (เช่น ไม่เกิน 499 บาท)</div>
+                        </div>
+                        
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
+                                <label class="form-check-label fw-bold" for="is_active">
+                                    เปิดใช้งาน
+                                </label>
+                                <div class="form-text">รายการที่ไม่เปิดใช้งานจะไม่แสดงในการเลือก</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Amount Type Info -->
+                    <div class="alert alert-info mt-4" id="amountInfo">
+                        <h6><i class="fas fa-info-circle me-2"></i>ข้อมูลเพิ่มเติม</h6>
+                        <ul class="mb-0">
+                            <li><strong>จำนวนเงินคงที่:</strong> ผู้ใช้ไม่สามารถแก้ไขจำนวนเงินได้</li>
+                            <li><strong>จำนวนเงินสูงสุด:</strong> ผู้ใช้สามารถกรอกได้แต่ไม่เกินที่กำหนด</li>
+                            <li><strong>ไม่กำหนด:</strong> ผู้ใช้สามารถกรอกจำนวนเงินได้อย่างอิสระ</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i>
+                            บันทึก
+                        </button>
+                        <a href="{% url 'receipt_templates_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times me-1"></i>
+                            ยกเลิก
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function handleAmountInput(type) {
+    const fixedInput = document.getElementById('fixed_amount');
+    const maxInput = document.getElementById('max_amount');
+    
+    if (type === 'fixed' && fixedInput.value) {
+        // ถ้ากรอกจำนวนคงที่ ให้ล้างจำนวนสูงสุด
+        maxInput.value = '';
+        maxInput.disabled = true;
+    } else if (type === 'max' && maxInput.value) {
+        // ถ้ากรอกจำนวนสูงสุด ให้ล้างจำนวนคงที่
+        fixedInput.value = '';
+        fixedInput.disabled = true;
+    } else if (!fixedInput.value && !maxInput.value) {
+        // ถ้าไม่กรอกทั้งคู่ ให้เปิดใช้งานทั้งคู่
+        fixedInput.disabled = false;
+        maxInput.disabled = false;
+    }
+}
+</script>
+
+<style>
+.form-label.fw-bold {
+    color: #002F6C;
+}
+
+.alert-info {
+    background-color: #e3f2fd;
+    border-color: #bbdefb;
+    color: #0d47a1;
+}
+</style>
+{% endblock %}

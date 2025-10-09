@@ -1,0 +1,290 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - มหาวิทยาลัยนครพนม</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts - Sarabun -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .receipt-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .header-section {
+            background: linear-gradient(135deg, #002F6C 0%, #CFAE43 100%);
+            color: white;
+            border-radius: 15px 15px 0 0;
+            padding: 2rem;
+            text-align: center;
+        }
+        .verification-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        .error-badge {
+            display: inline-block;
+            background: #dc3545;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        .receipt-info {
+            padding: 2rem;
+        }
+        .info-row {
+            border-bottom: 1px solid #f0f0f0;
+            padding: 0.75rem 0;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #002F6C;
+        }
+        .amount-highlight {
+            background: linear-gradient(135deg, #CFAE43 0%, #b8951a 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            margin: 1rem 0;
+        }
+        .items-table {
+            margin: 1rem 0;
+        }
+        .qr-section {
+            text-align: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="receipt-card">
+                    <!-- Header -->
+                    <div class="header-section">
+                        <h3 class="mb-0">
+                            <i class="fas fa-university me-2"></i>
+                            มหาวิทยาลัยราชภัฏนครราชสีมา
+                        </h3>
+                        <p class="mb-0 mt-1">Nakhon Ratchasima Rajabhat University</p>
+                        <hr class="my-3" style="border-color: rgba(255,255,255,0.3);">
+                        <h4 class="mb-0">
+                            <i class="fas fa-receipt me-2"></i>
+                            ใบสำคัญรับเงิน
+                        </h4>
+                        <p class="mb-0">RECEIPT VERIFICATION</p>
+                    </div>
+
+                    <!-- Content -->
+                    <div class="receipt-info">
+                        {% if found %}
+                            <!-- Verification Success -->
+                            <div class="text-center">
+                                <span class="verification-badge">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    ใบสำคัญรับเงินถูกต้อง
+                                </span>
+                            </div>
+
+                            <!-- Receipt Information -->
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="info-row">
+                                        <div class="info-label">เลขที่ใบสำคัญ:</div>
+                                        <div class="text-primary fw-bold">{{ receipt.receipt_number }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">วันที่:</div>
+                                        <div>{{ receipt.receipt_date|date:"d/m/Y" }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">หน่วยงาน:</div>
+                                        <div>{{ receipt.department.name }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-row">
+                                        <div class="info-label">รหัสเล่ม:</div>
+                                        <div>{{ receipt.volume_code }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">สถานะ:</div>
+                                        <div>
+                                            {% if receipt.status == 'completed' %}
+                                                <span class="badge bg-success">เสร็จสิ้น</span>
+                                            {% elif receipt.status == 'draft' %}
+                                                <span class="badge bg-warning">ร่าง</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ receipt.status }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="info-label">ผู้สร้าง:</div>
+                                        <div>{{ receipt.created_by.get_display_name }}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recipient Information -->
+                            <h6 class="mt-4 mb-3 text-primary">
+                                <i class="fas fa-user me-2"></i>
+                                ข้อมูลผู้รับเงิน
+                            </h6>
+                            <div class="info-row">
+                                <div class="info-label">ชื่อผู้รับเงิน:</div>
+                                <div>{{ receipt.recipient_name }}</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">ที่อยู่:</div>
+                                <div>{{ receipt.recipient_address }}</div>
+                            </div>
+                            {% if receipt.recipient_postal_code %}
+                            <div class="info-row">
+                                <div class="info-label">รหัสไปรษณีย์:</div>
+                                <div>{{ receipt.recipient_postal_code }}</div>
+                            </div>
+                            {% endif %}
+                            <div class="info-row">
+                                <div class="info-label">เลขบัตรประชาชน:</div>
+                                <div>{{ receipt.recipient_id_card }}</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">ประเภทการจ่าย:</div>
+                                <div>
+                                    {% if receipt.is_loan %}
+                                        <span class="badge bg-info">การยืมเงิน</span>
+                                    {% else %}
+                                        <span class="badge bg-primary">การจ่ายเงิน</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Receipt Items -->
+                            <h6 class="mt-4 mb-3 text-primary">
+                                <i class="fas fa-list me-2"></i>
+                                รายการรับเงิน
+                            </h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="10%">ลำดับ</th>
+                                            <th width="60%">รายการ</th>
+                                            <th width="30%" class="text-end">จำนวนเงิน (บาท)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in receipt.items.all %}
+                                        <tr>
+                                            <td class="text-center">{{ forloop.counter }}</td>
+                                            <td>{{ item.description }}</td>
+                                            <td class="text-end">{{ item.amount|floatformat:2|intcomma }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Total Amount -->
+                            <div class="amount-highlight">
+                                <div class="row">
+                                    <div class="col-md-6 text-md-start text-center">
+                                        <strong>จำนวนเงินรวม</strong>
+                                    </div>
+                                    <div class="col-md-6 text-md-end text-center">
+                                        <strong>{{ receipt.total_amount|floatformat:2|intcomma }} บาท</strong>
+                                    </div>
+                                </div>
+                                {% if receipt.total_amount_text %}
+                                <div class="mt-2">
+                                    <small>{{ receipt.total_amount_text }}</small>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- QR Code Info -->
+                            <div class="qr-section">
+                                <div class="text-muted small">
+                                    <i class="fas fa-qrcode me-2"></i>
+                                    URL สำหรับตรวจสอบ: {{ qr_url }}
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <i class="fas fa-clock me-2"></i>
+                                    สร้างเมื่อ: {{ receipt.created_at|date:"d/m/Y H:i:s" }}
+                                </div>
+                            </div>
+
+                        {% else %}
+                            <!-- Verification Failed -->
+                            <div class="text-center">
+                                <span class="error-badge">
+                                    <i class="fas fa-times-circle me-2"></i>
+                                    ไม่พบใบสำคัญรับเงิน
+                                </span>
+                            </div>
+
+                            <div class="alert alert-danger mt-3">
+                                <h6 class="alert-heading">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    ข้อผิดพลาด
+                                </h6>
+                                <p class="mb-0">{{ error_message|default:"ไม่พบใบสำคัญรับเงินที่ต้องการตรวจสอบ" }}</p>
+                            </div>
+
+                            <div class="text-center mt-4">
+                                <div class="info-row">
+                                    <div class="info-label">เลขที่เอกสารที่ค้นหา:</div>
+                                    <div class="text-danger">{{ receipt_number_search }}</div>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <!-- Footer -->
+                        <div class="text-center mt-4 pt-3 border-top">
+                            <div class="text-muted small">
+                                <i class="fas fa-shield-alt me-2"></i>
+                                ระบบตรวจสอบใบสำคัญรับเงิน มหาวิทยาลัยราชภัฏนครราชสีมา
+                            </div>
+                            <div class="text-muted small">
+                                <i class="fas fa-globe me-2"></i>
+                                หน้านี้สามารถเข้าดูได้สาธารณะเพื่อตรวจสอบความถูกต้อง
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

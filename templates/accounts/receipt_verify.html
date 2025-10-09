@@ -1,0 +1,441 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ตรวจสอบใบสำคัญรับเงิน - มหาวิทยาลัยนครพนม{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Thai Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .main-container {
+            padding: 30px 0;
+        }
+        .public-header {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Public Header -->
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="public-header p-4 text-center">
+                <div class="d-flex align-items-center justify-content-center mb-3">
+                    <i class="fas fa-university text-primary me-3" style="font-size: 2rem;"></i>
+                    <div>
+                        <h4 class="mb-1 text-primary">ระบบตรวจสอบใบสำคัญรับเงิน</h4>
+                        <p class="mb-0 text-muted">มหาวิทยาลัยราชภัฏนครราชสีมา</p>
+                    </div>
+                </div>
+                <div class="text-muted small">
+                    <i class="fas fa-shield-alt me-1"></i>
+                    ระบบตรวจสอบความถูกต้องแบบ Public - ไม่ต้องเข้าสู่ระบบ
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="container main-container">
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, {% if receipt %}#28a745{% elif not found %}#dc3545{% else %}#17a2b8{% endif %} 0%, {% if receipt %}#20a742{% elif not found %}#c82333{% else %}#138496{% endif %} 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas {% if receipt %}fa-check-circle{% elif not found %}fa-times-circle{% else %}fa-search{% endif %} me-2"></i>
+                            ผลการตรวจสอบใบสำคัญรับเงิน
+                        </h5>
+                        <p class="mb-0 opacity-90">
+                            {% if receipt %}
+                                <i class="fas fa-shield-alt me-2"></i>
+                                ใบสำคัญรับเงินถูกต้อง และออกจากระบบจริง
+                            {% elif not found %}
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                ไม่พบใบสำคัญรับเงินในระบบ หรือข้อมูลไม่ตรงกัน
+                            {% else %}
+                                <i class="fas fa-info-circle me-2"></i>
+                                กรุณาสแกน QR Code เพื่อตรวจสอบความถูกต้อง
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <i class="fas {% if receipt %}fa-certificate{% elif not found %}fa-ban{% else %}fa-qrcode{% endif %}" 
+                           style="font-size: 3rem; opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if receipt %}
+<!-- Verification Success -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-success border-0" style="border-left: 4px solid #28a745 !important;">
+            <div class="d-flex align-items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-check-circle fa-2x text-success"></i>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                    <h6 class="alert-heading fw-bold mb-1">ใบสำคัญรับเงินถูกต้อง</h6>
+                    <p class="mb-0">ข้อมูลตรงกับฐานข้อมูลในระบบ และผ่านการตรวจสอบความถูกต้องแล้ว</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Receipt Information -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-success">
+                    <i class="fas fa-file-invoice-dollar me-2"></i>
+                    รายละเอียดใบสำคัญรับเงิน
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted">เลขที่ใบสำคัญรับเงิน</label>
+                        <div class="border rounded p-2 bg-light">{{ receipt.receipt_number }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted">หน่วยงาน</label>
+                        <div class="border rounded p-2 bg-light">
+                            {{ receipt.department.name }}
+                            <span class="badge bg-primary ms-2">{{ receipt.department.code }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted">ชื่อผู้รับเงิน</label>
+                        <div class="border rounded p-2 bg-light">{{ receipt.recipient_name }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted">จำนวนเงิน</label>
+                        <div class="border rounded p-2 bg-light">
+                            <span class="fw-bold text-success amount-cell" data-amount="{{ receipt.total_amount }}">{{ receipt.total_amount|floatformat:2|intcomma }} บาท</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted">วันที่ออกใบสำคัญ</label>
+                        <div class="border rounded p-2 bg-light">{{ receipt.receipt_date|date:"j F Y" }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted">สถานะ</label>
+                        <div class="border rounded p-2 bg-light">
+                            {% if receipt.status == 'completed' %}
+                                <span class="badge bg-success">เสร็จสิ้น</span>
+                            {% elif receipt.status == 'draft' %}
+                                <span class="badge bg-warning text-dark">ร่าง</span>
+                            {% else %}
+                                <span class="badge bg-danger">ยกเลิก</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold text-muted">ที่อยู่ผู้รับเงิน</label>
+                        <div class="border rounded p-2 bg-light">{{ receipt.recipient_address }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Receipt Items -->
+        {% if receipt.items.all %}
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-success">
+                    <i class="fas fa-list me-2"></i>
+                    รายการรับเงิน
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ลำดับ</th>
+                                <th>รายการ</th>
+                                <th class="text-end">จำนวนเงิน</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in receipt.items.all %}
+                            <tr>
+                                <td>{{ item.order }}</td>
+                                <td>{{ item.description }}</td>
+                                <td class="text-end amount-cell" data-amount="{{ item.amount }}">{{ item.amount|floatformat:2|intcomma }} บาท</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-success">
+                                <td colspan="2" class="fw-bold">รวมทั้งสิ้น</td>
+                                <td class="text-end fw-bold amount-cell" data-amount="{{ receipt.total_amount }}">{{ receipt.total_amount|floatformat:2|intcomma }} บาท</td>
+                            </tr>
+                            <tr class="table-light">
+                                <td colspan="3" class="text-center font-thai fw-bold" style="padding: 15px;">
+                                    {{ receipt.total_amount_text }}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-4">
+        <!-- Verification Info -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-success">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    ข้อมูลการตรวจสอบ
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                </div>
+                <h6 class="text-success fw-bold">ตรวจสอบแล้ว</h6>
+                <p class="text-muted small mb-3">
+                    ใบสำคัญรับเงินนี้ออกจากระบบ ณ วันที่ {{ receipt.created_at|date:"j F Y เวลา H:i" }} น.
+                </p>
+                
+                <div class="border rounded p-3 bg-light">
+                    <div class="row g-2 text-start">
+                        <div class="col-4">
+                            <small class="text-muted">ผู้สร้าง:</small>
+                        </div>
+                        <div class="col-8">
+                            <small class="fw-bold">{{ receipt.created_by.get_display_name }}</small>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted">รหัสเล่ม:</small>
+                        </div>
+                        <div class="col-8">
+                            <small class="fw-bold">{{ receipt.volume_code }}</small>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted">Hash:</small>
+                        </div>
+                        <div class="col-8">
+                            <small class="font-monospace">{{ receipt.verification_hash|slice:":8" }}...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% elif not found %}
+<!-- Verification Failed -->
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-danger border-0" style="border-left: 4px solid #dc3545 !important;">
+            <div class="d-flex align-items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-times-circle fa-2x text-danger"></i>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                    <h6 class="alert-heading fw-bold mb-1">ไม่พบใบสำคัญรับเงินในระบบ</h6>
+                    <p class="mb-2">เป็นไปได้ว่า:</p>
+                    <ul class="mb-0">
+                        <li>QR Code ไม่ถูกต้อง หรือเสียหาย</li>
+                        <li>ใบสำคัญรับเงินถูกยกเลิกแล้ว</li>
+                        <li>ใบสำคัญรับเงินปลอม (ไม่ได้ออกจากระบบ)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-exclamation-triangle text-warning" style="font-size: 4rem;"></i>
+                <h5 class="mt-3 mb-3 text-danger">ใบสำคัญรับเงินนี้ไม่ถูกต้อง</h5>
+                <p class="text-muted">กรุณาติดต่อหน่วยงานที่ออกใบสำคัญเพื่อตรวจสอบ</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-muted">
+                    <i class="fas fa-info-circle me-2"></i>
+                    คำแนะนำ
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        ตรวจสอบ QR Code ไม่เสียหาย
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        แสงเพียงพอในการสแกน
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        ใบสำคัญยังไม่หมดอายุ
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-phone text-primary me-2"></i>
+                        ติดต่อหน่วยงาน: 042-587285
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- QR Scanner Interface -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold" style="color: #17a2b8;">
+                    <i class="fas fa-qrcode me-2"></i>
+                    สแกน QR Code
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <div id="qr-scanner" class="mb-3">
+                    <div class="border rounded p-5" style="min-height: 300px; background: #f8f9fa;">
+                        <i class="fas fa-qrcode text-muted" style="font-size: 4rem;"></i>
+                        <p class="mt-3 text-muted">กรุณาสแกน QR Code บนใบสำคัญรับเงิน</p>
+                        <button class="btn btn-primary" onclick="startQRScanner()">
+                            <i class="fas fa-camera me-2"></i>
+                            เริ่มสแกน
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold" style="color: #17a2b8;">
+                    <i class="fas fa-keyboard me-2"></i>
+                    ใส่รหัสตรวจสอบ
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="get" action="">
+                    <div class="mb-3">
+                        <label for="hash" class="form-label">รหัสตรวจสอบ (Verification Hash)</label>
+                        <input type="text" class="form-control" id="hash" name="hash" placeholder="ใส่รหัส 64 ตัวอักษร...">
+                        <div class="form-text">รหัสตรวจสอบสามารถหาได้จาก URL ใน QR Code</div>
+                    </div>
+                    <button type="submit" class="btn btn-info w-100">
+                        <i class="fas fa-search me-2"></i>
+                        ตรวจสอบ
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+                <h6 class="fw-bold text-muted mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    วิธีใช้งาน
+                </h6>
+                <ol class="text-muted small">
+                    <li>สแกน QR Code มุมซ้ายของใบสำคัญรับเงิน</li>
+                    <li>หรือใส่รหัสตรวจสอบด้วยตนเอง</li>
+                    <li>ระบบจะแสดงผลการตรวจสอบ</li>
+                    <li>ตรวจสอบข้อมูลให้ตรงกับใบสำคัญ</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function startQRScanner() {
+    // TODO: Implement QR scanner using camera
+    alert('QR Scanner จะเพิ่มในเวอร์ชันถัดไป\nกรุณาใส่รหัสตรวจสอบด้วยตนเองก่อน');
+}
+
+// Format amounts with commas
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.amount-cell').forEach(cell => {
+        const amount = parseFloat(cell.dataset.amount);
+        if (!isNaN(amount)) {
+            const formattedAmount = amount.toLocaleString('th-TH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+            cell.textContent = formattedAmount + ' บาท';
+        }
+    });
+});
+</script>
+
+<!-- Footer -->
+<div class="container mt-5 pt-4 border-top">
+    <div class="row">
+        <div class="col-12 text-center text-white">
+            <p class="mb-2">
+                <i class="fas fa-phone me-2"></i>
+                ติดต่อสอบถาม: 042-587285
+            </p>
+            <p class="small mb-0">
+                © 2025 มหาวิทยาลัยราชภัฏนครราชสีมา - ระบบออกใบสำคัญรับเงิน
+            </p>
+        </div>
+    </div>
+</div>
+
+</div> <!-- Close main-container -->
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<style>
+.font-thai {
+    font-family: 'Sarabun', sans-serif;
+}
+.font-monospace {
+    font-family: 'Courier New', monospace;
+}
+</style>
+
+</body>
+</html>

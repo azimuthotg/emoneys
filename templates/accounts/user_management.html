@@ -1,0 +1,936 @@
+{% extends 'base_sidebar.html' %}
+{% block title %}จัดการผู้ใช้งาน - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}จัดการผู้ใช้งาน{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #002F6C 0%, #001a3d 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4 class="mb-2 fw-bold">
+                            <i class="fas fa-users me-2" style="color: #CFAE43;"></i>
+                            จัดการผู้ใช้งาน
+                        </h4>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-cog me-2"></i>
+                            อนุมัติ กำหนดสิทธิ์ และจัดการผู้ใช้ในระบบ
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <i class="fas fa-user-cog" style="font-size: 3.5rem; opacity: 0.3; color: #CFAE43;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body py-3 px-4">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-users" style="font-size: 1.8rem; color: #002F6C;"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0 fw-bold" style="color: #002F6C;">{{ stats.total_users|default:0 }}</h4>
+                        <small class="text-muted">ผู้ใช้ทั้งหมด</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body py-3 px-4">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-hourglass-half" style="font-size: 1.8rem; color: #CFAE43;"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0 fw-bold" style="color: #CFAE43;">{{ stats.pending_users|default:0 }}</h4>
+                        <small class="text-muted">รออนุมัติ</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body py-3 px-4">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-check-circle" style="font-size: 1.8rem; color: #28a745;"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0 fw-bold text-success">{{ stats.approved_users|default:0 }}</h4>
+                        <small class="text-muted">อนุมัติแล้ว</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body py-3 px-4">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-ban" style="font-size: 1.8rem; color: #dc3545;"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0 fw-bold text-danger">{{ stats.suspended_users|default:0 }}</h4>
+                        <small class="text-muted">ถูกระงับ</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Management Tabs -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-3 pb-0">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 fw-bold" style="color: #002F6C;">
+                        <i class="fas fa-list me-2"></i>
+                        รายการผู้ใช้งาน
+                    </h6>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="exportUsers()">
+                            <i class="fas fa-download me-1"></i>ส่งออก
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="refreshUserList()">
+                            <i class="fas fa-sync me-1"></i>รีเฟรช
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tab Navigation -->
+                <ul class="nav nav-tabs" id="userTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved-pane" type="button" role="tab">
+                            <i class="fas fa-users me-2"></i>
+                            ผู้ใช้งาน
+                            <span class="badge bg-success ms-2">{{ stats.approved_users|default:0 }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending-pane" type="button" role="tab">
+                            <i class="fas fa-hourglass-half me-2"></i>
+                            รออนุมัติ
+                            <span class="badge bg-warning ms-2">{{ stats.pending_users|default:0 }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="suspended-tab" data-bs-toggle="tab" data-bs-target="#suspended-pane" type="button" role="tab">
+                            <i class="fas fa-ban me-2"></i>
+                            ถูกระงับ
+                            <span class="badge bg-danger ms-2">{{ stats.suspended_users|default:0 }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-pane" type="button" role="tab">
+                            <i class="fas fa-list me-2"></i>
+                            ทั้งหมด
+                            <span class="badge bg-secondary ms-2">{{ stats.total_users|default:0 }}</span>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Tab Content -->
+            <div class="card-body">
+                <div class="tab-content" id="userTabsContent">
+                    
+                    <!-- Tab 1: Approved Users (Active Users) -->
+                    <div class="tab-pane fade show active" id="approved-pane" role="tabpanel">
+                        <div class="mb-3">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchApproved">
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="filterDepartmentApproved">
+                                        <option value="">ทุกหน่วยงาน</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="filterRoleApproved">
+                                        <option value="">ทุกบทบาท</option>
+                                        {% for role in available_roles %}
+                                            <option value="{{ role.name }}">{{ role.display_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-primary w-100" onclick="assignRolesToSelected()">
+                                        <i class="fas fa-user-tag me-2"></i>กำหนดสิทธิ์
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th><input type="checkbox" id="selectAllApproved" onchange="toggleSelectAll('approved')"></th>
+                                        <th>รหัสบัตรประชาชน</th>
+                                        <th>ชื่อ-นามสกุล</th>
+                                        <th>หน่วยงาน</th>
+                                        <th>บทบาท/สิทธิ์</th>
+                                        <th>สถานะ</th>
+                                        <th>วันที่อนุมัติ</th>
+                                        <th class="text-center">การดำเนินการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="approvedUsersTable">
+                                    {% for user in approved_users %}
+                                    <tr id="approved-user-row-{{ user.id }}">
+                                        <td><input type="checkbox" class="user-checkbox-approved" value="{{ user.id }}"></td>
+                                        <td><strong>{{ user.ldap_uid }}</strong></td>
+                                        <td>
+                                            <div>
+                                                <strong>{{ user.full_name|default:"ไม่ระบุ" }}</strong>
+                                                <br><small class="text-muted">{{ user.contact_email|default:user.username }}</small>
+                                            </div>
+                                        </td>
+                                        <td>{{ user.department|default:"ไม่ระบุ" }}</td>
+                                        <td>
+                                            <div class="d-flex flex-column gap-1">
+                                                {% for role in user.get_roles %}
+                                                    <span class="badge bg-primary">{{ role.display_name }}</span>
+                                                {% empty %}
+                                                    <span class="badge bg-light text-dark">ไม่มีบทบาท</span>
+                                                {% endfor %}
+                                                {% if user.is_staff %}
+                                                    <span class="badge bg-danger">ผู้ดูแลระบบ</span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if user.is_active %}
+                                                <span class="badge bg-success">ใช้งาน</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">ระงับ</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><small>{{ user.approved_at|date:"d/m/Y"|default:"-" }}</small></td>
+                                        <td class="text-center">
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-warning" onclick="editUserRoles({{ user.id }})" title="แก้ไขสิทธิ์" style="color: white;">
+                                                    <i class="fas fa-user-tag"></i>
+                                                </button>
+                                                {% if user.is_active %}
+                                                    <button class="btn btn-danger" onclick="suspendUser({{ user.id }})" title="ระงับการใช้งาน">
+                                                        <i class="fas fa-ban"></i>
+                                                    </button>
+                                                {% else %}
+                                                    <button class="btn btn-success" onclick="activateUser({{ user.id }})" title="เปิดใช้งาน">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                {% endif %}
+                                                <button class="btn btn-info" onclick="viewUserDetails({{ user.id }})" title="ดูรายละเอียด">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="8" class="text-center py-4">
+                                            <i class="fas fa-users fa-3x mb-3 opacity-50"></i>
+                                            <p class="text-muted">ไม่มีผู้ใช้ที่อนุมัติแล้ว</p>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab 2: Pending Users -->
+                    <div class="tab-pane fade" id="pending-pane" role="tabpanel">
+                        <div class="mb-3">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchPending">
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="filterDepartmentPending">
+                                        <option value="">ทุกหน่วยงาน</option>
+                                        <!-- Dynamic options -->
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-success w-100" onclick="bulkApproveUsers()">
+                                        <i class="fas fa-check-double me-2"></i>อนุมัติที่เลือก
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th><input type="checkbox" id="selectAllPending" onchange="toggleSelectAll('pending')"></th>
+                                        <th>รหัสบัตรประชาชน</th>
+                                        <th>ชื่อ-นามสกุล</th>
+                                        <th>หน่วยงาน</th>
+                                        <th>ตำแหน่ง</th>
+                                        <th>วันที่สมัคร</th>
+                                        <th class="text-center">การดำเนินการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pendingUsersTable">
+                                    {% for user in pending_users %}
+                                    <tr id="user-row-{{ user.id }}">
+                                        <td><input type="checkbox" class="user-checkbox-pending" value="{{ user.id }}"></td>
+                                        <td><strong>{{ user.ldap_uid }}</strong></td>
+                                        <td>
+                                            <div>
+                                                <strong>{{ user.full_name|default:"ไม่ระบุ" }}</strong>
+                                                <br><small class="text-muted">{{ user.username }}</small>
+                                            </div>
+                                        </td>
+                                        <td>{{ user.department|default:"ไม่ระบุ" }}</td>
+                                        <td>{{ user.position_title|default:"ไม่ระบุ" }}</td>
+                                        <td><small>{{ user.date_joined|date:"d/m/Y H:i" }}</small></td>
+                                        <td class="text-center">
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-success" onclick="approveUser({{ user.id }})" title="อนุมัติ">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                                <button class="btn btn-danger" onclick="rejectUser({{ user.id }})" title="ปฏิเสธ">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                                <button class="btn btn-info" onclick="viewUserDetails({{ user.id }})" title="ดูรายละเอียด">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4">
+                                            <i class="fas fa-user-check fa-3x mb-3 opacity-50"></i>
+                                            <p class="text-muted">ไม่มีผู้ใช้ที่รออนุมัติ</p>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab 3: Suspended Users -->
+                    <div class="tab-pane fade" id="suspended-pane" role="tabpanel">
+                        <div class="mb-3">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchSuspended">
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="filterDepartmentSuspended">
+                                        <option value="">ทุกหน่วยงาน</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-success w-100" onclick="bulkActivateUsers()">
+                                        <i class="fas fa-check-double me-2"></i>เปิดใช้งานที่เลือก
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th><input type="checkbox" id="selectAllSuspended" onchange="toggleSelectAll('suspended')"></th>
+                                        <th>รหัสบัตรประชาชน</th>
+                                        <th>ชื่อ-นามสกุล</th>
+                                        <th>หน่วยงาน</th>
+                                        <th>วันที่ระงับ</th>
+                                        <th>เหตุผล</th>
+                                        <th class="text-center">การดำเนินการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="suspendedUsersTable">
+                                    {% for user in suspended_users %}
+                                    <tr id="suspended-user-row-{{ user.id }}">
+                                        <td><input type="checkbox" class="user-checkbox-suspended" value="{{ user.id }}"></td>
+                                        <td><strong>{{ user.ldap_uid }}</strong></td>
+                                        <td>
+                                            <div>
+                                                <strong>{{ user.full_name|default:"ไม่ระบุ" }}</strong>
+                                                <br><small class="text-muted">{{ user.contact_email|default:user.username }}</small>
+                                            </div>
+                                        </td>
+                                        <td>{{ user.department|default:"ไม่ระบุ" }}</td>
+                                        <td><small>{{ user.suspended_at|date:"d/m/Y"|default:"-" }}</small></td>
+                                        <td><small class="text-muted">{{ user.suspension_reason|default:"ไม่ระบุ" }}</small></td>
+                                        <td class="text-center">
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-success" onclick="activateUser({{ user.id }})" title="เปิดใช้งาน">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                                <button class="btn btn-info" onclick="viewUserDetails({{ user.id }})" title="ดูรายละเอียด">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4">
+                                            <i class="fas fa-user-check fa-3x mb-3 opacity-50"></i>
+                                            <p class="text-muted">ไม่มีผู้ใช้ที่ถูกระงับ</p>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab 4: All Users -->
+                    <div class="tab-pane fade" id="all-pane" role="tabpanel">
+                        <div class="mb-3">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchAll">
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="filterDepartmentAll">
+                                        <option value="">ทุกหน่วยงาน</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="filterStatusAll">
+                                        <option value="">ทุกสถานะ</option>
+                                        <option value="pending">รออนุมัติ</option>
+                                        <option value="approved">อนุมัติแล้ว</option>
+                                        <option value="suspended">ถูกระงับ</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-outline-primary w-100" onclick="exportFilteredUsers()">
+                                        <i class="fas fa-download me-2"></i>ส่งออก
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>รหัสบัตรประชาชน</th>
+                                        <th>ชื่อ-นามสกุล</th>
+                                        <th>หน่วยงาน</th>
+                                        <th>บทบาท</th>
+                                        <th>สถานะ</th>
+                                        <th>วันที่สมัคร</th>
+                                        <th class="text-center">การดำเนินการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allUsersTable">
+                                    {% for user in all_users %}
+                                    <tr>
+                                        <td><strong>{{ user.ldap_uid }}</strong></td>
+                                        <td>
+                                            <div>
+                                                <strong>{{ user.full_name|default:"ไม่ระบุ" }}</strong>
+                                                <br><small class="text-muted">{{ user.contact_email|default:user.username }}</small>
+                                            </div>
+                                        </td>
+                                        <td>{{ user.department|default:"ไม่ระบุ" }}</td>
+                                        <td>
+                                            {% for role in user.get_roles %}
+                                            <span class="badge bg-primary">{{ role.display_name }}</span>
+                                        {% empty %}
+                                            <span class="badge bg-light text-dark">ไม่มีบทบาท</span>
+                                        {% endfor %}
+                                        {% if user.is_staff %}
+                                            <span class="badge bg-danger">ผู้ดูแลระบบ</span>
+                                        {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if not user.approved_at %}
+                                                <span class="badge bg-warning">รออนุมัติ</span>
+                                            {% elif not user.is_active %}
+                                                <span class="badge bg-danger">ระงับ</span>
+                                            {% else %}
+                                                <span class="badge bg-success">ใช้งาน</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><small>{{ user.date_joined|date:"d/m/Y" }}</small></td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-info" onclick="viewUserDetails({{ user.id }})" title="ดูรายละเอียด">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4">
+                                            <i class="fas fa-users fa-3x mb-3 opacity-50"></i>
+                                            <p class="text-muted">ไม่มีผู้ใช้ในระบบ</p>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Details Modal -->
+<div class="modal fade" id="userDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user me-2"></i>รายละเอียดผู้ใช้
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="userDetailsContent">
+                <!-- Content loaded via AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Role Assignment Modal -->
+<div class="modal fade" id="roleAssignmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background-color: #f8fafc; border-bottom: 2px solid #CFAE43;">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-tag me-2" style="color: #CFAE43;"></i>กำหนดบทบาทและสิทธิ์
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">ผู้ใช้</label>
+                    <div class="form-control-plaintext" id="selectedUserInfo">
+                        <!-- User info will be populated here -->
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">บทบาทและสิทธิ์</label>
+                    <div class="border rounded p-3" id="rolesContainer">
+                        <!-- Roles will be loaded dynamically -->
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p class="mt-2">กำลังโหลดบทบาท...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn" style="background-color: #CFAE43; color: white;" onclick="saveUserRoles()">
+                    <i class="fas fa-save me-1"></i>บันทึกสิทธิ์
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global variables
+const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+let currentUserId = null;
+
+// Toggle select all function
+function toggleSelectAll(type) {
+    const selectAll = document.getElementById(`selectAll${type.charAt(0).toUpperCase() + type.slice(1)}`);
+    const checkboxes = document.querySelectorAll(`.user-checkbox-${type}`);
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+}
+
+// User actions
+function approveUser(userId) {
+    if (confirm('คุณต้องการอนุมัติผู้ใช้นี้หรือไม่?')) {
+        fetch(`/accounts/management/approve-user/${userId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById(`user-row-${userId}`).remove();
+                showToast('success', 'อนุมัติผู้ใช้เรียบร้อย');
+                updateStats();
+            } else {
+                showToast('error', data.message || 'เกิดข้อผิดพลาด');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', 'เกิดข้อผิดพลาดในการติดต่อเซิร์ฟเวอร์');
+        });
+    }
+}
+
+function rejectUser(userId) {
+    if (confirm('คุณต้องการปฏิเสธผู้ใช้นี้หรือไม่?')) {
+        fetch(`/accounts/management/reject-user/${userId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById(`user-row-${userId}`).remove();
+                showToast('warning', 'ปฏิเสธผู้ใช้เรียบร้อย');
+                updateStats();
+            } else {
+                showToast('error', data.message || 'เกิดข้อผิดพลาด');
+            }
+        });
+    }
+}
+
+function suspendUser(userId) {
+    if (confirm('คุณต้องการระงับการใช้งานของผู้ใช้นี้หรือไม่?')) {
+        fetch(`/accounts/management/suspend-user/${userId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('warning', 'ระงับผู้ใช้เรียบร้อย');
+                location.reload();
+            } else {
+                showToast('error', data.message || 'เกิดข้อผิดพลาด');
+            }
+        });
+    }
+}
+
+function activateUser(userId) {
+    if (confirm('คุณต้องการเปิดใช้งานผู้ใช้นี้หรือไม่?')) {
+        fetch(`/accounts/management/activate-user/${userId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('success', 'เปิดใช้งานผู้ใช้เรียบร้อย');
+                location.reload();
+            } else {
+                showToast('error', data.message || 'เกิดข้อผิดพลาด');
+            }
+        });
+    }
+}
+
+function viewUserDetails(userId) {
+    fetch(`/accounts/management/user-details/${userId}/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('userDetailsContent').innerHTML = data.html;
+            const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+            modal.show();
+        } else {
+            showToast('error', 'ไม่สามารถโหลดข้อมูลผู้ใช้ได้');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    });
+}
+
+function editUserRoles(userId) {
+    currentUserId = userId;
+    
+    // Load user data
+    fetch(`/accounts/management/user/${userId}/roles/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Set user info
+            document.getElementById('selectedUserInfo').innerHTML = `
+                <strong>${data.user.full_name}</strong>
+                <small class="text-muted d-block">${data.user.ldap_uid} | ${data.user.department}</small>
+            `;
+            
+            // Load available roles and set user's current roles
+            loadAvailableRoles(data.user.role_ids || []);
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('roleAssignmentModal'));
+            modal.show();
+        } else {
+            showToast('error', 'ไม่สามารถโหลดข้อมูลผู้ใช้ได้');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    });
+}
+
+function loadAvailableRoles(userRoleIds = []) {
+    const rolesContainer = document.getElementById('rolesContainer');
+    
+    // ดึงบทบาทที่มีอยู่จริงจากฐานข้อมูล
+    fetch('/accounts/management/available-roles/')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let rolesHtml = '';
+            data.roles.forEach(role => {
+                const isChecked = userRoleIds.includes(role.id) ? 'checked' : '';
+                rolesHtml += `
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" value="${role.id}" id="role_${role.id}" ${isChecked}>
+                        <label class="form-check-label" for="role_${role.id}">
+                            <strong>${role.display_name}</strong>
+                            <br><small class="text-muted">${role.description || 'ไม่มีคำอธิบาย'}</small>
+                        </label>
+                    </div>
+                `;
+            });
+            rolesContainer.innerHTML = rolesHtml;
+        } else {
+            rolesContainer.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    ไม่พบบทบาทในระบบ
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        rolesContainer.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                เกิดข้อผิดพลาดในการโหลดบทบาท
+            </div>
+        `;
+    });
+}
+
+function saveUserRoles() {
+    if (!currentUserId) {
+        showToast('error', 'ไม่พบข้อมูลผู้ใช้');
+        return;
+    }
+    
+    // Get selected roles
+    const roleCheckboxes = document.querySelectorAll('#rolesContainer input[type="checkbox"]:checked');
+    const selectedRoles = Array.from(roleCheckboxes).map(cb => cb.value);
+    
+    fetch(`/accounts/management/user/${currentUserId}/roles/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            role_ids: selectedRoles
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', 'บันทึกบทบาทเรียบร้อย');
+            bootstrap.Modal.getInstance(document.getElementById('roleAssignmentModal')).hide();
+            location.reload();
+        } else {
+            showToast('error', data.message || 'เกิดข้อผิดพลาด');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'เกิดข้อผิดพลาดในการบันทึก');
+    });
+}
+
+// Bulk operations
+function bulkApproveUsers() {
+    const selected = getSelectedUsers('pending');
+    if (selected.length === 0) {
+        showToast('warning', 'กรุณาเลือกผู้ใช้ที่ต้องการอนุมัติ');
+        return;
+    }
+    
+    if (confirm(`คุณต้องการอนุมัติผู้ใช้ ${selected.length} คน ใช่หรือไม่?`)) {
+        showToast('info', 'กำลังอนุมัติผู้ใช้...');
+        selected.forEach(userId => {
+            setTimeout(() => approveUser(userId), 100);
+        });
+    }
+}
+
+function bulkActivateUsers() {
+    const selected = getSelectedUsers('suspended');
+    if (selected.length === 0) {
+        showToast('warning', 'กรุณาเลือกผู้ใช้ที่ต้องการเปิดใช้งาน');
+        return;
+    }
+    
+    if (confirm(`คุณต้องการเปิดใช้งานผู้ใช้ ${selected.length} คน ใช่หรือไม่?`)) {
+        showToast('info', 'กำลังเปิดใช้งานผู้ใช้...');
+        selected.forEach(userId => {
+            setTimeout(() => activateUser(userId), 100);
+        });
+    }
+}
+
+function getSelectedUsers(type) {
+    const checkboxes = document.querySelectorAll(`.user-checkbox-${type}:checked`);
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+// Utility functions
+function exportUsers() {
+    showToast('info', 'กำลังเตรียมไฟล์ส่งออก...');
+    // Implementation for export
+}
+
+function refreshUserList() {
+    location.reload();
+}
+
+function updateStats() {
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+function showToast(type, message) {
+    const toastContainer = document.querySelector('.toast-container') || createToastContainer();
+    const toast = document.createElement('div');
+    toast.className = 'toast show';
+    
+    let bgClass, icon, title;
+    if (type === 'success') {
+        bgClass = 'bg-success';
+        icon = 'check-circle';
+        title = 'สำเร็จ';
+    } else if (type === 'warning') {
+        bgClass = 'text-dark';
+        icon = 'exclamation-triangle';
+        title = 'แจ้งเตือน';
+        toast.style.backgroundColor = '#CFAE43';
+    } else if (type === 'info') {
+        bgClass = 'text-white';
+        icon = 'info-circle';
+        title = 'ข้อมูล';
+        toast.style.backgroundColor = '#002F6C';
+    } else {
+        bgClass = 'bg-danger';
+        icon = 'times-circle';
+        title = 'ข้อผิดพลาด';
+    }
+    
+    toast.innerHTML = `
+        <div class="toast-header ${bgClass}">
+            <strong class="me-auto">
+                <i class="fas fa-${icon} me-2"></i>${title}
+            </strong>
+            <button type="button" class="btn-close ${type === 'warning' || type === 'info' ? 'btn-close-white' : ''}" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">${message}</div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    container.style.zIndex = '1055';
+    document.body.appendChild(container);
+    return container;
+}
+
+// Search functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Add search event listeners
+    ['searchPending', 'searchApproved', 'searchSuspended', 'searchAll'].forEach(id => {
+        const searchInput = document.getElementById(id);
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                filterTable(this.value, id.replace('search', '').toLowerCase());
+            });
+        }
+    });
+});
+
+function filterTable(searchTerm, tableType) {
+    const tableId = `${tableType}UsersTable`;
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    
+    const rows = table.getElementsByTagName('tr');
+    
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const cells = row.getElementsByTagName('td');
+        let shouldShow = false;
+        
+        for (let j = 0; j < cells.length; j++) {
+            const cellText = cells[j].textContent || cells[j].innerText;
+            if (cellText.toLowerCase().indexOf(searchTerm.toLowerCase()) > -1) {
+                shouldShow = true;
+                break;
+            }
+        }
+        
+        row.style.display = shouldShow ? '' : 'none';
+    }
+}
+</script>
+{% endblock %}

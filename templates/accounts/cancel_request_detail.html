@@ -1,0 +1,318 @@
+{% extends 'base_sidebar.html' %}
+{% load humanize %}
+{% block title %}รายละเอียดคำขอยกเลิก - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}รายละเอียดคำขอยกเลิก{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas fa-file-alt me-2" style="color: #CFAE43;"></i>
+                            รายละเอียดคำขอยกเลิก
+                        </h5>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-hashtag me-2"></i>
+                            เลขที่คำขอ: {{ cancel_request.request_number }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        {% if cancel_request.status == 'pending' %}
+                            <span class="badge bg-warning text-dark fs-6">
+                                <i class="fas fa-clock me-1"></i>รออนุมัติ
+                            </span>
+                        {% elif cancel_request.status == 'approved' %}
+                            <span class="badge bg-success fs-6">
+                                <i class="fas fa-check me-1"></i>อนุมัติแล้ว
+                            </span>
+                        {% elif cancel_request.status == 'rejected' %}
+                            <span class="badge bg-danger fs-6">
+                                <i class="fas fa-times me-1"></i>ปฏิเสธ
+                            </span>
+                        {% elif cancel_request.status == 'withdrawn' %}
+                            <span class="badge bg-secondary fs-6">
+                                <i class="fas fa-undo me-1"></i>ถอนคำขอ
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Request Info (Compact) -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body py-3">
+                <div class="row g-2 align-items-center small">
+                    <div class="col-auto">
+                        <i class="fas fa-file-invoice text-primary"></i>
+                        <strong>ใบสำคัญ:</strong>
+                        <a href="{% url 'receipt_detail' cancel_request.receipt.id %}" class="text-decoration-none">
+                            {{ cancel_request.receipt.receipt_number }}
+                        </a>
+                    </div>
+                    <div class="col-auto">
+                        <span class="text-muted">|</span>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-user text-primary"></i>
+                        <strong>ผู้ยื่น:</strong> {{ cancel_request.requested_by.get_display_name }}
+                    </div>
+                    <div class="col-auto">
+                        <span class="text-muted">|</span>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-calendar text-primary"></i>
+                        <strong>วันที่:</strong> {{ cancel_request.created_at|date:"d/m/Y H:i" }}
+                    </div>
+                    {% if cancel_request.approved_by %}
+                    <div class="col-auto">
+                        <span class="text-muted">|</span>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-user-check text-success"></i>
+                        <strong>ผู้พิจารณา:</strong> {{ cancel_request.approved_by.get_display_name }}
+                    </div>
+                    {% endif %}
+                    {% if cancel_request.approved_at %}
+                    <div class="col-auto">
+                        <span class="text-muted">|</span>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-calendar-check text-success"></i>
+                        {{ cancel_request.approved_at|date:"d/m/Y H:i" }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="mt-2">
+                    <div class="alert alert-danger mb-0 py-2 small">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        <strong>เหตุผลการยกเลิก:</strong> {{ cancel_request.cancel_reason }}
+                    </div>
+                </div>
+                {% if cancel_request.approval_notes %}
+                <div class="mt-2">
+                    <div class="alert alert-{% if cancel_request.status == 'approved' %}success{% else %}danger{% endif %} mb-0 py-2 small">
+                        <i class="fas fa-reply me-1"></i>
+                        <strong>หมายเหตุผู้พิจารณา:</strong> {{ cancel_request.approval_notes }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Receipt Info Card -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold text-primary">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>
+                        ข้อมูลใบสำคัญ
+                    </h6>
+                    <a href="{% url 'receipt_detail' cancel_request.receipt.id %}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-file-invoice me-1"></i>
+                        ดูรายละเอียดใบสำคัญ
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <tbody>
+                            <tr>
+                                <td width="30%" class="py-2 ps-3 bg-light">
+                                    <small class="fw-bold text-muted">
+                                        <i class="fas fa-hashtag me-1"></i>
+                                        เลขที่ใบสำคัญ
+                                    </small>
+                                </td>
+                                <td class="py-2 ps-3">
+                                    <small class="fw-bold font-monospace">{{ cancel_request.receipt.receipt_number }}</small>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 ps-3 bg-light">
+                                    <small class="fw-bold text-muted">
+                                        <i class="fas fa-user me-1"></i>
+                                        ผู้รับเงิน
+                                    </small>
+                                </td>
+                                <td class="py-2 ps-3">
+                                    <small>{{ cancel_request.receipt.recipient_name }}</small>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 ps-3 bg-light">
+                                    <small class="fw-bold text-muted">
+                                        <i class="fas fa-coins me-1"></i>
+                                        จำนวนเงินรวม
+                                    </small>
+                                </td>
+                                <td class="py-2 ps-3">
+                                    <small class="fw-bold text-primary">{{ cancel_request.receipt.total_amount|floatformat:2|intcomma }} บาท</small>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 ps-3 bg-light">
+                                    <small class="fw-bold text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        สถานะใบสำคัญ
+                                    </small>
+                                </td>
+                                <td class="py-2 ps-3">
+                                    {% if cancel_request.receipt.status == 'completed' %}
+                                        <small><span class="badge bg-success">เสร็จสิ้น</span></small>
+                                    {% elif cancel_request.receipt.status == 'draft' %}
+                                        <small><span class="badge bg-warning text-dark">ร่าง</span></small>
+                                    {% else %}
+                                        <small><span class="badge bg-danger">ยกเลิก</span></small>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approval Form (for Manager) -->
+{% if cancel_request.status == 'pending' and can_approve %}
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card border-warning shadow-sm" style="border-width: 2px !important;">
+            <div class="card-header bg-warning text-dark py-2">
+                <h6 class="mb-0 fw-bold">
+                    <i class="fas fa-gavel me-2"></i>
+                    พิจารณาคำขอ
+                </h6>
+            </div>
+            <div class="card-body py-3">
+                <form method="POST" id="approvalForm">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small">การตัดสินใจ <span class="text-danger">*</span></label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="action" id="action_approve" value="approve" required>
+                                <label class="form-check-label small" for="action_approve">
+                                    <i class="fas fa-check-circle text-success me-1"></i>
+                                    <strong class="text-success">อนุมัติ</strong>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="action" id="action_reject" value="reject" required>
+                                <label class="form-check-label small" for="action_reject">
+                                    <i class="fas fa-times-circle text-danger me-1"></i>
+                                    <strong class="text-danger">ปฏิเสธ</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="notes" class="form-label fw-bold small">หมายเหตุ</label>
+                            <textarea class="form-control form-control-sm" id="notes" name="notes" rows="3" placeholder="ระบุเหตุผล (จำเป็นสำหรับการปฏิเสธ)"></textarea>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-warning w-100">
+                                <i class="fas fa-check me-1"></i>
+                                ยืนยัน
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Action Buttons -->
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex gap-2 justify-content-between">
+            <a href="{% url 'cancel_request_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>
+                กลับรายการ
+            </a>
+
+            {% if cancel_request.status == 'pending' and can_withdraw %}
+            <form method="POST" action="{% url 'cancel_request_withdraw' cancel_request.id %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger btn-sm"
+                        onclick="return confirm('ต้องการถอนคำขอนี้หรือไม่?')">
+                    <i class="fas fa-times me-1"></i>
+                    ถอนคำขอ
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Approval form validation
+    const approvalForm = document.getElementById('approvalForm');
+    if (approvalForm) {
+        const actionRadios = document.querySelectorAll('input[name="action"]');
+        const notesField = document.getElementById('notes');
+
+        approvalForm.addEventListener('submit', function(e) {
+            let actionSelected = false;
+            let selectedAction = null;
+
+            actionRadios.forEach(radio => {
+                if (radio.checked) {
+                    actionSelected = true;
+                    selectedAction = radio.value;
+                }
+            });
+
+            if (!actionSelected) {
+                e.preventDefault();
+                alert('กรุณาเลือกการตัดสินใจ');
+                return;
+            }
+
+            // If reject is selected, notes must be provided
+            if (selectedAction === 'reject' && !notesField.value.trim()) {
+                e.preventDefault();
+                alert('กรุณาระบุเหตุผลในการปฏิเสธ');
+                notesField.focus();
+                return;
+            }
+
+            // Confirm decision
+            const actionText = selectedAction === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ';
+            if (!confirm(`ยืนยันการ${actionText}คำขอนี้หรือไม่?\n\nการตัดสินใจนี้ไม่สามารถเปลี่ยนแปลงได้`)) {
+                e.preventDefault();
+            }
+        });
+
+        // Auto-focus notes when reject is selected
+        actionRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'reject' && this.checked) {
+                    notesField.focus();
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

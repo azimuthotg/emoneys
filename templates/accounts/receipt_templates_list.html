@@ -1,0 +1,186 @@
+{% extends 'base_sidebar.html' %}
+{% load humanize %}
+{% block title %}{{ title }} - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #002F6C 0%, #001a3d 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas fa-clipboard-list me-2" style="color: #CFAE43;"></i>
+                            จัดการรายการสำเร็จรูป
+                        </h5>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-cog me-2"></i>
+                            สำหรับผู้ดูแลระบบเท่านั้น
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <a href="{% url 'receipt_template_create' %}" class="btn btn-light">
+                            <i class="fas fa-plus me-1"></i>
+                            เพิ่มรายการใหม่
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Templates Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-primary">
+                    <i class="fas fa-list me-2"></i>
+                    รายการสำเร็จรูปทั้งหมด ({{ templates.count }} รายการ)
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                {% if templates %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="25%">ชื่อรายการ</th>
+                                <th width="15%">หมวดหมู่</th>
+                                <th width="15%">จำนวนคงที่</th>
+                                <th width="15%">จำนวนสูงสุด</th>
+                                <th width="10%">สถานะ</th>
+                                <th width="15%">วันที่สร้าง</th>
+                                <th width="5%" class="text-center">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for template in templates %}
+                            <tr>
+                                <td>
+                                    <div class="fw-bold">{{ template.name }}</div>
+                                </td>
+                                <td>
+                                    {% if template.category %}
+                                        <span class="badge bg-info">{{ template.category }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if template.fixed_amount %}
+                                        <span class="badge bg-success">{{ template.fixed_amount|floatformat:0|intcomma }} บาท</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if template.max_amount %}
+                                        <span class="badge bg-warning text-dark">สูงสุด {{ template.max_amount|floatformat:0|intcomma }} บาท</span>
+                                    {% else %}
+                                        <span class="text-muted">ไม่จำกัด</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if template.is_active %}
+                                        <span class="badge bg-success">เปิดใช้งาน</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">ปิดใช้งาน</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ template.created_at|date:"j M Y" }}</small>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'receipt_template_edit' template.id %}" 
+                                           class="btn btn-sm btn-outline-primary" title="แก้ไข">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                onclick="confirmDelete('{{ template.name }}', {{ template.id }})" title="ลบ">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <!-- Empty State -->
+                <div class="text-center py-5">
+                    <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">ยังไม่มีรายการสำเร็จรูป</h5>
+                    <p class="text-muted mb-4">เริ่มต้นสร้างรายการสำเร็จรูปเพื่อให้ผู้ใช้งานเลือกใช้ได้</p>
+                    <a href="{% url 'receipt_template_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>
+                        เพิ่มรายการแรก
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    ยืนยันการลบ
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>คุณต้องการลบรายการ <strong id="deleteTemplateName"></strong> หรือไม่?</p>
+                <p class="text-muted small">การกระทำนี้ไม่สามารถยกเลิกได้</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>
+                        ลบ
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(templateName, templateId) {
+    document.getElementById('deleteTemplateName').textContent = templateName;
+    document.getElementById('deleteForm').action = `{% url 'receipt_template_delete' 0 %}`.replace('0', templateId);
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+</script>
+
+<style>
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+    background-color: #f8f9fa;
+}
+
+.table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+</style>
+{% endblock %}

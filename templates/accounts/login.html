@@ -1,0 +1,252 @@
+{% extends 'base.html' %}
+{% block title %}เข้าสู่ระบบ - ระบบออกใบสำคัญรับเงิน{% endblock %}
+
+{% block content %}
+<div class="min-vh-100 d-flex align-items-center" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+                <!-- Login Card -->
+                <div class="card border-0 shadow-sm" style="border-radius: 16px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);">
+                    <div class="card-body p-4 p-lg-5">
+                        <!-- Header -->
+                        <div class="text-center mb-4">
+                            <div class="mb-3">
+                                <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 64px; height: 64px;">
+                                    <i class="fas fa-receipt" style="font-size: 2rem; color: #CFAE43;"></i>
+                                </div>
+                            </div>
+                            <h4 class="fw-bold mb-2" style="color: #002F6C;">ระบบออกใบสำคัญรับเงิน</h4>
+                            <p class="text-muted mb-1">มหาวิทยาลัยนครพนม</p>
+                            <p class="text-muted small">กองคลัง สำนักงานอธิการบดี</p>
+                        </div>
+                        
+                        <!-- Login Form -->
+                        <form method="post" novalidate>
+                            {% csrf_token %}
+                            
+                            <!-- Thai ID Input -->
+                            <div class="mb-4">
+                                <label for="id_username" class="form-label fw-medium text-secondary">
+                                    รหัสบัตรประชาชน
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-transparent border-end-0" aria-label="รหัสบัตรประชาชน">
+                                        <i class="fas fa-id-card text-muted"></i>
+                                    </span>
+                                    {{ form.username }}
+                                </div>
+                                {% if form.username.help_text %}
+                                    <div class="form-text text-muted small">{{ form.username.help_text }}</div>
+                                {% endif %}
+                                {% if form.username.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.username.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Password Input -->
+                            <div class="mb-3">
+                                <label for="id_password" class="form-label fw-medium text-secondary">
+                                    รหัสผ่าน
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-transparent border-end-0" aria-label="รหัสผ่าน">
+                                        <i class="fas fa-lock text-muted"></i>
+                                    </span>
+                                    {{ form.password }}
+                                    <button class="btn btn-outline-secondary border-start-0" type="button" id="togglePassword" style="border-color: #ced4da;" aria-label="แสดง/ซ่อนรหัสผ่าน">
+                                        <i class="fas fa-eye text-muted"></i>
+                                    </button>
+                                </div>
+                                {% if form.password.help_text %}
+                                    <div class="form-text text-muted small">{{ form.password.help_text }}</div>
+                                {% endif %}
+                                {% if form.password.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.password.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Remember Me Checkbox -->
+                            <div class="mb-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="remember_me" id="remember_me" style="border-radius: 6px;" aria-label="จดจำการเข้าสู่ระบบเป็นเวลา 7 วัน">
+                                    <label class="form-check-label text-secondary" for="remember_me">
+                                        <i class="fas fa-clock me-1"></i>
+                                        จดจำการเข้าสู่ระบบ (7 วัน)
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Submit Button -->
+                            <div class="d-grid mb-4">
+                                <button type="submit" class="btn btn-lg py-3 fw-medium" style="background: linear-gradient(135deg, #CFAE43 0%, #b8951a 100%); border: none; color: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(207, 174, 67, 0.3);">
+                                    <i class="fas fa-sign-in-alt me-2"></i>
+                                    เข้าสู่ระบบ
+                                </button>
+                            </div>
+                            
+                            <!-- Form Errors -->
+                            {% if form.non_field_errors %}
+                                <div class="alert alert-danger border-0" style="border-radius: 12px;">
+                                    {% for error in form.non_field_errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </form>
+                        
+                        <!-- Help Text -->
+                        <div class="text-center pt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1 opacity-75"></i>
+                                ใช้รหัสบัตรประชาชน 13 หลัก และรหัสผ่านของคุณ
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div class="text-center mt-4">
+                    <small class="text-muted opacity-75">
+                        © 2025 มหาวิทยาลัยนครพนม - ระบบออกใบสำคัญรับเงิน
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Custom styling for modern minimal look */
+.form-control {
+    border: 1px solid #e0e4e7;
+    border-radius: 12px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.8);
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #CFAE43;
+    box-shadow: 0 0 0 0.25rem rgba(207, 174, 67, 0.15);
+    background: white;
+}
+
+.input-group .form-control {
+    border-left: 0;
+    border-radius: 0 12px 12px 0;
+}
+
+.input-group-text {
+    border: 1px solid #e0e4e7;
+    border-radius: 12px 0 0 12px;
+}
+
+.btn-outline-secondary {
+    border-radius: 0 12px 12px 0;
+}
+
+#id_username.is-valid {
+    border-color: #198754;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='m2.3 6.73.8-.8-.8-.8 1.4-1.4.8.8 1.4-1.4.8.8.8-.8 1.4 1.4-.8.8.8.8-1.4 1.4-.8-.8-1.4 1.4-.8-.8-.8.8-1.4-1.4z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+#id_username.is-invalid {
+    border-color: #dc3545;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 4.5 2.4 2.4m0-2.4-2.4 2.4'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Thai ID Validation with Visual Feedback
+document.getElementById('id_username').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 13) value = value.slice(0, 13);
+    e.target.value = value;
+    
+    // Remove existing validation classes
+    e.target.classList.remove('is-valid', 'is-invalid');
+    
+    // Skip validation for admin user
+    if (value === 'admin') {
+        e.target.classList.add('is-valid');
+        return;
+    }
+    
+    // Validation feedback
+    if (value.length === 13) {
+        e.target.classList.add('is-valid');
+    } else if (value.length > 0) {
+        e.target.classList.add('is-invalid');
+    }
+});
+
+// Password Toggle
+document.getElementById('togglePassword').addEventListener('click', function() {
+    const passwordField = document.getElementById('id_password');
+    const icon = this.querySelector('i');
+    
+    if (passwordField.type === 'password') {
+        passwordField.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        passwordField.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+});
+
+// Form Validation on Submit
+document.querySelector('form').addEventListener('submit', function(e) {
+    const ldapUidField = document.getElementById('id_username');
+    const passwordField = document.getElementById('id_password');
+    
+    const ldapUid = ldapUidField.value.trim();
+    const password = passwordField.value;
+    
+    let isValid = true;
+    
+    // Clear previous validation
+    ldapUidField.classList.remove('is-invalid');
+    passwordField.classList.remove('is-invalid');
+    
+    // Validate Thai ID (skip for admin)
+    if (ldapUid !== 'admin' && (ldapUid.length !== 13 || !ldapUid.match(/^\d{13}$/))) {
+        ldapUidField.classList.add('is-invalid');
+        isValid = false;
+    }
+    
+    // Validate password
+    if (!password) {
+        passwordField.classList.add('is-invalid');
+        isValid = false;
+    }
+    
+    if (!isValid) {
+        e.preventDefault();
+    }
+});
+
+// Auto-focus on page load
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('id_username').focus();
+});
+</script>
+{% endblock %}

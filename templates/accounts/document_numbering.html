@@ -1,0 +1,542 @@
+{% extends 'base_sidebar.html' %}
+{% block title %}{{ title }} - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #CFAE43 0%, #b8951a 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas fa-file-invoice me-2" style="color: #002F6C;"></i>
+                            {{ title }}
+                        </h5>
+                        <p class="mb-1 opacity-90">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            {{ fiscal_year_display }}
+                        </p>
+                        <small class="opacity-80">ติดตามสถานะเล่มเอกสารและปีงบประมาณ</small>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <i class="fas fa-cogs" style="font-size: 3rem; opacity: 0.3; color: #002F6C;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fiscal Year Real-time Information Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <div class="row align-items-center">
+                    <div class="col-lg-8">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="p-2 rounded-circle me-3" style="background: rgba(0, 47, 108, 0.1);">
+                                <i class="fas fa-clock text-primary" style="color: #002F6C !important;"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1 fw-bold" style="color: #002F6C;">
+                                    {{ fiscal_year_info.current_fy_display }}
+                                </h6>
+                                <small class="text-muted">{{ fiscal_year_info.today_thai }}</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Status Information -->
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-{{ fiscal_year_info.status_color }} me-2">
+                                        {{ fiscal_year_info.status_text }}
+                                    </span>
+                                    <small class="text-muted">{{ fiscal_year_info.countdown_text }}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar-day me-1"></i>
+                                    {{ fiscal_year_info.current_fy_start_thai }} - {{ fiscal_year_info.current_fy_end_thai }}
+                                </small>
+                            </div>
+                        </div>
+
+                        {% if fiscal_year_info.preparation_text %}
+                        <div class="mt-3">
+                            <div class="alert alert-warning py-2 mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <small><strong>{{ fiscal_year_info.preparation_text }}</strong></small>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Progress Circle -->
+                    <div class="col-lg-4 text-center">
+                        <div class="position-relative d-inline-block">
+                            <svg width="120" height="120" class="progress-circle">
+                                <circle cx="60" cy="60" r="54" fill="none" stroke="#e9ecef" stroke-width="8"/>
+                                <circle cx="60" cy="60" r="54" fill="none" 
+                                        stroke="{% if fiscal_year_info.status_color == 'warning' %}#f39c12{% elif fiscal_year_info.status_color == 'info' %}#3498db{% else %}#27ae60{% endif %}" 
+                                        stroke-width="8" 
+                                        stroke-linecap="round"
+                                        stroke-dasharray="339.292" 
+                                        stroke-dashoffset="{{ fiscal_year_info.progress_dashoffset }}"
+                                        transform="rotate(-90 60 60)" />
+                            </svg>
+                            <div class="position-absolute top-50 start-50 translate-middle text-center">
+                                <div class="fw-bold" style="color: #002F6C; font-size: 1.2rem;">
+                                    {{ fiscal_year_info.progress_percentage_rounded }}%
+                                </div>
+                                <small class="text-muted">ความคืบหน้า</small>
+                            </div>
+                        </div>
+                        
+                        {% if fiscal_year_info.show_next_fy_info %}
+                        <div class="mt-3">
+                            <small class="text-primary fw-bold">
+                                <i class="fas fa-arrow-right me-1"></i>
+                                ปีงบประมาณ {{ fiscal_year_info.next_fiscal_year }}
+                            </small><br>
+                            <small class="text-muted">{{ fiscal_year_info.next_fy_start_thai }}</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Progress Bar (Alternative) -->
+                <div class="mt-3">
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar 
+                                    {% if fiscal_year_info.status_color == 'warning' %}bg-warning
+                                    {% elif fiscal_year_info.status_color == 'info' %}bg-info
+                                    {% else %}bg-success{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ fiscal_year_info.progress_percentage_rounded }}%">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-1">
+                        <small class="text-muted">{{ fiscal_year_info.days_passed }} วันผ่านไป</small>
+                        <small class="text-muted">{{ fiscal_year_info.days_remaining }} วันเหลือ</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notifications -->
+{% if notifications.total_warnings > 0 %}
+<div class="row mb-4">
+    <div class="col-12">
+        <!-- Critical Warnings -->
+        {% for warning in notifications.warnings.danger %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>{{ warning.title }}</strong><br>
+            {{ warning.message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        
+        <!-- Warning Level -->
+        {% for warning in notifications.warnings.warning %}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            <strong>{{ warning.title }}</strong><br>
+            {{ warning.message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        
+        <!-- Info Level -->
+        {% for warning in notifications.warnings.info %}
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>{{ warning.title }}</strong><br>
+            {{ warning.message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="d-flex justify-content-center align-items-center mb-2">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                        <i class="fas fa-book"></i>
+                    </div>
+                </div>
+                <h5 class="mb-1" style="color: #002F6C;">{{ stats.total_volumes }}</h5>
+                <p class="text-muted mb-0">เล่มทั้งหมด</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="d-flex justify-content-center align-items-center mb-2">
+                    <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+                <h5 class="mb-1 text-success">{{ stats.active_volumes }}</h5>
+                <p class="text-muted mb-0">เล่มใช้งาน</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="d-flex justify-content-center align-items-center mb-2">
+                    <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                </div>
+                <h5 class="mb-1" style="color: #CFAE43;">{{ stats.total_documents_issued }}</h5>
+                <p class="text-muted mb-0">เอกสารที่ออกแล้ว</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="d-flex justify-content-center align-items-center mb-2">
+                    <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                </div>
+                <h5 class="mb-1 text-info">{{ stats.coverage_percentage|floatformat:0 }}%</h5>
+                <p class="text-muted mb-0">ความครอบคลุม</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Control Panel -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body py-3">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="refreshPage()">
+                        <i class="fas fa-sync me-1"></i>
+                        รีเฟรชข้อมูล
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" onclick="showSystemInfo()">
+                        <i class="fas fa-info-circle me-1"></i>
+                        ข้อมูลระบบ
+                    </button>
+                </div>
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    เล่มเอกสารจะถูกสร้างอัตโนมัติเมื่อมีการออกใบสำคัญรับเงินครั้งแรกของแต่ละหน่วยงาน
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Volumes -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold" style="color: #CFAE43;">
+                    <i class="fas fa-book me-2"></i>
+                    เล่มปีงบประมาณ {{ current_fiscal_year }}
+                    <span class="badge" style="background-color: #002F6C; color: white;">{{ volumes_stats|length }}</span>
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if volumes_stats %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>รหัสเล่ม</th>
+                                    <th>หน่วยงาน</th>
+                                    <th>สถานะ</th>
+                                    <th>การใช้งาน</th>
+                                    <th>เอกสารล่าสุด</th>
+                                    <th>วันที่สร้าง</th>
+                                    <th class="text-center">การดำเนินการ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in volumes_stats %}
+                                <tr id="volume-row-{{ stat.volume.id }}" {% if stat.is_critical %}class="table-danger"{% elif stat.is_nearly_full %}class="table-warning"{% endif %}>
+                                    <td>
+                                        <span class="badge" style="background-color: #CFAE43; color: white; font-size: 0.9rem; padding: 8px 12px;">
+                                            {{ stat.volume.volume_code }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <strong style="color: #002F6C;">{{ stat.volume.department.name }}</strong>
+                                        <br><small class="text-muted">{{ stat.volume.department.code }}</small>
+                                    </td>
+                                    <td>
+                                        {% if stat.volume.status == 'active' %}
+                                            <span class="badge bg-success">ใช้งาน</span>
+                                        {% elif stat.volume.status == 'closed' %}
+                                            <span class="badge bg-secondary">ปิดแล้ว</span>
+                                        {% else %}
+                                            <span class="badge bg-info">{{ stat.volume.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress me-2" style="width: 100px; height: 8px;">
+                                                <div class="progress-bar 
+                                                    {% if stat.is_critical %}bg-danger
+                                                    {% elif stat.is_nearly_full %}bg-warning
+                                                    {% else %}bg-success
+                                                    {% endif %}" 
+                                                    style="width: {{ stat.usage_percentage }}%">
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">{{ stat.usage_percentage|floatformat:1 }}%</small>
+                                        </div>
+                                        <small class="text-muted">
+                                            {{ stat.volume.last_document_number }}/{{ stat.volume.max_documents }}
+                                            (เหลือ {{ stat.remaining_capacity }})
+                                        </small>
+                                    </td>
+                                    <td>
+                                        {% if stat.volume.last_document_number > 0 %}
+                                            <span class="badge bg-light text-dark">{{ stat.volume.volume_code }}-{{ stat.volume.last_document_number|stringformat:"04d" }}</span>
+                                        {% else %}
+                                            <small class="text-muted">ยังไม่มี</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ stat.volume.created_at|date:"d/m/Y H:i" }}</small>
+                                        {% if stat.volume.created_by %}
+                                            <br><small class="text-muted">โดย {{ stat.volume.created_by.get_display_name }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if stat.volume.status == 'active' %}
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button class="btn btn-outline-info" onclick="viewVolumeDetails({{ stat.volume.id }})" title="ดูรายละเอียด">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-outline-danger" onclick="closeVolume({{ stat.volume.id }})" title="ปิดเล่ม">
+                                                    <i class="fas fa-lock"></i>
+                                                </button>
+                                            </div>
+                                        {% else %}
+                                            <button class="btn btn-sm btn-outline-info" onclick="viewVolumeDetails({{ stat.volume.id }})" title="ดูรายละเอียด">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-book fa-4x mb-3 opacity-50"></i>
+                        <h5>ยังไม่มีเล่มสำหรับปีงบประมาณ {{ current_fiscal_year }}</h5>
+                        <p class="mb-3">เล่มจะถูกสร้างอัตโนมัติเมื่อมีการออกใบสำคัญรับเงินครั้งแรกของแต่ละหน่วยงาน</p>
+                        <small class="text-info">
+                            <i class="fas fa-info-circle me-1"></i>
+                            ระบบจะติดตามการใช้งานและสร้างเล่มอัตโนมัติตามความต้องการ
+                        </small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Departments Without Volumes -->
+{% if departments_without_volumes %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light border-0 py-3">
+                <h6 class="mb-0 fw-bold text-secondary">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    หน่วยงานที่ยังไม่มีเล่ม
+                    <span class="badge bg-warning text-dark">{{ departments_without_volumes|length }}</span>
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for dept in departments_without_volumes %}
+                    <div class="col-md-6 col-lg-4 mb-2">
+                        <div class="d-flex justify-content-between align-items-center p-2 border rounded">
+                            <div>
+                                <strong>{{ dept.name }}</strong>
+                                <br><small class="text-muted">{{ dept.code }}</small>
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-clock"></i>
+                                รอการใช้งาน
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+<!-- Close Volume Modal -->
+<div class="modal fade" id="closeVolumeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background-color: #f8fafc; border-bottom: 2px solid #dc3545;">
+                <h5 class="modal-title text-danger">
+                    <i class="fas fa-lock me-2"></i>ปิดเล่มเอกสาร
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>คุณต้องการปิดเล่มนี้หรือไม่?</strong></p>
+                <p class="text-muted">เล่มที่ปิดแล้วจะไม่สามารถออกเอกสารใหม่ได้อีก</p>
+                <div class="mb-3">
+                    <label class="form-label">เหตุผลในการปิดเล่ม</label>
+                    <textarea class="form-control" id="closeReasonInput" rows="3" placeholder="ระบุเหตุผล (ไม่บังคับ)"></textarea>
+                </div>
+                <input type="hidden" id="closeVolumeId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-danger" onclick="confirmCloseVolume()">
+                    <i class="fas fa-lock me-1"></i>ปิดเล่ม
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Show close volume modal
+function closeVolume(volumeId) {
+    document.getElementById('closeVolumeId').value = volumeId;
+    document.getElementById('closeReasonInput').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('closeVolumeModal'));
+    modal.show();
+}
+
+// Confirm close volume
+function confirmCloseVolume() {
+    const volumeId = document.getElementById('closeVolumeId').value;
+    const reason = document.getElementById('closeReasonInput').value;
+    
+    const data = { reason: reason };
+    
+    fetch(`/accounts/management/volume/${volumeId}/close/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', data.message);
+            bootstrap.Modal.getInstance(document.getElementById('closeVolumeModal')).hide();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('error', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'เกิดข้อผิดพลาดในการปิดเล่ม');
+    });
+}
+
+// View volume details
+function viewVolumeDetails(volumeId) {
+    // Implement volume details view
+    showToast('info', 'ฟีเจอร์นี้กำลังพัฒนา');
+}
+
+// Refresh page
+function refreshPage() {
+    location.reload();
+}
+
+// Show system info
+function showSystemInfo() {
+    showToast('info', 'ปีงบประมาณไทย: 1 ต.ค. - 30 ก.ย. | เล่มจะถูกสร้างอัตโนมัติเมื่อออกใบสำคัญแรก');
+}
+
+// Show toast notification
+function showToast(type, message) {
+    const toastContainer = document.querySelector('.toast-container') || createToastContainer();
+    const toast = document.createElement('div');
+    toast.className = 'toast show';
+    
+    let bgClass, icon, title;
+    if (type === 'success') {
+        bgClass = 'bg-success';
+        icon = 'check-circle';
+        title = 'สำเร็จ';
+    } else if (type === 'warning') {
+        bgClass = 'text-dark';
+        icon = 'exclamation-triangle';
+        title = 'แจ้งเตือน';
+        toast.style.backgroundColor = '#CFAE43';
+    } else if (type === 'info') {
+        bgClass = 'text-white';
+        icon = 'info-circle';
+        title = 'ข้อมูล';
+        toast.style.backgroundColor = '#002F6C';
+    } else {
+        bgClass = 'bg-danger';
+        icon = 'times-circle';
+        title = 'ข้อผิดพลาด';
+    }
+    
+    toast.innerHTML = `
+        <div class="toast-header ${bgClass}">
+            <strong class="me-auto">
+                <i class="fas fa-${icon} me-2"></i>${title}
+            </strong>
+            <button type="button" class="btn-close ${type === 'warning' || type === 'info' ? 'btn-close-white' : ''}" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">${message}</div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 5000);
+}
+
+// Create toast container if it doesn't exist
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    container.style.zIndex = '1055';
+    document.body.appendChild(container);
+    return container;
+}
+</script>
+{% endblock %}

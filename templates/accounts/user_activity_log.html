@@ -1,0 +1,212 @@
+{% extends 'base_sidebar.html' %}
+{% block title %}{{ title }} - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas fa-user-shield me-2"></i>
+                            ประวัติการใช้งานระบบ (User Activity Log)
+                        </h5>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-lock me-2"></i>
+                            บันทึก Login/Logout และความผิดปกติ (เฉพาะผู้ดูแลระบบ)
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="mb-2">
+                            <span class="badge bg-light text-dark">ทั้งหมด: {{ total_count|default:0 }} รายการ</span>
+                        </div>
+                        <i class="fas fa-shield-alt" style="font-size: 3rem; opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold">
+                    <i class="fas fa-filter me-2"></i>
+                    ตัวกรอง
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{% url 'user_activity_log' %}">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">การดำเนินการ</label>
+                            <select name="action" class="form-select">
+                                <option value="">ทั้งหมด</option>
+                                {% for action_code, action_name in actions %}
+                                <option value="{{ action_code }}" {% if action_filter == action_code %}selected{% endif %}>
+                                    {{ action_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">ผู้ใช้</label>
+                            <select name="user" class="form-select">
+                                <option value="">ทั้งหมด</option>
+                                {% for u in active_users %}
+                                <option value="{{ u.id }}" {% if user_filter == u.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ u.get_display_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">วันที่เริ่มต้น</label>
+                            <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">วันที่สิ้นสุด</label>
+                            <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">ค้นหา</label>
+                            <input type="text" name="q" class="form-control"
+                                   placeholder="ชื่อผู้ใช้, IP Address..."
+                                   value="{{ search_query }}">
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search me-1"></i>
+                                ค้นหา
+                            </button>
+                            <a href="{% url 'user_activity_log' %}" class="btn btn-secondary me-2">
+                                <i class="fas fa-redo me-1"></i>
+                                รีเซ็ต
+                            </a>
+                            <a href="{% url 'user_activity_log_excel_export' %}?{{ request.GET.urlencode }}"
+                               class="btn btn-success">
+                                <i class="fas fa-file-excel me-1"></i>
+                                Export Excel
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Activity Log Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="15%">วันที่-เวลา</th>
+                                <th width="18%">ผู้ใช้</th>
+                                <th width="15%">การดำเนินการ</th>
+                                <th width="12%">IP Address</th>
+                                <th width="25%">User Agent</th>
+                                <th width="15%">หมายเหตุ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td class="small">
+                                    <i class="fas fa-clock text-muted me-1"></i>
+                                    {{ log.created_at|date:"j M Y" }}<br>
+                                    <span class="text-muted">{{ log.created_at|date:"H:i:s" }}</span>
+                                </td>
+                                <td>
+                                    {% if log.user %}
+                                        <i class="fas fa-user text-muted me-1"></i>
+                                        {{ log.user.get_display_name }}
+                                    {% else %}
+                                        <i class="fas fa-user-slash text-danger me-1"></i>
+                                        <span class="text-danger">{{ log.username_attempted }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge
+                                        {% if log.action == 'login' %}bg-success
+                                        {% elif log.action == 'logout' %}bg-secondary
+                                        {% elif log.action == 'login_failed' %}bg-danger
+                                        {% else %}bg-info{% endif %}">
+                                        {{ log.get_action_display }}
+                                    </span>
+                                </td>
+                                <td class="small">
+                                    <i class="fas fa-globe text-muted me-1"></i>
+                                    {{ log.ip_address|default:"-" }}
+                                </td>
+                                <td class="small text-muted" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    {% if log.user_agent %}
+                                        <i class="fas fa-desktop text-muted me-1"></i>
+                                        {{ log.user_agent|truncatechars:40 }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="small">{{ log.notes|truncatechars:30|default:"-" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    <i class="fas fa-inbox fa-2x mb-2"></i>
+                                    <p>ไม่พบข้อมูล</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if logs.has_other_pages %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if logs.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ logs.previous_page_number }}&{{ request.GET.urlencode }}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in logs.paginator.page_range %}
+                            {% if logs.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > logs.number|add:'-3' and num < logs.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}&{{ request.GET.urlencode }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if logs.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ logs.next_page_number }}&{{ request.GET.urlencode }}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

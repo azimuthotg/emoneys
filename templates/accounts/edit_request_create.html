@@ -1,0 +1,455 @@
+{% extends 'base_sidebar.html' %}
+{% load humanize %}
+{% block title %}ขออนุมัติแก้ไขใบสำคัญรับเงิน - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}ขออนุมัติแก้ไขใบสำคัญรับเงิน{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #fd7e14 0%, #e55d0c 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas fa-paper-plane me-2" style="color: #CFAE43;"></i>
+                            ขออนุมัติแก้ไขใบสำคัญรับเงิน
+                        </h5>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-file-invoice me-2"></i>
+                            ใบสำคัญเลขที่: {{ receipt.receipt_number }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <i class="fas fa-edit" style="font-size: 3rem; opacity: 0.3; color: #CFAE43;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Receipt Edit Form -->
+<div class="row">
+    <!-- Form Section (Left) -->
+    <div class="col-lg-8">
+        <form id="editRequestForm" method="post">
+            {% csrf_token %}
+            
+            <!-- Recipient Information -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h6 class="mb-0 fw-bold" style="color: #fd7e14;">
+                        <i class="fas fa-user me-2"></i>
+                        ข้อมูลผู้รับเงิน <small class="text-muted">(แก้ไขข้อมูลที่ต้องการเปลี่ยน)</small>
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="new_recipient_name" class="form-label fw-bold">ชื่อผู้รับเงิน</label>
+                            <input type="text" class="form-control" id="new_recipient_name" name="new_recipient_name"
+                                   value="{{ receipt.recipient_name }}" placeholder="ปัจจุบัน: {{ receipt.recipient_name }}">
+                            <div class="form-text">ข้าพเจ้า ...</div>
+                        </div>
+                        <div class="col-12">
+                            <label for="new_recipient_address" class="form-label fw-bold">ที่อยู่</label>
+                            <textarea class="form-control" id="new_recipient_address" name="new_recipient_address" rows="3"
+                                      placeholder="ปัจจุบัน: {{ receipt.recipient_address }}">{{ receipt.recipient_address }}</textarea>
+                            <div class="form-text">บ้านเลขที่ หมู่ ซอย ถนน ตำบล อำเภอ จังหวัด</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="new_recipient_postal_code" class="form-label fw-bold">รหัสไปรษณีย์</label>
+                            <input type="text" class="form-control" id="new_recipient_postal_code" name="new_recipient_postal_code"
+                                   value="{{ receipt.recipient_postal_code }}" pattern="[0-9]{5}" maxlength="5"
+                                   placeholder="ปัจจุบัน: {{ receipt.recipient_postal_code|default:'ไม่ระบุ' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="new_recipient_id_card" class="form-label fw-bold">เลขบัตรประชาชน</label>
+                            <input type="text" class="form-control" id="new_recipient_id_card" name="new_recipient_id_card"
+                                   value="{{ receipt.recipient_id_card }}" pattern="[0-9]{13}" maxlength="13"
+                                   placeholder="ปัจจุบัน: {{ receipt.recipient_id_card }}">
+                            <div class="form-text">13 หลัก ไม่ต้องใส่เครื่องหมาย</div>
+                        </div>
+                        <div class="col-12">
+                            <label for="new_is_loan" class="form-label fw-bold">ประเภทการจ่าย</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="new_is_loan" id="new_is_loan_false" value="false"
+                                       {% if not receipt.is_loan %}checked{% endif %}>
+                                <label class="form-check-label" for="new_is_loan_false">
+                                    <i class="fas fa-hand-holding-usd me-1"></i>
+                                    จ่ายปกติ
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="new_is_loan" id="new_is_loan_true" value="true"
+                                       {% if receipt.is_loan %}checked{% endif %}>
+                                <label class="form-check-label" for="new_is_loan_true">
+                                    <i class="fas fa-handshake me-1"></i>
+                                    ยืมเงิน
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Receipt Items -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold" style="color: #fd7e14;">
+                        <i class="fas fa-list me-2"></i>
+                        รายการรับเงิน <small class="text-muted">(แก้ไขรายการที่ต้องการเปลี่ยน)</small>
+                    </h6>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="addNewItem()">
+                            <i class="fas fa-plus me-1"></i>
+                            เพิ่มรายการใหม่
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="items-container">
+                        {% for item in receipt.items.all %}
+                        <div class="item-row border rounded p-3 mb-3" data-item-id="{{ item.id }}">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">รายการ</label>
+                                    <input type="text" class="form-control item-description" name="form-{{ forloop.counter0 }}-description" 
+                                           value="{{ item.description }}" required>
+                                    <input type="hidden" name="form-{{ forloop.counter0 }}-id" value="{{ item.id }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">จำนวน</label>
+                                    <input type="number" class="form-control item-quantity" name="form-{{ forloop.counter0 }}-quantity" 
+                                           value="1" min="1" step="1" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label fw-bold">ราคาต่อหน่วย</label>
+                                    <input type="number" class="form-control item-unit-price" name="form-{{ forloop.counter0 }}-unit_price" 
+                                           value="{{ item.amount }}" min="0" step="0.01" required>
+                                </div>
+                                <div class="col-md-1 d-flex align-items-end">
+                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItem(this)" title="ลบรายการ">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <div class="text-end">
+                                        <strong>รวม: <span class="item-total">{{ item.amount|floatformat:2|intcomma }}</span> บาท</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-list-alt fa-2x mb-2"></i>
+                            <p>ไม่มีรายการสินค้า</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Total Management Form Fields -->
+                    <input type="hidden" id="id_form-TOTAL_FORMS" name="form-TOTAL_FORMS" value="{{ receipt.items.all|length }}">
+                    <input type="hidden" id="id_form-INITIAL_FORMS" name="form-INITIAL_FORMS" value="{{ receipt.items.all|length }}">
+                    <input type="hidden" id="id_form-MIN_NUM_FORMS" name="form-MIN_NUM_FORMS" value="0">
+                    <input type="hidden" id="id_form-MAX_NUM_FORMS" name="form-MAX_NUM_FORMS" value="1000">
+                    
+                    <!-- Total Amount Display -->
+                    <div class="row mt-4 pt-3 border-top">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">จำนวนเงินรวม (ตัวเลข)</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control form-control-lg" id="total_amount_display" readonly
+                                       value="{{ receipt.total_amount|floatformat:2|intcomma }}"
+                                       style="font-size: 1.2rem; font-weight: bold; text-align: right;">
+                                <span class="input-group-text">บาท</span>
+                            </div>
+                            <input type="hidden" id="total_amount" name="new_total_amount" value="{{ receipt.total_amount }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">จำนวนเงิน (ตัวหนังสือ)</label>
+                            <input type="text" class="form-control form-control-lg" id="total_amount_text" readonly 
+                                   style="font-family: 'Sarabun', sans-serif;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Request Reason -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h6 class="mb-0 fw-bold text-danger">
+                        <i class="fas fa-comment-alt me-2"></i>
+                        เหตุผลในการขอแก้ไข
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12">
+                            <label for="reason" class="form-label fw-bold">
+                                <span class="text-danger">*</span> เหตุผลในการขอแก้ไข
+                            </label>
+                            <textarea class="form-control" id="reason" name="reason" rows="4" required 
+                                      placeholder="กรุณาระบุเหตุผลที่ชัดเจนสำหรับการขอแก้ไขใบสำคัญรับเงิน"></textarea>
+                            <div class="form-text">เหตุผลนี้จะส่งไปยังหัวหน้าหน่วยงานเพื่อพิจารณาอนุมัติ</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="{% url 'receipt_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>
+                            ยกเลิก
+                        </a>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-paper-plane me-1"></i>
+                            ส่งคำขอแก้ไข
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Current Receipt Preview (Right) -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm sticky-top" style="top: 2rem;">
+            <div class="card-header bg-light border-0 py-3">
+                <h6 class="mb-0 fw-bold text-muted">
+                    <i class="fas fa-eye me-2"></i>
+                    ข้อมูลปัจจุบัน
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6 class="fw-bold">{{ receipt.recipient_name }}</h6>
+                    <p class="text-muted small mb-1">{{ receipt.recipient_address }}</p>
+                    <p class="text-muted small mb-1">รหัสไปรษณีย์: {{ receipt.recipient_postal_code|default:'-' }}</p>
+                    <p class="text-muted small font-monospace">เลขบัตรประชาชน: {{ receipt.recipient_id_card }}</p>
+                </div>
+                
+                <div class="mb-3">
+                    <h6 class="fw-bold">รายการสินค้า/บริการ</h6>
+                    {% for item in receipt.items.all %}
+                    <div class="d-flex justify-content-between align-items-center py-1">
+                        <div>
+                            <small>{{ item.description }}</small><br>
+                            <small class="text-muted">จำนวน: 1</small>
+                        </div>
+                        <small class="fw-bold">{{ item.amount|floatformat:2|intcomma }}</small>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted small">ไม่มีรายการ</p>
+                    {% endfor %}
+                </div>
+                
+                <div class="border-top pt-3">
+                    <div class="d-flex justify-content-between">
+                        <strong>รวมทั้งหมด:</strong>
+                        <strong class="text-success">{{ receipt.total_amount|floatformat:2|intcomma }} บาท</strong>
+                    </div>
+                </div>
+                
+                <div class="mt-3 pt-3 border-top">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        ข้อมูลด้านซ้ายจะถูกส่งเป็นคำขอแก้ไขไปยังหัวหน้าหน่วยงาน
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help Text -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-info" role="alert">
+            <h6 class="alert-heading">
+                <i class="fas fa-info-circle me-2"></i>
+                คำแนะนำการใช้งาน
+            </h6>
+            <ul class="mb-0">
+                <li>ข้อมูลในฟอร์มจะถูกโหลดจากใบสำคัญปัจจุบัน</li>
+                <li>แก้ไขเฉพาะข้อมูลที่ต้องการเปลี่ยนแปลง</li>
+                <li>สามารถเพิ่ม ลบ หรือแก้ไขรายการสินค้า/บริการได้</li>
+                <li>ระบุเหตุผลในการขอแก้ไขให้ชัดเจน</li>
+                <li>คำขอจะส่งไปยังหัวหน้าหน่วยงานเพื่อพิจารณาอนุมัติ</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Item counter for new items
+let itemCounter = {{ receipt.items.all|length }};
+
+// Add new item
+function addNewItem() {
+    const container = document.getElementById('items-container');
+    const newItemHtml = `
+        <div class="item-row border rounded p-3 mb-3" data-item-id="new-${itemCounter}">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">รายการ</label>
+                    <input type="text" class="form-control item-description" name="form-${itemCounter}-description" required>
+                    <input type="hidden" name="form-${itemCounter}-id" value="">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">จำนวน</label>
+                    <input type="number" class="form-control item-quantity" name="form-${itemCounter}-quantity" 
+                           value="1" min="1" step="1" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">ราคาต่อหน่วย</label>
+                    <input type="number" class="form-control item-unit-price" name="form-${itemCounter}-unit_price" 
+                           value="0" min="0" step="0.01" required>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItem(this)" title="ลบรายการ">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-12">
+                    <div class="text-end">
+                        <strong>รวม: <span class="item-total">0.00</span> บาท</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', newItemHtml);
+    itemCounter++;
+    updateFormManagement();
+    calculateTotal();
+}
+
+// Remove item
+function removeItem(button) {
+    if (confirm('ต้องการลบรายการนี้หรือไม่?')) {
+        button.closest('.item-row').remove();
+        updateFormManagement();
+        calculateTotal();
+    }
+}
+
+// Update form management fields
+function updateFormManagement() {
+    const totalForms = document.querySelectorAll('.item-row').length;
+    const totalFormsField = document.querySelector('#id_form-TOTAL_FORMS');
+    if (totalFormsField) {
+        totalFormsField.value = totalForms;
+    }
+}
+
+// Calculate total amount
+function calculateTotal() {
+    let total = 0;
+
+    document.querySelectorAll('.item-row').forEach(row => {
+        const quantity = parseFloat(row.querySelector('.item-quantity').value) || 0;
+        const unitPrice = parseFloat(row.querySelector('.item-unit-price').value) || 0;
+        const itemTotal = quantity * unitPrice;
+
+        row.querySelector('.item-total').textContent = itemTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        total += itemTotal;
+    });
+
+    document.getElementById('total_amount_display').value = total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('total_amount').value = total;
+
+    // Convert to Thai text
+    document.getElementById('total_amount_text').value = convertToThaiText(total);
+}
+
+// Number to Thai text conversion (full version)
+function convertToThaiText(number) {
+    if (number === 0) return 'ศูนย์บาทถ้วน';
+
+    const ones = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
+    const positions = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน', 'ล้าน'];
+
+    const baht = Math.floor(number);
+    const satang = Math.round((number - baht) * 100);
+
+    function convertGroup(num) {
+        if (num === 0) return '';
+
+        let text = '';
+        const digits = num.toString().split('').reverse();
+
+        for (let i = 0; i < digits.length; i++) {
+            const digit = parseInt(digits[i]);
+
+            if (digit === 0) continue;
+
+            if (i === 1 && digit === 2) {
+                text = 'ยี่' + positions[i] + text;
+            } else if (i === 1 && digit === 1) {
+                text = positions[i] + text;
+            } else if (i > 0 && digit === 1 && i !== 6) {
+                text = 'เอ็ด' + text;
+            } else {
+                text = ones[digit] + positions[i] + text;
+            }
+        }
+
+        return text;
+    }
+
+    let result = '';
+
+    if (baht > 0) {
+        result = convertGroup(baht) + 'บาท';
+    }
+
+    if (satang > 0) {
+        result += convertGroup(satang) + 'สตางค์';
+    } else {
+        result += 'ถ้วน';
+    }
+
+    return result;
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Calculate initial total
+    calculateTotal();
+    
+    // Add event listeners for quantity and price changes
+    document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('item-quantity') || e.target.classList.contains('item-unit-price')) {
+            calculateTotal();
+        }
+    });
+    
+    // Form validation
+    document.getElementById('editRequestForm').addEventListener('submit', function(e) {
+        const reason = document.getElementById('reason').value.trim();
+        if (!reason) {
+            e.preventDefault();
+            alert('กรุณาระบุเหตุผลในการขอแก้ไข');
+            return false;
+        }
+        
+        // Update form management before submit
+        updateFormManagement();
+    });
+    
+    // Bootstrap components are handled by base template
+});
+</script>
+{% endblock %}

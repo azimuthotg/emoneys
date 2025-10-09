@@ -1,0 +1,193 @@
+{% extends 'base_sidebar.html' %}
+{% load humanize %}
+{% block title %}ขออนุมัติยกเลิกใบสำคัญรับเงิน - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}ขออนุมัติยกเลิกใบสำคัญรับเงิน{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);">
+            <div class="card-body text-dark p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            ขออนุมัติยกเลิกใบสำคัญรับเงิน
+                        </h5>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-file-invoice-dollar me-2"></i>
+                            {{ receipt.receipt_number }} - {{ receipt.department.name }}
+                            <span class="ms-3">
+                                <i class="fas fa-calendar me-2"></i>
+                                {{ receipt.receipt_date|date:"j F Y" }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="mb-2">
+                            <span class="badge bg-success">เสร็จสิ้น</span>
+                        </div>
+                        <i class="fas fa-ban" style="font-size: 3rem; opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Request Form -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-warning">
+                    <i class="fas fa-edit me-2"></i>
+                    ฟอร์มขออนุมัติยกเลิก
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <!-- Cancel Reason -->
+                    <div class="mb-4">
+                        <label for="cancel_reason" class="form-label fw-bold">
+                            <i class="fas fa-comment-dots me-2 text-warning"></i>
+                            เหตุผลในการยกเลิก
+                            <span class="text-danger">*</span>
+                        </label>
+                        <textarea 
+                            class="form-control" 
+                            id="cancel_reason" 
+                            name="cancel_reason" 
+                            rows="4" 
+                            placeholder="กรุณาระบุเหตุผลที่ต้องการยกเลิกใบสำคัญรับเงินนี้..."
+                            required
+                        ></textarea>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            กรุณาระบุเหตุผลที่ชัดเจนเพื่อให้ผู้อนุมัติสามารถพิจารณาได้
+                        </div>
+                    </div>
+
+                    <!-- Warning -->
+                    <div class="alert alert-warning border-0">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle fa-lg"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="alert-heading mb-2">คำเตือนสำคัญ</h6>
+                                <ul class="mb-0 small">
+                                    <li>การยกเลิกใบสำคัญจะไม่สามารถกู้คืนได้</li>
+                                    <li>คำขอนี้จะถูกส่งไปยังผู้จัดการแผนกเพื่อพิจารณาอนุมัติ</li>
+                                    <li>คุณสามารถถอนคำขอได้หากยังไม่ได้รับการอนุมัติ</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-paper-plane me-1"></i>
+                            ส่งคำขออนุมัติ
+                        </button>
+                        <a href="{% url 'receipt_detail' receipt.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            ยกเลิก
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Receipt Summary -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-success">
+                    <i class="fas fa-info-circle me-2"></i>
+                    สรุปใบสำคัญ
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 text-start">
+                    <div class="col-5">
+                        <small class="text-muted">เลขที่:</small>
+                    </div>
+                    <div class="col-7">
+                        <small class="fw-bold font-monospace">{{ receipt.receipt_number }}</small>
+                    </div>
+                    <div class="col-5">
+                        <small class="text-muted">ผู้รับเงิน:</small>
+                    </div>
+                    <div class="col-7">
+                        <small>{{ receipt.recipient_name }}</small>
+                    </div>
+                    <div class="col-5">
+                        <small class="text-muted">จำนวนเงิน:</small>
+                    </div>
+                    <div class="col-7">
+                        <small class="fw-bold text-success">{{ receipt.total_amount|floatformat:2|intcomma }} บาท</small>
+                    </div>
+                    <div class="col-5">
+                        <small class="text-muted">วันที่สร้าง:</small>
+                    </div>
+                    <div class="col-7">
+                        <small>{{ receipt.created_at|date:"j M Y" }}</small>
+                    </div>
+                    <div class="col-5">
+                        <small class="text-muted">ผู้สร้าง:</small>
+                    </div>
+                    <div class="col-7">
+                        <small>{{ receipt.created_by.get_display_name }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Process Info -->
+        <div class="card border-0 shadow-sm mt-3">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-info">
+                    <i class="fas fa-route me-2"></i>
+                    ขั้นตอนการอนุมัติ
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="flex-shrink-0">
+                        <div class="bg-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
+                            <i class="fas fa-user text-white small"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <small class="fw-bold">1. ส่งคำขอ</small><br>
+                        <small class="text-muted">{{ user.get_display_name }}</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
+                            <i class="fas fa-user-tie text-white small"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <small class="fw-bold">2. อนุมัติ</small><br>
+                        <small class="text-muted">ผู้จัดการแผนก</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.font-monospace {
+    font-family: 'Courier New', monospace;
+}
+</style>
+{% endblock %}

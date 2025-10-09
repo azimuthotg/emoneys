@@ -1,0 +1,358 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ใบสำคัญรับเงิน {% if receipt.receipt_number %}{{ receipt.receipt_number }}{% else %}(ร่าง){% endif %}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Sarabun', 'TH Sarabun New', sans-serif;
+            font-size: 16px;
+            line-height: 1.2;
+            margin: 0;
+            padding: 15mm;
+            color: #000;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .logo {
+            width: 60px;
+            height: 60px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .header-content {
+            flex-grow: 1;
+        }
+        
+        .dept-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 10px 0;
+        }
+        
+        .doc-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin: 0;
+            text-decoration: underline;
+        }
+        
+        .doc-info {
+            display: table;
+            width: 100%;
+            margin-bottom: 25px;
+            font-size: 16px;
+        }
+        
+        .volume-section {
+            display: table-cell;
+            width: 30%;
+            vertical-align: top;
+            font-weight: 600;
+        }
+        
+        .receipt-info-section {
+            display: table-cell;
+            width: 70%;
+            vertical-align: top;
+            line-height: 1.4;
+            padding-left: 20px;
+        }
+        
+        .receipt-number {
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        
+        .org-address {
+            margin-bottom: 3px;
+        }
+        
+        .receipt-date {
+            font-weight: 600;
+        }
+        
+        .recipient-section {
+            margin-bottom: 20px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        .form-line {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: baseline;
+        }
+        
+        .form-label {
+            margin-right: 8px;
+            white-space: nowrap;
+        }
+        
+        .form-value {
+            border-bottom: 1px dotted #000;
+            min-width: 200px;
+            padding-bottom: 2px;
+            flex-grow: 1;
+            margin-right: 20px;
+        }
+        
+        .address-line {
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .address-value {
+            border-bottom: 1px dotted #000;
+            padding-bottom: 2px;
+            display: inline-block;
+            min-width: 400px;
+        }
+        
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 16px;
+            border: 2px solid #000;
+        }
+        
+        .items-table th,
+        .items-table td {
+            border: 1px solid #000 !important;
+            padding: 8px 6px;
+            text-align: left;
+            vertical-align: top;
+        }
+        
+        .items-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .items-table .col-no {
+            width: 50px;
+            text-align: center;
+        }
+        
+        .items-table .col-description {
+            width: auto;
+            text-align: justify;
+            hyphens: auto;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            padding-left: 10px;
+        }
+        
+        .items-table .col-amount {
+            width: 100px;
+            text-align: right;
+            font-family: monospace;
+            padding-right: 10px;
+        }
+        
+        .total-row {
+            font-weight: 600;
+        }
+        
+        .amount-text {
+            margin: 15px 0;
+            font-size: 16px;
+        }
+        
+        .amount-text .label {
+            display: inline-block;
+            margin-right: 10px;
+        }
+        
+        .amount-text .value {
+            border-bottom: 1px dotted #000;
+            padding-bottom: 2px;
+            min-width: 300px;
+            display: inline-block;
+        }
+        
+        .signatures {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 50px;
+            page-break-inside: avoid;
+            font-size: 16px;
+        }
+        
+        .signature-box {
+            text-align: center;
+            width: 40%;
+        }
+        
+        .signature-label {
+            margin-bottom: 50px;
+        }
+        
+        .signature-line {
+            border-bottom: 1px dotted #000;
+            width: 200px;
+            margin: 0 auto 5px auto;
+            height: 1px;
+        }
+        
+        .signature-name {
+            margin-bottom: 20px;
+        }
+        
+        .signature-date {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .date-label {
+            margin-right: 5px;
+        }
+        
+        .date-line {
+            border-bottom: 1px dotted #000;
+            width: 120px;
+            height: 1px;
+        }
+        
+        .qr-section {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            text-align: center;
+            font-size: 10px;
+        }
+        
+        /* Print optimization */
+        @media print {
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Section -->
+    <div class="header">
+        <div class="logo-section">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==" alt="Logo" class="logo">
+            <div class="header-content">
+                <div class="dept-name">{{ receipt.created_by.department.name }}</div>
+                <div class="doc-title">ใบสำคัญรับเงิน</div>
+            </div>
+        </div>
+        
+        <div class="doc-info">
+            <div class="volume-section">
+                เล่มที่ {{ receipt.volume_code }}
+            </div>
+            <div class="receipt-info-section">
+                <div class="receipt-number">เลขที่ {% if receipt.receipt_number %}{{ receipt.receipt_number }}{% else %}(ร่าง - ยังไม่มีเลข){% endif %}</div>
+                <div class="org-address">{{ receipt.department.name }}</div>
+                <div class="org-address">{{ receipt.department.get_full_address }}</div>
+                <div class="receipt-date">วันที่ {{ receipt.receipt_date|date:"j F Y" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recipient Information -->
+    <div class="recipient-section">
+        <div class="form-line">
+            <span class="form-label">ชื่อ นาย/นาง/นางสาว</span>
+            <span class="form-value">{{ receipt.recipient_name }}</span>
+            <span class="form-label">เลขบัตรประชาชน</span>
+            <span class="form-value">{{ receipt.recipient_id_card }}</span>
+        </div>
+        
+        <div class="address-line">
+            <span class="form-label">ที่อยู่</span>
+            <span class="address-value">{{ receipt.recipient_address }}{% if receipt.recipient_postal_code %} รหัสไปรษณีย์ {{ receipt.recipient_postal_code }}{% endif %}</span>
+        </div>
+        
+        <div class="form-line">
+            <span class="form-label">ได้รับเงินจาก</span>
+            <span class="form-value">{{ receipt.created_by.department.name }}</span>
+        </div>
+    </div>
+    
+    <!-- Items Table -->
+    <table cellspacing="0" cellpadding="8" border="1" style="width: 100%; border-collapse: collapse; border: 2px solid black;">
+        <thead>
+            <tr>
+                <th class="col-no" style="border: 1px solid black; padding: 8px; text-align: center; background-color: #f8f9fa; font-weight: 600;">ลำดับ</th>
+                <th class="col-description" style="border: 1px solid black; padding: 8px; text-align: center; background-color: #f8f9fa; font-weight: 600;">รายการ</th>
+                <th class="col-amount" style="border: 1px solid black; padding: 8px; text-align: center; background-color: #f8f9fa; font-weight: 600;">จำนวนเงิน (บาท)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td class="col-no" style="border: 1px solid black; padding: 8px; text-align: center;">{{ forloop.counter }}</td>
+                <td class="col-description" style="border: 1px solid black; padding: 8px; text-align: justify;">{{ item.description|linebreaksbr }}</td>
+                <td class="col-amount" style="border: 1px solid black; padding: 8px; text-align: right; font-family: monospace;">{{ item.amount|floatformat:2|intcomma }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total-row">
+                <td colspan="2" style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold;">รวมเป็นเงิน</td>
+                <td class="col-amount" style="border: 1px solid black; padding: 8px; text-align: right; font-weight: bold; font-family: monospace;">{{ receipt.total_amount|floatformat:2|intcomma }}</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <div class="amount-text">
+        <span class="label">จำนวนเงิน (ตัวหนังสือ)</span>
+        <span class="value">{{ receipt.total_amount_text }}</span>
+    </div>
+    
+    <!-- Signatures -->
+    <div class="signatures">
+        <div class="signature-box">
+            <div class="signature-label">ลงชื่อ</div>
+            <div class="signature-line"></div>
+            <div class="signature-name">( {{ receipt.recipient_name }} )</div>
+            <div class="signature-name">ผู้รับเงิน</div>
+            <div class="signature-date">
+                <span class="date-label">วันที่</span>
+                <div class="date-line"></div>
+            </div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-label">ลงชื่อ</div>
+            <div class="signature-line"></div>
+            <div class="signature-name">( {{ receipt.created_by.get_full_name|default:receipt.created_by.username }} )</div>
+            <div class="signature-name">ผู้จ่ายเงิน</div>
+            <div class="signature-date">
+                <span class="date-label">วันที่</span>
+                <div class="date-line"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- QR Code Section -->
+    {% if receipt.receipt_number %}
+    <div class="qr-section">
+        <div style="font-size: 10px;">
+            URL สำหรับตรวจสอบ: http://emoneys/check/{{ receipt.created_at|date:"dmy" }}/{{ receipt.receipt_number|slice:":4" }}
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>

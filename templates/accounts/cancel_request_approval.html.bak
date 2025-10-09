@@ -1,0 +1,225 @@
+{% extends 'base_sidebar.html' %}
+{% load humanize %}
+{% block title %}อนุมัติคำขอยกเลิก - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}อนุมัติคำขอยกเลิก{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #28a745 0%, #20a742 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas fa-gavel me-2"></i>
+                            พิจารณาคำขอยกเลิก {{ cancel_request.request_number }}
+                        </h5>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-file-invoice-dollar me-2"></i>
+                            ใบสำคัญ: {{ cancel_request.receipt.receipt_number }}
+                            <span class="ms-3">
+                                <i class="fas fa-user me-2"></i>
+                                ผู้ขอ: {{ cancel_request.requested_by.get_display_name }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <span class="badge bg-warning text-dark fs-6">รอการพิจารณา</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approval Form -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-success">
+                    <i class="fas fa-clipboard-check me-2"></i>
+                    การพิจารณาอนุมัติ
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <!-- Action Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-hand-point-right me-2 text-primary"></i>
+                            การดำเนินการ
+                            <span class="text-danger">*</span>
+                        </label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="action" id="approve" value="approve" 
+                                           {% if request.GET.action != 'reject' %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold text-success" for="approve">
+                                        <i class="fas fa-check-circle me-2"></i>อนุมัติการยกเลิก
+                                    </label>
+                                    <div class="form-text">ยกเลิกใบสำคัญและอัปเดตสถานะ</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="action" id="reject" value="reject"
+                                           {% if request.GET.action == 'reject' %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold text-danger" for="reject">
+                                        <i class="fas fa-times-circle me-2"></i>ปฏิเสธการยกเลิก
+                                    </label>
+                                    <div class="form-text">คืนใบสำคัญเป็นสถานะเดิม</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-4">
+                        <label for="notes" class="form-label fw-bold">
+                            <i class="fas fa-sticky-note me-2 text-info"></i>
+                            หมายเหตุ (ไม่บังคับ)
+                        </label>
+                        <textarea 
+                            class="form-control" 
+                            id="notes" 
+                            name="notes" 
+                            rows="3" 
+                            placeholder="ระบุหมายเหตุเพิ่มเติม (ถ้ามี)..."
+                        ></textarea>
+                    </div>
+
+                    <!-- Warning -->
+                    <div class="alert alert-warning border-0">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle fa-lg"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="alert-heading mb-2">คำเตือนสำคัญ</h6>
+                                <ul class="mb-0 small">
+                                    <li><strong>การอนุมัติ:</strong> ใบสำคัญจะถูกยกเลิกอย่างถาวรและไม่สามารถกู้คืนได้</li>
+                                    <li><strong>การปฏิเสธ:</strong> ใบสำคัญจะกลับมาเป็นสถานะเดิม และสามารถใช้งานได้ปกติ</li>
+                                    <li>การตัดสินใจนี้จะส่งผลต่อระบบบัญชีและรายงาน</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-check me-1"></i>
+                            ยืนยันการพิจารณา
+                        </button>
+                        <a href="{% url 'cancel_request_detail' cancel_request.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            ยกเลิก
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Cancel Request Summary -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-warning">
+                    <i class="fas fa-info-circle me-2"></i>
+                    ข้อมูลคำขอ
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 text-start">
+                    <div class="col-5">
+                        <small class="text-muted">เลขที่คำขอ:</small>
+                    </div>
+                    <div class="col-7">
+                        <small class="fw-bold font-monospace">{{ cancel_request.request_number }}</small>
+                    </div>
+                    <div class="col-5">
+                        <small class="text-muted">ผู้ขออนุมัติ:</small>
+                    </div>
+                    <div class="col-7">
+                        <small>{{ cancel_request.requested_by.get_display_name }}</small>
+                    </div>
+                    <div class="col-5">
+                        <small class="text-muted">แผนก:</small>
+                    </div>
+                    <div class="col-7">
+                        <small>{{ cancel_request.requested_by.department }}</small>
+                    </div>
+                    <div class="col-5">
+                        <small class="text-muted">วันที่ขอ:</small>
+                    </div>
+                    <div class="col-7">
+                        <small>{{ cancel_request.created_at|date:"j M Y H:i" }}</small>
+                    </div>
+                    <div class="col-12">
+                        <hr class="my-2">
+                        <small class="text-muted">เหตุผลในการยกเลิก:</small>
+                        <div class="mt-1 p-2 bg-light rounded">
+                            <small>{{ cancel_request.cancel_reason }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Receipt Summary -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-success">
+                    <i class="fas fa-file-invoice-dollar me-2"></i>
+                    ข้อมูลใบสำคัญ
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 text-start">
+                    <div class="col-5">
+                        <small class="text-muted">เลขที่:</small>
+                    </div>
+                    <div class="col-7">
+                        <small class="fw-bold font-monospace">{{ cancel_request.receipt.receipt_number }}</small>
+                    </div>
+                    <div class="col-5">
+                        <small class="text-muted">ผู้รับเงิน:</small>
+                    </div>
+                    <div class="col-7">
+                        <small>{{ cancel_request.receipt.recipient_name }}</small>
+                    </div>
+                    <div class="col-5">
+                        <small class="text-muted">จำนวนเงิน:</small>
+                    </div>
+                    <div class="col-7">
+                        <small class="fw-bold text-success">{{ cancel_request.receipt.total_amount|floatformat:2|intcomma }} บาท</small>
+                    </div>
+                    <div class="col-5">
+                        <small class="text-muted">วันที่สร้าง:</small>
+                    </div>
+                    <div class="col-7">
+                        <small>{{ cancel_request.receipt.created_at|date:"j M Y" }}</small>
+                    </div>
+                    <div class="col-12 mt-2">
+                        <a href="{% url 'receipt_detail' cancel_request.receipt.id %}" class="btn btn-sm btn-outline-primary w-100">
+                            <i class="fas fa-eye me-1"></i>ดูใบสำคัญ
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.font-monospace {
+    font-family: 'Courier New', monospace;
+}
+</style>
+{% endblock %}

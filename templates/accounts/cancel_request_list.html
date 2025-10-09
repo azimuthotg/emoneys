@@ -1,0 +1,281 @@
+{% extends 'base_sidebar.html' %}
+{% block title %}รายการคำขออนุมัติยกเลิก - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}รายการคำขออนุมัติยกเลิก{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);">
+            <div class="card-body text-dark p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas fa-clipboard-list me-2"></i>
+                            รายการคำขออนุมัติยกเลิก
+                        </h5>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-info-circle me-2"></i>
+                            {{ view_scope }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <span class="badge bg-danger fs-6">{{ pending_count }} รออนุมัติ</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-list" style="font-size: 2rem; color: #007bff;"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0 fw-bold text-primary">{{ stats.total }}</h4>
+                        <small class="text-muted">ทั้งหมด</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-clock" style="font-size: 2rem; color: #ffc107;"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0 fw-bold text-warning">{{ stats.pending }}</h4>
+                        <small class="text-muted">รออนุมัติ</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-check-circle" style="font-size: 2rem; color: #28a745;"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0 fw-bold text-success">{{ stats.approved }}</h4>
+                        <small class="text-muted">ดำเนินการแล้ว</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-times-circle" style="font-size: 2rem; color: #dc3545;"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0 fw-bold text-danger">{{ stats.rejected }}</h4>
+                        <small class="text-muted">ปฏิเสธ</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body py-3">
+                <form method="GET" class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label small">สถานะ</label>
+                        <select name="status" class="form-select">
+                            <option value="">ทั้งหมด</option>
+                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>รออนุมัติ</option>
+                            <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>อนุมัติแล้ว</option>
+                            <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>ปฏิเสธ</option>
+                            <option value="withdrawn" {% if status_filter == 'withdrawn' %}selected{% endif %}>ถอนคำขอ</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">ค้นหา</label>
+                        <input type="text" name="q" class="form-control" value="{{ search_query }}" 
+                               placeholder="เลขที่คำขอ, เลขที่ใบสำคัญ, ผู้ขออนุมัติ">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search me-1"></i>ค้นหา
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <a href="{% url 'edit_request_list' %}" class="btn btn-outline-secondary w-100">
+                            <i class="fas fa-times me-1"></i>ล้าง
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Requests Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold">
+                    <i class="fas fa-list me-2"></i>
+                    รายการคำขออนุมัติ ({{ cancel_requests.paginator.count }} รายการ)
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                {% if cancel_requests %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>เลขที่คำขอ</th>
+                                <th>ใบสำคัญ</th>
+                                <th>ผู้ขออนุมัติ</th>
+                                <th>เหตุผล</th>
+                                <th>วันที่ขอ</th>
+                                <th>สถานะ</th>
+                                <th width="120px">การดำเนินการ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in cancel_requests %}
+                            <tr onclick="window.location.href='{% url 'cancel_request_detail' request.id %}'"
+                                style="cursor: pointer;"
+                                title="คลิกเพื่อดูรายละเอียด">
+                                <td>
+                                    <span class="fw-bold font-monospace">{{ request.request_number }}</span>
+                                </td>
+                                <td>
+                                    <div>
+                                        <span class="fw-bold">{{ request.receipt.receipt_number }}</span><br>
+                                        <small class="text-muted">{{ request.receipt.recipient_name|truncatechars:25 }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div>
+                                        <span>{{ request.requested_by.get_display_name }}</span><br>
+                                        <small class="text-muted">{{ request.requested_by.department }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div title="{{ request.cancel_reason }}">
+                                        {{ request.cancel_reason|truncatechars:40 }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <small>{{ request.created_at|date:"j M Y" }}<br>{{ request.created_at|date:"H:i" }}</small>
+                                </td>
+                                <td>
+                                    {% if request.status == 'pending' %}
+                                        <span class="badge bg-warning text-dark">รออนุมัติ</span>
+                                    {% elif request.status == 'applied' %}
+                                        <span class="badge bg-success">ดำเนินการแล้ว</span>
+                                    {% elif request.status == 'approved' %}
+                                        <span class="badge bg-info">อนุมัติแล้ว</span>
+                                    {% elif request.status == 'rejected' %}
+                                        <span class="badge bg-danger">ปฏิเสธ</span>
+                                    {% elif request.status == 'withdrawn' %}
+                                        <span class="badge bg-secondary">ถอนคำขอ</span>
+                                    {% endif %}
+                                </td>
+                                <td onclick="event.stopPropagation();">
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'cancel_request_detail' request.id %}"
+                                           class="btn btn-sm btn-outline-info" title="ดูรายละเอียด">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if request.status == 'pending' and request.can_be_approved_by %}
+                                            <a href="{% url 'cancel_request_approve' request.id %}"
+                                               class="btn btn-sm btn-outline-success" title="อนุมัติ/ปฏิเสธ">
+                                                <i class="fas fa-gavel"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if cancel_requests.has_other_pages %}
+                <div class="card-footer bg-white border-0">
+                    <nav>
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
+                            {% if cancel_requests.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ cancel_requests.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    หน้า {{ cancel_requests.number }} จาก {{ cancel_requests.paginator.num_pages }}
+                                </span>
+                            </li>
+
+                            {% if cancel_requests.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ cancel_requests.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ cancel_requests.paginator.num_pages }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-5">
+                    <div class="mb-3">
+                        <i class="fas fa-inbox fa-3x text-muted"></i>
+                    </div>
+                    <h6 class="text-muted">ไม่มีคำขออนุมัติยกเลิก</h6>
+                    <p class="text-muted mb-0">ยังไม่มีคำขออนุมัติยกเลิกใบสำคัญในระบบ</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.font-monospace {
+    font-family: 'Courier New', monospace;
+}
+</style>
+{% endblock %}

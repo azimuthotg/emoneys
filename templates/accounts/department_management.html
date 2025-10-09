@@ -1,0 +1,775 @@
+{% extends 'base_sidebar.html' %}
+{% block title %}จัดการหน่วยงาน - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}จัดการหน่วยงาน{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #CFAE43 0%, #b8951a 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas fa-building me-2" style="color: #002F6C;"></i>
+                            จัดการหน่วยงาน
+                        </h5>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-cogs me-2"></i>
+                            กำหนดชื่อย่อให้หน่วยงานจาก NPU AD สำหรับใบสำคัญรับเงิน
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <i class="fas fa-sitemap" style="font-size: 3rem; opacity: 0.3; color: #002F6C;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Control Panel -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body py-3">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-sm" style="background-color: #CFAE43; color: white;" onclick="showCreateDepartmentModal()">
+                        <i class="fas fa-plus me-1"></i>
+                        กำหนดชื่อย่อหน่วยงาน
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="showAllDepartments()">
+                        <i class="fas fa-list me-1"></i>
+                        ดูหน่วยงานทั้งหมด
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" onclick="showDepartmentInfo()">
+                        <i class="fas fa-info-circle me-1"></i>
+                        คำแนะนำ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info Card -->
+<div class="row mb-4" id="infoCard" style="display: none;">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm" style="border-left: 4px solid #CFAE43 !important;">
+            <div class="card-body">
+                <h6 class="fw-bold" style="color: #CFAE43;">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    คำแนะนำการใช้งาน
+                </h6>
+                <ul class="mb-0">
+                    <li><strong>ชื่อหน่วยงาน:</strong> มาจาก NPU AD แก้ไขไม่ได้</li>
+                    <li><strong>ชื่อย่อ:</strong> Admin กำหนดให้เอง จะใช้เป็นเลขกำกับในใบสำคัญรับเงิน เช่น REG-2025-0001</li>
+                    <li><strong>การปิดใช้งาน:</strong> หน่วยงานที่ปิดจะไม่สามารถออกใบสำคัญใหม่ได้</li>
+                    <li><strong>การลบ:</strong> ลบได้เฉพาะชื่อย่อ ชื่อหน่วยงานยังคงอยู่</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Departments List -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold" style="color: #CFAE43;">
+                    <i class="fas fa-building me-2"></i>
+                    หน่วยงานในระบบ
+                    <span class="badge" style="background-color: #002F6C; color: white;">{{ departments|length }}</span>
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if departments %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ชื่อย่อ</th>
+                                    <th>ชื่อหน่วยงาน</th>
+                                    <th>ที่อยู่</th>
+                                    <th>สถานะ</th>
+                                    <th>จำนวนบุคลากร</th>
+                                    <th>วันที่สร้าง</th>
+                                    <th class="text-center">การดำเนินการ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dept in departments %}
+                                <tr id="dept-row-{{ dept.id|default:'new' }}">
+                                    <td>
+                                        {% if dept.code %}
+                                            <span class="badge" style="background-color: #CFAE43; color: white; font-size: 0.9rem; padding: 8px 12px;">{{ dept.code }}</span>
+                                        {% else %}
+                                            <span class="badge bg-light text-dark">ไม่มี</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <strong style="color: #002F6C;">{{ dept.name }}</strong>
+                                            {% if not dept.is_active %}
+                                                <br><small class="text-muted">(ปิดใช้งาน)</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if dept.address %}
+                                            <div>
+                                                <div class="small">{{ dept.address }}</div>
+                                                {% if dept.postal_code %}
+                                                    <div class="small text-muted">{{ dept.postal_code }}</div>
+                                                {% endif %}
+                                                {% if dept.phone %}
+                                                    <div class="small text-primary">
+                                                        <i class="fas fa-phone fa-xs me-1"></i>{{ dept.phone }}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <small class="text-muted">
+                                                <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                                                ยังไม่ระบุที่อยู่
+                                            </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if dept.has_code %}
+                                            {% if dept.is_active %}
+                                                <span class="badge bg-success">ใช้งาน</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">ปิดใช้งาน</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">รอกำหนดชื่อย่อ</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">{{ dept.user_count|default:0 }} คน</span>
+                                    </td>
+                                    <td>
+                                        {% if dept.created_at %}
+                                            <small class="text-muted">{{ dept.created_at|date:"d/m/Y" }}</small>
+                                        {% else %}
+                                            <small class="text-muted">-</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if dept.has_code %}
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button class="btn btn-outline-info" onclick="viewDepartmentDetails({{ dept.id }})" title="ดูรายละเอียด">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-outline-primary" onclick="editDepartment({{ dept.id }})" title="แก้ไขชื่อย่อ">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                {% if dept.is_active %}
+                                                    <button class="btn btn-outline-warning" onclick="deactivateDepartment({{ dept.id }})" title="ปิดใช้งาน">
+                                                        <i class="fas fa-power-off"></i>
+                                                    </button>
+                                                {% else %}
+                                                    <button class="btn btn-outline-success" onclick="activateDepartment({{ dept.id }})" title="เปิดใช้งาน">
+                                                        <i class="fas fa-power-off"></i>
+                                                    </button>
+                                                {% endif %}
+                                                <button class="btn btn-outline-danger" onclick="deleteDepartment({{ dept.id }})" title="ลบชื่อย่อ">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        {% else %}
+                                            <button class="btn btn-sm btn-primary" onclick="assignDepartmentCode('{{ dept.name }}')" title="กำหนดชื่อย่อ">
+                                                <i class="fas fa-plus me-1"></i>กำหนดชื่อย่อ
+                                            </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-building fa-4x mb-3 opacity-50"></i>
+                        <h5>ยังไม่มีหน่วยงานในระบบ</h5>
+                        <p class="mb-3">เริ่มต้นด้วยการเพิ่มหน่วยงานแรกของคุณ</p>
+                        <button class="btn" style="background-color: #CFAE43; color: white;" onclick="showCreateDepartmentModal()">
+                            <i class="fas fa-plus me-2"></i>
+                            เพิ่มหน่วยงานแรก
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Department Modal -->
+<div class="modal fade" id="departmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background-color: #f8fafc; border-bottom: 2px solid #CFAE43;">
+                <h5 class="modal-title" id="departmentModalTitle">
+                    <i class="fas fa-building me-2" style="color: #CFAE43;"></i>กำหนดชื่อย่อหน่วยงาน
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="departmentForm">
+                    <div class="mb-3" id="departmentNameGroup">
+                        <label class="form-label fw-bold">ชื่อหน่วยงาน (จาก NPU AD) <span class="text-danger">*</span></label>
+                        <select class="form-select" id="departmentName" required>
+                            <option value="">เลือกหน่วยงานจาก NPU AD</option>
+                            <!-- Options will be populated by JavaScript -->
+                        </select>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            ชื่อหน่วยงานมาจาก NPU AD แก้ไขไม่ได้
+                        </small>
+                    </div>
+                    <div class="mb-3" id="departmentNameDisplay" style="display: none;">
+                        <label class="form-label fw-bold">ชื่อหน่วยงาน</label>
+                        <input type="text" class="form-control" id="departmentNameText" readonly>
+                        <small class="text-muted">ชื่อหน่วยงานจาก NPU AD (แก้ไขไม่ได้)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">ชื่อย่อหน่วยงาน <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="departmentCode" placeholder="เช่น REG, FIN, HR" required maxlength="20" style="text-transform: uppercase;">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            ชื่อย่อที่จะใช้ในใบสำคัญรับเงิน เช่น REG-2025-0001
+                        </small>
+                    </div>
+                    
+                    <!-- ข้อมูลที่อยู่หน่วยงาน -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-map-marker-alt me-1"></i>ที่อยู่หน่วยงาน
+                        </label>
+                        <small class="text-muted d-block mb-2">ข้อมูลนี้จะแสดงในใบสำคัญรับเงิน</small>
+                        
+                        <div class="mb-2">
+                            <textarea class="form-control" id="departmentAddress" rows="3" 
+                                      placeholder="ที่อยู่หน่วยงานแบบครบถ้วน เช่น 99 หมู่ 7 ถนนมิตรภาพ ตำบลในเมือง อำเภอเมือง จังหวัดนครราชสีมา" 
+                                      maxlength="500"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" id="departmentPostalCode" 
+                                       placeholder="รหัสไปรษณีย์" maxlength="10">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" id="departmentPhone" 
+                                       placeholder="เบอร์โทรศัพท์" maxlength="20">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="departmentIsActive" checked>
+                            <label class="form-check-label fw-bold" for="departmentIsActive">
+                                เปิดใช้งาน
+                            </label>
+                            <small class="form-text text-muted d-block">หน่วยงานที่เปิดใช้งานจะสามารถออกใบสำคัญรับเงินได้</small>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn" style="background-color: #CFAE43; color: white;" id="saveDepartmentBtn" onclick="saveDepartment()">
+                    <i class="fas fa-save me-1"></i>กำหนดชื่อย่อ
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Department Details Modal -->
+<div class="modal fade" id="departmentDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background-color: #f8fafc; border-bottom: 2px solid #CFAE43;">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2" style="color: #CFAE43;"></i>รายละเอียดหน่วยงาน
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="departmentDetailsContent">
+                <!-- Content will be populated by JavaScript -->
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">กำลังโหลด...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                <button type="button" class="btn btn-primary" onclick="editDepartmentFromDetails()">
+                    <i class="fas fa-edit me-1"></i>แก้ไข
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// CSRF Token
+const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+// Store departments data for JavaScript access  
+window.departmentsData = {{ departments_json|safe }};
+
+// Current editing department ID
+let currentDepartmentId = null;
+
+// Show/hide info card
+function showDepartmentInfo() {
+    const infoCard = document.getElementById('infoCard');
+    if (infoCard.style.display === 'none') {
+        infoCard.style.display = 'block';
+    } else {
+        infoCard.style.display = 'none';
+    }
+}
+
+// Show create department modal
+function showCreateDepartmentModal() {
+    currentDepartmentId = null;
+    document.getElementById('departmentModalTitle').innerHTML = '<i class="fas fa-building me-2" style="color: #CFAE43;"></i>กำหนดชื่อย่อหน่วยงาน';
+    document.getElementById('saveDepartmentBtn').innerHTML = '<i class="fas fa-save me-1"></i>กำหนดชื่อย่อ';
+    
+    // Clear form
+    document.getElementById('departmentForm').reset();
+    document.getElementById('departmentIsActive').checked = true;
+    
+    // Clear address fields explicitly
+    document.getElementById('departmentAddress').value = '';
+    document.getElementById('departmentPostalCode').value = '';
+    document.getElementById('departmentPhone').value = '';
+    
+    // Show department selection dropdown
+    document.getElementById('departmentNameGroup').style.display = 'block';
+    document.getElementById('departmentNameDisplay').style.display = 'none';
+    
+    // Load available NPU departments
+    loadAvailableNPUDepartments();
+    
+    const modal = new bootstrap.Modal(document.getElementById('departmentModal'));
+    modal.show();
+}
+
+// Edit department
+function editDepartment(departmentId) {
+    currentDepartmentId = departmentId;
+    document.getElementById('departmentModalTitle').innerHTML = '<i class="fas fa-edit me-2" style="color: #CFAE43;"></i>แก้ไขชื่อย่อหน่วยงาน';
+    document.getElementById('saveDepartmentBtn').innerHTML = '<i class="fas fa-save me-1"></i>บันทึกการแก้ไข';
+    
+    // Load department data
+    fetch(`/accounts/management/department/${departmentId}/edit/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const dept = data.department;
+            document.getElementById('departmentCode').value = dept.code;
+            document.getElementById('departmentNameText').value = dept.name;
+            document.getElementById('departmentIsActive').checked = dept.is_active;
+            
+            // Set address fields
+            document.getElementById('departmentAddress').value = dept.address || '';
+            document.getElementById('departmentPostalCode').value = dept.postal_code || '';
+            document.getElementById('departmentPhone').value = dept.phone || '';
+            
+            // Hide dropdown and show readonly department name
+            document.getElementById('departmentNameGroup').style.display = 'none';
+            document.getElementById('departmentNameDisplay').style.display = 'block';
+            
+            const modal = new bootstrap.Modal(document.getElementById('departmentModal'));
+            modal.show();
+        } else {
+            showToast('error', 'ไม่สามารถโหลดข้อมูลหน่วยงานได้');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    });
+}
+
+// Save department (create or update)
+function saveDepartment() {
+    const code = document.getElementById('departmentCode').value.trim().toUpperCase();
+    const isActive = document.getElementById('departmentIsActive').checked;
+    
+    let name;
+    if (currentDepartmentId) {
+        // Editing existing department
+        name = document.getElementById('departmentNameText').value.trim();
+    } else {
+        // Creating new department code assignment
+        const departmentSelect = document.getElementById('departmentName');
+        name = departmentSelect.value.trim();
+        
+        if (!name) {
+            showToast('warning', 'กรุณาเลือกหน่วยงานจาก NPU AD');
+            return;
+        }
+    }
+    
+    if (!code) {
+        showToast('warning', 'กรุณากรอกชื่อย่อหน่วยงาน');
+        return;
+    }
+    
+    // Validate code format
+    if (!/^[A-Z0-9_]+$/.test(code)) {
+        showToast('warning', 'ชื่อย่อหน่วยงานควรเป็นตัวอักษรภาษาอังกฤษ ตัวเลข หรือขีดล่าง');
+        return;
+    }
+    
+    const url = currentDepartmentId ? 
+        `/accounts/management/department/${currentDepartmentId}/edit/` : 
+        '/accounts/management/department/create/';
+    
+    // Get address fields
+    const address = document.getElementById('departmentAddress').value.trim();
+    const postalCode = document.getElementById('departmentPostalCode').value.trim();
+    const phone = document.getElementById('departmentPhone').value.trim();
+    
+    const data = {
+        code: code,
+        name: name,
+        is_active: isActive,
+        address: address,
+        postal_code: postalCode,
+        phone: phone
+    };
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', data.message);
+            bootstrap.Modal.getInstance(document.getElementById('departmentModal')).hide();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('error', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'เกิดข้อผิดพลาดในการบันทึก');
+    });
+}
+
+// Activate department
+function activateDepartment(departmentId) {
+    if (confirm('คุณต้องการเปิดใช้งานหน่วยงานนี้หรือไม่?')) {
+        fetch(`/accounts/management/department/${departmentId}/activate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('success', data.message);
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('error', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', 'เกิดข้อผิดพลาดในการเปิดใช้งาน');
+        });
+    }
+}
+
+// Deactivate department
+function deactivateDepartment(departmentId) {
+    if (confirm('คุณต้องการปิดใช้งานหน่วยงานนี้หรือไม่?\nการปิดใช้งานจะไม่ส่งผลกระทบต่อบุคลากรที่มีอยู่')) {
+        fetch(`/accounts/management/department/${departmentId}/deactivate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('warning', data.message);
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('error', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', 'เกิดข้อผิดพลาดในการปิดใช้งาน');
+        });
+    }
+}
+
+// Delete department code (not the NPU department itself)
+function deleteDepartment(departmentId) {
+    if (confirm('คุณต้องการลบชื่อย่อหน่วยงานนี้หรือไม่?\nชื่อหน่วยงานจาก NPU AD จะยังคงอยู่ แต่จะไม่มีชื่อย่อแล้ว')) {
+        fetch(`/accounts/management/department/${departmentId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('success', data.message);
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('error', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', 'เกิดข้อผิดพลาดในการลบ');
+        });
+    }
+}
+
+// Show all departments
+function showAllDepartments() {
+    location.reload();
+}
+
+// View department details
+function viewDepartmentDetails(departmentId) {
+    const modal = new bootstrap.Modal(document.getElementById('departmentDetailsModal'));
+    const content = document.getElementById('departmentDetailsContent');
+    
+    // Show loading spinner
+    content.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">กำลังโหลด...</span>
+            </div>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Find department data from current page data
+    const departments = window.departmentsData || [];
+    const dept = departments.find(d => d.id === departmentId);
+    
+    if (dept) {
+        content.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="fw-bold text-primary">
+                                <i class="fas fa-building me-2"></i>ข้อมูลหน่วยงาน
+                            </h6>
+                            <dl class="row">
+                                <dt class="col-4">ชื่อหน่วยงาน:</dt>
+                                <dd class="col-8">${dept.name}</dd>
+                                
+                                <dt class="col-4">ชื่อย่อ:</dt>
+                                <dd class="col-8">
+                                    <span class="badge" style="background-color: #CFAE43; color: white; font-size: 0.9rem;">${dept.code}</span>
+                                </dd>
+                                
+                                <dt class="col-4">สถานะ:</dt>
+                                <dd class="col-8">
+                                    ${dept.is_active ? '<span class="badge bg-success">ใช้งาน</span>' : '<span class="badge bg-secondary">ปิดใช้งาน</span>'}
+                                </dd>
+                                
+                                <dt class="col-4">จำนวนบุคลากร:</dt>
+                                <dd class="col-8">${dept.user_count} คน</dd>
+                                
+                                <dt class="col-4">วันที่สร้าง:</dt>
+                                <dd class="col-8">${dept.created_at ? new Date(dept.created_at).toLocaleDateString('th-TH') : '-'}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="fw-bold text-success">
+                                <i class="fas fa-map-marker-alt me-2"></i>ข้อมูลที่อยู่
+                            </h6>
+                            <dl class="row">
+                                <dt class="col-4">ที่อยู่:</dt>
+                                <dd class="col-8">${dept.address || '<span class="text-muted">ไม่ระบุ</span>'}</dd>
+                                
+                                <dt class="col-4">รหัสไปรษณีย์:</dt>
+                                <dd class="col-8">${dept.postal_code || '<span class="text-muted">ไม่ระบุ</span>'}</dd>
+                                
+                                <dt class="col-4">โทรศัพท์:</dt>
+                                <dd class="col-8">${dept.phone || '<span class="text-muted">ไม่ระบุ</span>'}</dd>
+                            </dl>
+                            
+                            ${!dept.address ? '<div class="alert alert-warning py-2"><small><i class="fas fa-exclamation-triangle me-1"></i> ยังไม่ได้กรอกที่อยู่หน่วยงาน</small></div>' : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Store current department for edit function
+        window.currentViewingDepartment = dept;
+    } else {
+        content.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                ไม่พบข้อมูลหน่วยงาน
+            </div>
+        `;
+    }
+}
+
+// Edit department from details modal
+function editDepartmentFromDetails() {
+    if (window.currentViewingDepartment) {
+        bootstrap.Modal.getInstance(document.getElementById('departmentDetailsModal')).hide();
+        setTimeout(() => {
+            editDepartment(window.currentViewingDepartment.id);
+        }, 300);
+    }
+}
+
+// Load available NPU departments that don't have codes yet
+function loadAvailableNPUDepartments() {
+    fetch('/accounts/management/available-npu-departments/')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const select = document.getElementById('departmentName');
+            // Clear existing options except the first one
+            select.innerHTML = '<option value="">เลือกหน่วยงานจาก NPU AD</option>';
+            
+            // Add available departments
+            data.departments.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept.name;
+                option.textContent = `${dept.name} (${dept.user_count} คน)`;
+                select.appendChild(option);
+            });
+        } else {
+            showToast('error', 'ไม่สามารถโหลดข้อมูลหน่วยงานจาก NPU AD ได้');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    });
+}
+
+// Assign department code to a specific NPU department
+function assignDepartmentCode(departmentName) {
+    currentDepartmentId = null;
+    document.getElementById('departmentModalTitle').innerHTML = '<i class="fas fa-building me-2" style="color: #CFAE43;"></i>กำหนดชื่อย่อ: ' + departmentName;
+    document.getElementById('saveDepartmentBtn').innerHTML = '<i class="fas fa-save me-1"></i>กำหนดชื่อย่อ';
+    
+    // Clear form
+    document.getElementById('departmentForm').reset();
+    document.getElementById('departmentIsActive').checked = true;
+    
+    // Set the department name and hide dropdown
+    document.getElementById('departmentName').value = departmentName;
+    document.getElementById('departmentNameGroup').style.display = 'none';
+    document.getElementById('departmentNameDisplay').style.display = 'block';
+    document.getElementById('departmentNameText').value = departmentName;
+    
+    const modal = new bootstrap.Modal(document.getElementById('departmentModal'));
+    modal.show();
+}
+
+// Auto-uppercase for department code
+document.addEventListener('DOMContentLoaded', function() {
+    const deptCodeInput = document.getElementById('departmentCode');
+    if (deptCodeInput) {
+        deptCodeInput.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+    }
+    
+    // Load available departments when page loads
+    if (document.getElementById('departmentName')) {
+        loadAvailableNPUDepartments();
+    }
+});
+
+// Show toast notification
+function showToast(type, message) {
+    const toastContainer = document.querySelector('.toast-container') || createToastContainer();
+    const toast = document.createElement('div');
+    toast.className = 'toast show';
+    
+    let bgClass, icon, title;
+    if (type === 'success') {
+        bgClass = 'bg-success';
+        icon = 'check-circle';
+        title = 'สำเร็จ';
+    } else if (type === 'warning') {
+        bgClass = 'text-dark';
+        icon = 'exclamation-triangle';
+        title = 'แจ้งเตือน';
+        toast.style.backgroundColor = '#CFAE43';
+    } else if (type === 'info') {
+        bgClass = 'text-white';
+        icon = 'info-circle';
+        title = 'ข้อมูล';
+        toast.style.backgroundColor = '#002F6C';
+    } else {
+        bgClass = 'bg-danger';
+        icon = 'times-circle';
+        title = 'ข้อผิดพลาด';
+    }
+    
+    toast.innerHTML = `
+        <div class="toast-header ${bgClass}">
+            <strong class="me-auto">
+                <i class="fas fa-${icon} me-2"></i>${title}
+            </strong>
+            <button type="button" class="btn-close ${type === 'warning' || type === 'info' ? 'btn-close-white' : ''}" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">${message}</div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 5000);
+}
+
+// Create toast container if it doesn't exist
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    container.style.zIndex = '1055';
+    document.body.appendChild(container);
+    return container;
+}
+</script>
+{% endblock %}

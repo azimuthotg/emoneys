@@ -1,0 +1,345 @@
+{% extends 'base_sidebar.html' %}
+{% load humanize %}
+{% block title %}พิจารณาคำขอแก้ไข - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}พิจารณาคำขอแก้ไข{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2 fw-bold">
+                            <i class="fas fa-gavel me-2" style="color: #002F6C;"></i>
+                            พิจารณาคำขอแก้ไข
+                        </h5>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-hashtag me-2"></i>
+                            เลขที่คำขอ: {{ edit_request.request_number }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <span class="badge bg-warning text-dark fs-6">
+                            <i class="fas fa-clock me-1"></i>รอการพิจารณา
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Request Summary -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-primary">
+                    <i class="fas fa-info-circle me-2"></i>
+                    สรุปคำขอ
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-muted">ใบสำคัญที่ขอแก้ไข</label>
+                        <p class="form-control-plaintext">
+                            <a href="{% url 'receipt_detail' edit_request.receipt.id %}" class="text-decoration-none">
+                                {{ edit_request.receipt.receipt_number }}
+                            </a>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-muted">ผู้ส่งคำขอ</label>
+                        <p class="form-control-plaintext">{{ edit_request.requested_by.get_display_name }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-muted">วันที่ส่งคำขอ</label>
+                        <p class="form-control-plaintext">{{ edit_request.created_at|date:"j F Y H:i" }} น.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-muted">หน่วยงาน</label>
+                        <p class="form-control-plaintext">{{ edit_request.receipt.department.name }}</p>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold text-muted">เหตุผลในการขอแก้ไข</label>
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-quote-left me-2"></i>
+                            {{ edit_request.reason }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Comparison Section -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <!-- Current Data -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light border-0 py-3">
+                <h6 class="mb-0 fw-bold text-muted">
+                    <i class="fas fa-file me-2"></i>
+                    ข้อมูลปัจจุบัน
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">ผู้รับเงิน</label>
+                    <p class="form-control-plaintext">{{ edit_request.receipt.recipient_name }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">เลขบัตรประชาชน</label>
+                    <p class="form-control-plaintext">{{ edit_request.receipt.recipient_id_card|default:"-" }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">ที่อยู่</label>
+                    <p class="form-control-plaintext">{{ edit_request.receipt.recipient_address }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">รหัสไปรษณีย์</label>
+                    <p class="form-control-plaintext">{{ edit_request.receipt.recipient_postal_code|default:"-" }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">รายการสินค้า/บริการ</label>
+                    {% for item in edit_request.receipt.items.all %}
+                    <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                        <div>
+                            <small>{{ item.description }}</small>
+                        </div>
+                        <small class="fw-bold">{{ item.amount|floatformat:2|intcomma }}</small>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted small">ไม่มีรายการ</p>
+                    {% endfor %}
+                </div>
+                <div class="border-top pt-3">
+                    <div class="d-flex justify-content-between">
+                        <strong>รวมทั้งหมด:</strong>
+                        <strong class="text-primary">{{ edit_request.receipt.total_amount|floatformat:2|intcomma }} บาท</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <!-- Requested Changes -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-warning bg-opacity-10 border-0 py-3">
+                <h6 class="mb-0 fw-bold text-warning">
+                    <i class="fas fa-edit me-2"></i>
+                    ข้อมูลที่ขอแก้ไข
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if edit_request.new_recipient_name %}
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">ผู้รับเงิน</label>
+                    <p class="form-control-plaintext text-warning fw-bold">{{ edit_request.new_recipient_name }}</p>
+                </div>
+                {% endif %}
+                
+                {% if edit_request.new_recipient_id_card %}
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">เลขบัตรประชาชน</label>
+                    <p class="form-control-plaintext text-warning fw-bold">{{ edit_request.new_recipient_id_card }}</p>
+                </div>
+                {% endif %}
+                
+                {% if edit_request.new_recipient_address %}
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">ที่อยู่</label>
+                    <p class="form-control-plaintext text-warning fw-bold">{{ edit_request.new_recipient_address }}</p>
+                </div>
+                {% endif %}
+                
+                {% if edit_request.new_recipient_postal_code %}
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">รหัสไปรษณีย์</label>
+                    <p class="form-control-plaintext text-warning fw-bold">{{ edit_request.new_recipient_postal_code }}</p>
+                </div>
+                {% endif %}
+                
+                {% if edit_request.new_items_data %}
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">รายการสินค้า/บริการ</label>
+                    {% for item in new_items %}
+                    <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                        <div>
+                            <small class="text-warning fw-bold">{{ item.description }}</small>
+                        </div>
+                        <small class="fw-bold text-warning">{{ item.total|floatformat:2|intcomma }}</small>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted small">ไม่มีการเปลี่ยนแปลง</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                {% if edit_request.new_total_amount %}
+                <div class="border-top pt-3">
+                    <div class="d-flex justify-content-between">
+                        <strong>รวมทั้งหมด:</strong>
+                        <strong class="text-warning">{{ edit_request.new_total_amount|floatformat:2|intcomma }} บาท</strong>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if not edit_request.new_recipient_name and not edit_request.new_recipient_address and not edit_request.new_items_data and not edit_request.new_total_amount %}
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                    <p>ไม่มีการเปลี่ยนแปลงข้อมูล</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approval Form -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h6 class="mb-0 fw-bold text-danger">
+                    <i class="fas fa-balance-scale me-2"></i>
+                    การตัดสินใจ
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">การตัดสินใจ <span class="text-danger">*</span></label>
+                            <div class="mt-2">
+                                {% for choice in form.action %}
+                                <div class="form-check mb-2">
+                                    {{ choice.tag }}
+                                    <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                        {% if choice.choice_value == 'approve' %}
+                                            <i class="fas fa-check-circle text-success me-1"></i>
+                                            <strong class="text-success">อนุมัติ</strong>
+                                        {% elif choice.choice_value == 'reject' %}
+                                            <i class="fas fa-times-circle text-danger me-1"></i>
+                                            <strong class="text-danger">ปฏิเสธ</strong>
+                                        {% else %}
+                                            {{ choice.choice_label }}
+                                        {% endif %}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% if form.action.errors %}
+                                <div class="text-danger small mt-1">{{ form.action.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="{{ form.notes.id_for_label }}" class="form-label fw-bold">หมายเหตุ</label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                                <div class="text-danger small mt-1">{{ form.notes.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">หากปฏิเสธ กรุณาระบุเหตุผล</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Form Errors -->
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger mt-3" role="alert">
+                            {{ form.non_field_errors.0 }}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-2 justify-content-end mt-4">
+                        <a href="{% url 'edit_request_detail' edit_request.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            กลับ
+                        </a>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-gavel me-1"></i>
+                            ยืนยันการตัดสินใจ
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Warning Notice -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-warning" role="alert">
+            <h6 class="alert-heading">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                ข้อควรระวัง
+            </h6>
+            <ul class="mb-0">
+                <li>การตัดสินใจนี้จะมีผลถาวร ไม่สามารถเปลี่ยนแปลงได้ภายหลัง</li>
+                <li>หากอนุมัติ ข้อมูลในใบสำคัญจะถูกแก้ไขตามคำขอทันที</li>
+                <li>หากปฏิเสธ กรุณาระบุเหตุผลที่ชัดเจนเพื่อให้ผู้ขอทราบ</li>
+                <li>การตัดสินใจจะถูกบันทึกและแจ้งให้ผู้ส่งคำขอทราบ</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Form validation
+    const form = document.querySelector('form');
+    const actionRadios = document.querySelectorAll('input[name="action"]');
+    const notesField = document.querySelector('#id_notes');
+    
+    form.addEventListener('submit', function(e) {
+        let actionSelected = false;
+        actionRadios.forEach(radio => {
+            if (radio.checked) {
+                actionSelected = true;
+                // If reject is selected, notes must be provided
+                if (radio.value === 'reject' && !notesField.value.trim()) {
+                    e.preventDefault();
+                    alert('กรุณาระบุเหตุผลในการปฏิเสธ');
+                    notesField.focus();
+                    return;
+                }
+            }
+        });
+        
+        if (!actionSelected) {
+            e.preventDefault();
+            alert('กรุณาเลือกการตัดสินใจ');
+            return;
+        }
+        
+        // Confirm decision
+        const selectedAction = document.querySelector('input[name="action"]:checked');
+        const actionText = selectedAction.value === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ';
+        
+        if (!confirm(`ยืนยันการ${actionText}คำขอนี้หรือไม่?`)) {
+            e.preventDefault();
+        }
+    });
+    
+    // Auto-focus notes when reject is selected
+    actionRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'reject' && this.checked) {
+                notesField.focus();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

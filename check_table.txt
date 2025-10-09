@@ -1,0 +1,38 @@
+# Copy และ paste โค้ดนี้ใน Django shell
+
+from django.test import Client
+client = Client()
+response = client.get('/receipt/8/pdf/v2/')
+print(f"Status: {response.status_code}")
+
+if response.status_code == 200:
+    content = response.content.decode('utf-8')
+    
+    # หาส่วนตาราง
+    table_start = content.find('<!-- Items Table -->')
+    table_end = content.find('</table>', table_start) + 8
+    
+    if table_start != -1:
+        table_html = content[table_start:table_end]
+        print("=== TABLE HTML ===")
+        print(table_html[:1000])  # แสดง 1000 ตัวอักษรแรก
+        
+        # ตรวจสอบ border
+        if 'border=' in table_html:
+            print("\n✓ มี HTML border attribute")
+        else:
+            print("\n✗ ไม่มี HTML border attribute")
+            
+        if 'border: 1px solid' in table_html:
+            print("✓ มี CSS border style")
+        else:
+            print("✗ ไม่มี CSS border style")
+    else:
+        print("ไม่เจอตาราง")
+        
+    # บันทึกไฟล์
+    with open('debug_table.html', 'w', encoding='utf-8') as f:
+        f.write(content)
+    print("บันทึกไฟล์ debug_table.html แล้ว")
+else:
+    print(f"Error: {response.status_code}")
