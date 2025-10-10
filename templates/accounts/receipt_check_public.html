@@ -105,6 +105,37 @@
                     <!-- Content -->
                     <div class="receipt-info">
                         {% if found %}
+                            {% if multiple_receipts %}
+                                <!-- Multiple Receipts Found -->
+                                <div class="text-center">
+                                    <span class="verification-badge" style="background: #ffc107;">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        พบใบสำคัญหลายหน่วยงาน
+                                    </span>
+                                </div>
+
+                                <div class="alert alert-warning mt-3">
+                                    <h6 class="alert-heading">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        พบใบสำคัญรับเงินหลายใบ
+                                    </h6>
+                                    <p class="mb-0">พบใบสำคัญเลขที่ <strong>{{ receipt_number_search }}</strong> จากหลายหน่วยงาน กรุณาเลือกหน่วยงานที่ต้องการตรวจสอบ:</p>
+                                </div>
+
+                                <div class="list-group mt-3">
+                                    {% for r in multiple_receipts %}
+                                    <a href="/check/{{ r.department.code }}/{{ receipt_number_search }}/" class="list-group-item list-group-item-action">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1">{{ r.department.name }}</h6>
+                                            <small class="text-primary">รหัส: {{ r.department.code }}</small>
+                                        </div>
+                                        <p class="mb-1"><strong>ผู้รับเงิน:</strong> {{ r.recipient_name }}</p>
+                                        <small><strong>จำนวนเงิน:</strong> {{ r.total_amount|floatformat:2|intcomma }} บาท</small>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+
+                            {% else %}
                             <!-- Verification Success -->
                             <div class="text-center">
                                 <span class="verification-badge">
@@ -241,6 +272,7 @@
                                     สร้างเมื่อ: {{ receipt.created_at|date:"d/m/Y H:i:s" }}
                                 </div>
                             </div>
+                            {% endif %}
 
                         {% else %}
                             <!-- Verification Failed -->

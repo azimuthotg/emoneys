@@ -1184,9 +1184,11 @@ class Receipt(models.Model):
         # ใช้เลขที่เอกสารเป็น URL หลัก (แบบง่าย)
         base_url = getattr(settings, 'BASE_URL', 'http://localhost:8002')
 
-        # แปลงเลขที่เอกสาร 260925/0005 เป็น URL 260925/0005
-        receipt_path = self.receipt_number.replace('/', '/')
-        verification_url = f"{base_url}/check/{receipt_path}"
+        # URL ใหม่: รวมรหัสหน่วยงาน เพื่อไม่ให้ซ้ำกัน
+        # รูปแบบ: /check/{dept_code}/{date_part}/{number_part}/
+        dept_code = self.department.code if self.department else 'UNKNOWN'
+        receipt_path = self.receipt_number.replace('/', '/')  # 091025/0003
+        verification_url = f"{base_url}/check/{dept_code}/{receipt_path}"
 
         # QR Code เก็บเฉพาะ URL เท่านั้น (ง่ายที่สุด)
         return verification_url
@@ -1205,7 +1207,8 @@ class Receipt(models.Model):
             return None
 
         base_url = getattr(settings, 'BASE_URL', 'http://localhost:8002')
-        return f"{base_url}/check/{self.receipt_number}"
+        dept_code = self.department.code if self.department else 'UNKNOWN'
+        return f"{base_url}/check/{dept_code}/{self.receipt_number}"
     
     def can_be_cancelled_by(self, user):
         """ตรวจสอบว่าผู้ใช้สามารถยกเลิกใบสำคัญนี้ได้หรือไม่"""

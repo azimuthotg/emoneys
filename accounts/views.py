@@ -1989,42 +1989,61 @@ def receipt_pdf_v2_download_view(request, receipt_id):
         return redirect('receipt_list')
 
 
-def receipt_check_public_view(request, date_part=None, number_part=None, receipt_number=None):
+def receipt_check_public_view(request, dept_code=None, date_part=None, number_part=None, receipt_number=None):
     """
     หน้าตรวจสอบใบสำคัญรับเงินแบบง่าย (Public - ไม่ต้อง Login)
-    URL Pattern: /check/260925/0005 -> date_part=260925, number_part=0005
+    URL Pattern:
+    - /check/ARC/260925/0005 -> dept_code=ARC, date_part=260925, number_part=0005 (ใหม่)
+    - /check/260925/0005 -> date_part=260925, number_part=0005 (เก่า - backward compatibility)
     """
     # รวม date_part และ number_part เป็นเลขที่เอกสาร
     if date_part and number_part:
         receipt_number = f"{date_part}/{number_part}"
-    
+
     context = {
         'title': 'ตรวจสอบใบสำคัญรับเงิน',
         'receipt': None,
         'found': False,
-        'receipt_number_search': receipt_number
+        'receipt_number_search': receipt_number,
+        'dept_code_search': dept_code
     }
-    
+
     try:
+        # สร้าง query filter
+        filters = {
+            'receipt_number': receipt_number,
+            'status': 'completed'  # แสดงเฉพาะที่เสร็จสิ้น
+        }
+
+        # ถ้ามี dept_code ให้ค้นหาเฉพาะหน่วยงานนั้น
+        if dept_code:
+            filters['department__code'] = dept_code
+
         # ค้นหาใบสำคัญจากเลขที่เอกสาร
-        receipt = Receipt.objects.select_related('department', 'created_by').prefetch_related('items').get(
-            receipt_number=receipt_number
-        )
-        
-        context['receipt'] = receipt
-        context['found'] = True
-        
-        # สร้าง QR Code URL ใหม่สำหรับแสดงผล
-        context['qr_url'] = request.build_absolute_uri()
-        
-    except Receipt.DoesNotExist:
-        context['found'] = False
-        context['error_message'] = f'ไม่พบใบสำคัญรับเงินหมายเลข {receipt_number}'
-    
+        receipts = Receipt.objects.select_related('department', 'created_by').prefetch_related('items').filter(**filters)
+
+        if receipts.count() == 0:
+            context['found'] = False
+            if dept_code:
+                context['error_message'] = f'ไม่พบใบสำคัญรับเงินหมายเลข {receipt_number} ของหน่วยงาน {dept_code}'
+            else:
+                context['error_message'] = f'ไม่พบใบสำคัญรับเงินหมายเลข {receipt_number}'
+        elif receipts.count() == 1:
+            # มีใบเดียว แสดงตามปกติ
+            context['receipt'] = receipts.first()
+            context['found'] = True
+            context['qr_url'] = request.build_absolute_uri()
+        else:
+            # มีหลายใบ (หลายหน่วยงาน) ให้เลือก
+            context['found'] = True
+            context['multiple_receipts'] = list(receipts)
+            context['receipt'] = None
+            context['qr_url'] = request.build_absolute_uri()
+
     except Exception as e:
         context['found'] = False
         context['error_message'] = f'เกิดข้อผิดพลาด: {str(e)}'
-    
+
     return render(request, 'accounts/receipt_check_public.html', context)
 
 

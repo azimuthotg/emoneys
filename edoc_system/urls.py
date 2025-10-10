@@ -17,6 +17,9 @@ urlpatterns = [
     path('summernote/', include('django_summernote.urls')),
 
     # QR Code Public Check URLs (สั้นๆ)
+    # URL ใหม่: รวมรหัสหน่วยงาน
+    path('check/<str:dept_code>/<str:date_part>/<str:number_part>/', receipt_check_public_view, name='receipt_check_public_direct_with_dept'),
+    # URL เก่า: backward compatibility
     path('check/<str:date_part>/<str:number_part>/', receipt_check_public_view, name='receipt_check_public_direct'),
 ]
 

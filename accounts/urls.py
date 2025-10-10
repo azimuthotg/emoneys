@@ -56,6 +56,9 @@ urlpatterns = [
     path('verify/<str:verification_hash>/', views.receipt_verify_view, name='receipt_verify'),
     
     # QR Code Verification URLs (ใหม่ - แบบง่าย)
+    # URL ใหม่: รวมรหัสหน่วยงาน (ไม่ซ้ำกัน)
+    path('check/<str:dept_code>/<str:date_part>/<str:number_part>/', views.receipt_check_public_view, name='receipt_check_public_with_dept'),
+    # URL เก่า: ยังรองรับ (backward compatibility)
     path('check/<str:date_part>/<str:number_part>/', views.receipt_check_public_view, name='receipt_check_public'),
     
     # QR Code Image Generation
