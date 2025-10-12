@@ -96,59 +96,66 @@
 
             <!-- Receipt Items -->
             <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                <div class="card-header bg-white border-0 py-3">
                     <h6 class="mb-0 fw-bold" style="color: #fd7e14;">
                         <i class="fas fa-list me-2"></i>
-                        รายการรับเงิน <small class="text-muted">(แก้ไขรายการที่ต้องการเปลี่ยน)</small>
+                        รายการรับเงิน <small class="text-muted">(แก้ไขรายการที่มีอยู่เท่านั้น)</small>
                     </h6>
-                    <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-sm btn-outline-success" onclick="addNewItem()">
-                            <i class="fas fa-plus me-1"></i>
-                            เพิ่มรายการใหม่
-                        </button>
-                    </div>
                 </div>
                 <div class="card-body">
+                    <div>
+                        <h6 class="fw-bold mb-2 small">รายการที่เพิ่มแล้ว</h6>
                     <div id="items-container">
                         {% for item in receipt.items.all %}
-                        <div class="item-row border rounded p-3 mb-3" data-item-id="{{ item.id }}">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">รายการ</label>
-                                    <input type="text" class="form-control item-description" name="form-{{ forloop.counter0 }}-description" 
-                                           value="{{ item.description }}" required>
-                                    <input type="hidden" name="form-{{ forloop.counter0 }}-id" value="{{ item.id }}">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label fw-bold">จำนวน</label>
-                                    <input type="number" class="form-control item-quantity" name="form-{{ forloop.counter0 }}-quantity" 
-                                           value="1" min="1" step="1" required>
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label fw-bold">ราคาต่อหน่วย</label>
-                                    <input type="number" class="form-control item-unit-price" name="form-{{ forloop.counter0 }}-unit_price" 
-                                           value="{{ item.amount }}" min="0" step="0.01" required>
-                                </div>
-                                <div class="col-md-1 d-flex align-items-end">
-                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItem(this)" title="ลบรายการ">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                        <div class="item-row border rounded p-2 mb-2" data-item-id="{{ forloop.counter0 }}">
+                            <!-- Display Mode -->
+                            <div class="item-display-mode">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <div class="item-description-display mb-1">{{ item.description|linebreaksbr }}</div>
+                                        <div class="text-muted">จำนวนเงิน: <span class="item-amount-display fw-bold">{{ item.amount|floatformat:2|intcomma }}</span> บาท</div>
+                                        <input type="hidden" class="item-description-hidden" name="form-{{ forloop.counter0 }}-description" value="{{ item.description }}">
+                                        <input type="hidden" class="item-amount-hidden" name="form-{{ forloop.counter0 }}-amount" value="{{ item.amount }}">
+                                        <input type="hidden" name="form-{{ forloop.counter0 }}-id" value="{{ item.id }}">
+                                    </div>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="editItem({{ forloop.counter0 }})" title="แก้ไข">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem({{ forloop.counter0 }})" title="ลบ">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="row mt-2">
-                                <div class="col-12">
-                                    <div class="text-end">
-                                        <strong>รวม: <span class="item-total">{{ item.amount|floatformat:2|intcomma }}</span> บาท</strong>
-                                    </div>
+
+                            <!-- Edit Mode (hidden by default) -->
+                            <div class="item-edit-mode" style="display: none;">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold small">รายการ</label>
+                                    <textarea class="form-control form-control-sm item-description-edit" rows="3"></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
+                                    <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01" value="{{ item.amount }}">
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-sm btn-success" onclick="saveItem({{ forloop.counter0 }})">
+                                        <i class="fas fa-save me-1"></i> บันทึก
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit({{ forloop.counter0 }})">
+                                        <i class="fas fa-times me-1"></i> ยกเลิก
+                                    </button>
                                 </div>
                             </div>
                         </div>
                         {% empty %}
                         <div class="text-center text-muted py-4">
                             <i class="fas fa-list-alt fa-2x mb-2"></i>
-                            <p>ไม่มีรายการสินค้า</p>
+                            <p>ไม่มีรายการ</p>
                         </div>
                         {% endfor %}
+                    </div>
                     </div>
                     
                     <!-- Total Management Form Fields -->
@@ -290,88 +297,150 @@
 
 {% block extra_js %}
 <script>
-// Item counter for new items
-let itemCounter = {{ receipt.items.all|length }};
+// Edit item - Switch to edit mode
+function editItem(itemId) {
+    const item = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (!item) return;
 
-// Add new item
-function addNewItem() {
-    const container = document.getElementById('items-container');
-    const newItemHtml = `
-        <div class="item-row border rounded p-3 mb-3" data-item-id="new-${itemCounter}">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label fw-bold">รายการ</label>
-                    <input type="text" class="form-control item-description" name="form-${itemCounter}-description" required>
-                    <input type="hidden" name="form-${itemCounter}-id" value="">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-bold">จำนวน</label>
-                    <input type="number" class="form-control item-quantity" name="form-${itemCounter}-quantity" 
-                           value="1" min="1" step="1" required>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-bold">ราคาต่อหน่วย</label>
-                    <input type="number" class="form-control item-unit-price" name="form-${itemCounter}-unit_price" 
-                           value="0" min="0" step="0.01" required>
-                </div>
-                <div class="col-md-1 d-flex align-items-end">
-                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItem(this)" title="ลบรายการ">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="row mt-2">
-                <div class="col-12">
-                    <div class="text-end">
-                        <strong>รวม: <span class="item-total">0.00</span> บาท</strong>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    container.insertAdjacentHTML('beforeend', newItemHtml);
-    itemCounter++;
-    updateFormManagement();
+    // Get original content from hidden input
+    const originalDesc = item.querySelector('.item-description-hidden').value;
+    const originalAmount = parseFloat(item.querySelector('.item-amount-hidden').value) || 0;
+
+    // Hide display mode, show edit mode
+    item.querySelector('.item-display-mode').style.display = 'none';
+    const editMode = item.querySelector('.item-edit-mode');
+    editMode.style.display = 'block';
+
+    // Set textarea value
+    const textarea = editMode.querySelector('.item-description-edit');
+    textarea.value = originalDesc.trim();
+    editMode.querySelector('.item-amount-edit').value = originalAmount;
+}
+
+// Cancel edit - Switch back to display mode
+function cancelEdit(itemId) {
+    const item = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (!item) return;
+
+    // Show display mode, hide edit mode
+    item.querySelector('.item-display-mode').style.display = 'block';
+    item.querySelector('.item-edit-mode').style.display = 'none';
+}
+
+// Save item - Update and switch back to display mode
+function saveItem(itemId) {
+    const item = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (!item) return;
+
+    // Get new values from edit mode
+    const textarea = item.querySelector('.item-description-edit');
+    const newDescriptionText = textarea.value.trim();
+    const newAmount = parseFloat(item.querySelector('.item-amount-edit').value) || 0;
+
+    // Validate
+    if (!newDescriptionText) {
+        alert('กรุณากรอกรายการ');
+        return;
+    }
+
+    if (newAmount <= 0) {
+        alert('กรุณากรอกจำนวนเงินที่ถูกต้อง');
+        return;
+    }
+
+    // Update hidden inputs (store plain text)
+    item.querySelector('.item-description-hidden').value = newDescriptionText;
+    item.querySelector('.item-amount-hidden').value = newAmount;
+
+    // Update display (convert line breaks to <br> for display)
+    const displayDescription = newDescriptionText.replace(/\n/g, '<br>');
+
+    item.querySelector('.item-description-display').innerHTML = displayDescription;
+    item.querySelector('.item-amount-display').textContent = newAmount.toLocaleString();
+
+    // Show display mode, hide edit mode
+    item.querySelector('.item-display-mode').style.display = 'block';
+    item.querySelector('.item-edit-mode').style.display = 'none';
+
+    // Recalculate total
     calculateTotal();
 }
 
 // Remove item
-function removeItem(button) {
-    if (confirm('ต้องการลบรายการนี้หรือไม่?')) {
-        button.closest('.item-row').remove();
-        updateFormManagement();
-        calculateTotal();
-    }
-}
+function removeItem(itemId) {
+    if (!confirm('ต้องการลบรายการนี้หรือไม่?')) return;
 
-// Update form management fields
-function updateFormManagement() {
-    const totalForms = document.querySelectorAll('.item-row').length;
-    const totalFormsField = document.querySelector('#id_form-TOTAL_FORMS');
-    if (totalFormsField) {
-        totalFormsField.value = totalForms;
+    const item = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (item) {
+        item.remove();
+        calculateTotal();
+
+        // Show empty message if no items left
+        const container = document.getElementById('items-container');
+        if (container.querySelectorAll('.item-row').length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-list-alt fa-2x mb-2"></i>
+                    <p>ไม่มีรายการ</p>
+                </div>
+            `;
+        }
     }
 }
 
 // Calculate total amount
 function calculateTotal() {
     let total = 0;
+    let itemCount = 0;
 
-    document.querySelectorAll('.item-row').forEach(row => {
-        const quantity = parseFloat(row.querySelector('.item-quantity').value) || 0;
-        const unitPrice = parseFloat(row.querySelector('.item-unit-price').value) || 0;
-        const itemTotal = quantity * unitPrice;
-
-        row.querySelector('.item-total').textContent = itemTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        total += itemTotal;
+    // Use the hidden input fields to calculate total
+    document.querySelectorAll('.item-amount-hidden').forEach(input => {
+        const value = parseFloat(input.value) || 0;
+        total += value;
+        if (value > 0) itemCount++;
     });
 
-    document.getElementById('total_amount_display').value = total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    document.getElementById('total_amount').value = total;
+    // Format number with commas for Thai display
+    const formattedTotal = formatNumber(total);
 
-    // Convert to Thai text
-    document.getElementById('total_amount_text').value = convertToThaiText(total);
+    const totalField = document.getElementById('total_amount');
+    const totalDisplayField = document.getElementById('total_amount_display');
+    const totalTextField = document.getElementById('total_amount_text');
+
+    if (totalField) {
+        totalField.value = total;
+    }
+
+    if (totalDisplayField) {
+        totalDisplayField.value = formattedTotal;
+    }
+
+    if (totalTextField) {
+        totalTextField.value = convertToThaiText(total);
+    }
+}
+
+// Format number with commas
+function formatNumber(num) {
+    if (num === null || num === undefined || num === '') return '0.00';
+
+    const number = Number(num);
+    if (isNaN(number)) return '0.00';
+
+    const str = number.toFixed(2);
+    const parts = str.split('.');
+    const integerPart = parts[0];
+    const decimalPart = parts[1];
+
+    let formatted = '';
+    for (let i = integerPart.length - 1, count = 0; i >= 0; i--, count++) {
+        if (count > 0 && count % 3 === 0) {
+            formatted = ',' + formatted;
+        }
+        formatted = integerPart[i] + formatted;
+    }
+
+    return formatted + '.' + decimalPart;
 }
 
 // Number to Thai text conversion (full version)
@@ -428,14 +497,7 @@ function convertToThaiText(number) {
 document.addEventListener('DOMContentLoaded', function() {
     // Calculate initial total
     calculateTotal();
-    
-    // Add event listeners for quantity and price changes
-    document.addEventListener('input', function(e) {
-        if (e.target.classList.contains('item-quantity') || e.target.classList.contains('item-unit-price')) {
-            calculateTotal();
-        }
-    });
-    
+
     // Form validation
     document.getElementById('editRequestForm').addEventListener('submit', function(e) {
         const reason = document.getElementById('reason').value.trim();
@@ -444,12 +506,7 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('กรุณาระบุเหตุผลในการขอแก้ไข');
             return false;
         }
-        
-        // Update form management before submit
-        updateFormManagement();
     });
-    
-    // Bootstrap components are handled by base template
 });
 </script>
 {% endblock %}

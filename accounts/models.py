@@ -840,20 +840,48 @@ class ReceiptTemplate(models.Model):
     """
     รายการสำเร็จรูปสำหรับใบสำคัญรับเงิน
     เช่น ค่าอาหารว่าง, ค่าประกันของเสียหาย
+
+    รองรับ 3 รูปแบบการกรอก:
+    1. simple: กรอกเฉพาะจำนวนเงิน (เช่น ค่าประกันของเสียหาย max 1000 บาท)
+    2. textarea: กรอกรายละเอียด + จำนวนเงิน (เช่น รับเงินอื่นๆ)
+    3. food_calculation: กรอกหลายรายการย่อย พร้อมการคำนวณ (เช่น ค่าอาหาร)
     """
-    
+
+    INPUT_TYPE_CHOICES = [
+        ('simple', 'ช่องเดียว - จำนวนเงิน'),
+        ('textarea', 'ช่องเดียว - รายละเอียด + เงิน'),
+        ('food_calculation', 'หลายรายการย่อย - คำนวณอัตโนมัติ'),
+    ]
+
     name = models.CharField(
         max_length=255,
         verbose_name="ชื่อรายการ",
         help_text="เช่น ค่าอาหารว่างและเครื่องดื่ม"
     )
+
+    # ฟิลด์ใหม่: กำหนดรูปแบบการกรอก
+    input_type = models.CharField(
+        max_length=20,
+        choices=INPUT_TYPE_CHOICES,
+        default='simple',
+        verbose_name="รูปแบบการกรอกข้อมูล"
+    )
+
+    # ฟิลด์ใหม่: ข้อมูลรายการย่อย (สำหรับ food_calculation)
+    sub_items = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="รายการย่อย (JSON)",
+        help_text='ตัวอย่าง: {"items": [{"name": "ค่าอาหารเช้า", "fields": [...]}]}'
+    )
+
     max_amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
         verbose_name="จำนวนเงินสูงสุด",
-        help_text="เช่น 499 บาท (ถ้าไม่จำกัดให้เว้นว่าง)"
+        help_text="เช่น 2000 บาท สำหรับค่าอาหาร หรือ 1000 บาท สำหรับค่าประกัน"
     )
     fixed_amount = models.DecimalField(
         max_digits=10,

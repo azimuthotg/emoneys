@@ -1,5 +1,6 @@
 {% extends 'base_sidebar.html' %}
 {% load humanize %}
+{% load number_filters %}
 {% block title %}{{ title }} - ระบบออกใบสำคัญรับเงิน{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
@@ -8,7 +9,7 @@
 <!-- Toast Container -->
 <div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 9999; right: 0;"></div>
 <!-- Header Card -->
-<div class="row mb-4">
+<div class="row mb-3">
     <div class="col-12">
         <div class="card" style="background: linear-gradient(135deg,
             {% if pending_edit_request %}
@@ -21,45 +22,45 @@
                 #6c757d 0%, #5a6268 100%
             {% endif %}
         );">
-            <div class="card-body text-white p-4">
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <h5 class="mb-2 fw-bold">
+            <div class="card-body text-white py-2 px-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="mb-0 fw-bold">
                             <i class="fas fa-file-invoice-dollar me-2"></i>
                             {% if receipt.receipt_number %}
                                 {{ receipt.receipt_number }}
                             {% else %}
-                                <span class="text-muted">(ร่าง - ยังไม่มีเลข)</span>
+                                <span class="opacity-75">(ร่าง - ยังไม่มีเลข)</span>
                             {% endif %}
-                        </h5>
-                        <p class="mb-0 opacity-90">
-                            <i class="fas fa-building me-2"></i>
+                        </h6>
+                        <small class="opacity-90">
+                            <i class="fas fa-building me-1"></i>
                             {{ receipt.department.name }} ({{ receipt.department.code }})
-                            <span class="ms-3">
-                                <i class="fas fa-calendar me-2"></i>
+                            <span class="ms-2">
+                                <i class="fas fa-calendar me-1"></i>
                                 {% if receipt.receipt_date %}
-                                    {{ receipt.receipt_date|date:"j F Y" }}
+                                    {{ receipt.receipt_date|thai_date:"full" }}
                                 {% else %}
                                     xx/xx/xxxx
                                 {% endif %}
                             </span>
-                        </p>
+                        </small>
                     </div>
-                    <div class="col-md-4 text-md-end">
-                        <div class="mb-2">
+                    <div class="text-end">
+                        <div class="mb-1">
                             {% if pending_edit_request %}
-                                <span class="badge bg-warning text-dark">มีคำขอแก้ไขรออนุมัติ</span>
+                                <span class="badge bg-warning text-dark small">มีคำขอแก้ไขรออนุมัติ</span>
                                 <br>
-                                <span class="badge bg-success mt-1">เสร็จสิ้น</span>
+                                <span class="badge bg-success mt-1 small">เสร็จสิ้น</span>
                             {% elif receipt.status == 'completed' %}
-                                <span class="badge bg-success">เสร็จสิ้น</span>
+                                <span class="badge bg-success small">เสร็จสิ้น</span>
                             {% elif receipt.status == 'draft' %}
-                                <span class="badge bg-warning text-dark">ร่าง</span>
+                                <span class="badge bg-warning text-dark small">ร่าง</span>
                             {% else %}
-                                <span class="badge bg-danger">ยกเลิก</span>
+                                <span class="badge bg-danger small">ยกเลิก</span>
                             {% endif %}
                         </div>
-                        <i class="fas fa-receipt" style="font-size: 3rem; opacity: 0.3;"></i>
+                        <i class="fas fa-receipt" style="font-size: 2rem; opacity: 0.3;"></i>
                     </div>
                 </div>
             </div>
@@ -79,7 +80,7 @@
                 <div class="flex-grow-1 ms-3">
                     <strong><i class="fas fa-ban me-1"></i>คำขอแก้ไขถูกปฏิเสธ</strong>
                     <div class="small mt-1">
-                        <strong>คำขอเมื่อ:</strong> {{ rejected_edit_request.created_at|date:"j M Y H:i" }} |
+                        <strong>คำขอเมื่อ:</strong> {{ rejected_edit_request.created_at|thai_date:"full" }} {{ rejected_edit_request.created_at|date:"H:i" }} |
                         <strong>ผู้ปฏิเสธ:</strong> {{ rejected_edit_request.approved_by.get_display_name }}
                         {% if rejected_edit_request.approval_notes %}
                         | <strong>เหตุผล:</strong> {{ rejected_edit_request.approval_notes }}
@@ -106,7 +107,7 @@
                 <div class="flex-grow-1 ms-3">
                     <strong><i class="fas fa-hourglass-half me-1"></i>คำขอแก้ไขรออนุมัติ</strong>
                     <div class="small mt-1">
-                        <strong>ส่งคำขอเมื่อ:</strong> {{ pending_edit_request.created_at|date:"j M Y H:i" }} |
+                        <strong>ส่งคำขอเมื่อ:</strong> {{ pending_edit_request.created_at|thai_date:"full" }} {{ pending_edit_request.created_at|date:"H:i" }} |
                         <strong>ผู้ยื่นคำขอ:</strong> {{ pending_edit_request.requested_by.get_display_name }} |
                         <strong>เหตุผล:</strong> {{ pending_edit_request.reason }}
                     </div>
@@ -136,7 +137,7 @@
                         <i class="fas fa-ban me-2"></i>คำขอยกเลิกถูกปฏิเสธ
                     </h6>
                     <p class="mb-2">
-                        <strong>คำขอเมื่อ:</strong> {{ rejected_cancel_request.created_at|date:"j F Y H:i" }}<br>
+                        <strong>คำขอเมื่อ:</strong> {{ rejected_cancel_request.created_at|thai_date:"full" }} {{ rejected_cancel_request.created_at|date:"H:i" }}<br>
                         <strong>ผู้ปฏิเสธ:</strong> {{ rejected_cancel_request.approved_by.get_display_name }}<br>
                         {% if rejected_cancel_request.approval_notes %}
                         <strong>เหตุผลการปฏิเสธ:</strong> {{ rejected_cancel_request.approval_notes }}
@@ -164,7 +165,7 @@
                             <i class="fas fa-file-times me-2"></i>คำขอยกเลิกรออนุมัติ
                         </h6>
                         <small class="mb-0">
-                            <strong>ส่งคำขอเมื่อ:</strong> {{ pending_cancel_request.created_at|date:"j M. Y H:i" }}
+                            <strong>ส่งคำขอเมื่อ:</strong> {{ pending_cancel_request.created_at|thai_date:"full" }} {{ pending_cancel_request.created_at|date:"H:i" }}
                             | <strong>ผู้ยื่นคำขอ:</strong> {{ pending_cancel_request.requested_by.get_display_name }}
                             | <strong>เหตุผล:</strong> {{ pending_cancel_request.cancel_reason|truncatewords:10 }}
                         </small>
@@ -251,28 +252,28 @@
 </div>
 
 <!-- Actions -->
-<div class="row mb-4">
+<div class="row mb-3">
     <div class="col-12">
         <div class="card border-0 shadow-sm">
-            <div class="card-body py-3">
+            <div class="card-body py-2">
                 <div class="d-flex gap-2 flex-wrap">
                     <!-- PDF Actions -->
-                    <button class="btn btn-primary" onclick="printReceipt()">
+                    <button class="btn btn-primary btn-sm" onclick="printReceipt()">
                         <i class="fas fa-print me-1"></i>
                         ดู PDF
                     </button>
-                    <button class="btn btn-info" onclick="downloadPDF()">
+                    <button class="btn btn-info btn-sm" onclick="downloadPDF()">
                         <i class="fas fa-download me-1"></i>
                         ดาวน์โหลด PDF
                     </button>
 
                     <!-- Draft Actions -->
                     {% if receipt.status == 'draft' %}
-                        <a href="{% url 'receipt_edit' receipt.id %}" class="btn btn-warning">
+                        <a href="{% url 'receipt_edit' receipt.id %}" class="btn btn-warning btn-sm">
                             <i class="fas fa-edit me-1"></i>
                             แก้ไขร่าง
                         </a>
-                        <button type="button" class="btn btn-success btn-lg px-4" onclick="completeDraft()">
+                        <button type="button" class="btn btn-success px-4" onclick="completeDraft()">
                             <i class="fas fa-check-circle me-1"></i>
                             บันทึกใบสำคัญ
                         </button>
@@ -282,7 +283,7 @@
                     {% if receipt.status == 'completed' %}
                         {% if user_can_request_edit %}
                             {% if not receipt.has_pending_edit_request %}
-                                <a href="{% url 'edit_request_create' receipt.id %}" class="btn btn-warning">
+                                <a href="{% url 'edit_request_create' receipt.id %}" class="btn btn-warning btn-sm">
                                     <i class="fas fa-edit me-1"></i>
                                     ขออนุมัติแก้ไข
                                 </a>
@@ -293,19 +294,19 @@
                     <!-- Cancel Buttons -->
                     {% if receipt.status != 'cancelled' %}
                         {% if can_be_cancelled_directly %}
-                            <button type="button" class="btn btn-danger" onclick="showCancelModal()">
+                            <button type="button" class="btn btn-danger btn-sm" onclick="showCancelModal()">
                                 <i class="fas fa-ban me-1"></i>
                                 ยกเลิก
                             </button>
                         {% elif can_be_cancelled_by %}
-                            <a href="{% url 'receipt_cancel_request' receipt.id %}" class="btn btn-outline-danger">
+                            <a href="{% url 'receipt_cancel_request' receipt.id %}" class="btn btn-outline-danger btn-sm">
                                 <i class="fas fa-exclamation-triangle me-1"></i>
                                 ขออนุมัติยกเลิก
                             </a>
                         {% endif %}
                     {% endif %}
 
-                    <a href="{% url 'receipt_list' %}" class="btn btn-outline-secondary">
+                    <a href="{% url 'receipt_list' %}" class="btn btn-outline-secondary btn-sm">
                         <i class="fas fa-arrow-left me-1"></i>
                         กลับ
                     </a>
@@ -319,43 +320,43 @@
 <div class="row">
     <div class="col-lg-8">
         <!-- Recipient Information -->
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 py-3">
-                <h6 class="mb-0 fw-bold text-success">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white border-0 py-2">
+                <h6 class="mb-0 fw-bold text-success" style="font-size: 0.95rem;">
                     <i class="fas fa-user me-2"></i>
                     ข้อมูลผู้รับเงิน
                 </h6>
             </div>
-            <div class="card-body">
-                <div class="row g-3">
+            <div class="card-body py-3">
+                <div class="row g-2">
                     <div class="col-md-6">
-                        <label class="form-label fw-bold text-muted">ชื่อผู้รับเงิน</label>
-                        <div class="border rounded p-2 bg-light">{{ receipt.recipient_name }}</div>
+                        <label class="form-label fw-bold text-muted mb-1 small">ชื่อผู้รับเงิน</label>
+                        <div class="border rounded p-2 bg-light small">{{ receipt.recipient_name }}</div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-bold text-muted">เลขบัตรประชาชน</label>
-                        <div class="border rounded p-2 bg-light font-monospace">{{ receipt.recipient_id_card }}</div>
+                        <label class="form-label fw-bold text-muted mb-1 small">เลขบัตรประชาชน</label>
+                        <div class="border rounded p-2 bg-light font-monospace small">{{ receipt.recipient_id_card }}</div>
                     </div>
                     <div class="col-12">
-                        <label class="form-label fw-bold text-muted">ที่อยู่</label>
-                        <div class="border rounded p-2 bg-light">{{ receipt.recipient_address }}</div>
+                        <label class="form-label fw-bold text-muted mb-1 small">ที่อยู่</label>
+                        <div class="border rounded p-2 bg-light small">{{ receipt.recipient_address }}</div>
                     </div>
                     {% if receipt.recipient_postal_code %}
                     <div class="col-md-6">
-                        <label class="form-label fw-bold text-muted">รหัสไปรษณีย์</label>
-                        <div class="border rounded p-2 bg-light">{{ receipt.recipient_postal_code }}</div>
+                        <label class="form-label fw-bold text-muted mb-1 small">รหัสไปรษณีย์</label>
+                        <div class="border rounded p-2 bg-light small">{{ receipt.recipient_postal_code }}</div>
                     </div>
                     {% endif %}
                     <div class="col-md-6">
-                        <label class="form-label fw-bold text-muted">ประเภทการจ่าย</label>
+                        <label class="form-label fw-bold text-muted mb-1 small">ประเภทการจ่าย</label>
                         <div class="border rounded p-2 bg-light">
                             {% if receipt.is_loan %}
-                                <span class="badge bg-warning text-dark">
+                                <span class="badge bg-warning text-dark small">
                                     <i class="fas fa-handshake me-1"></i>
                                     ยืมเงิน
                                 </span>
                             {% else %}
-                                <span class="badge bg-primary">
+                                <span class="badge bg-primary small">
                                     <i class="fas fa-hand-holding-usd me-1"></i>
                                     จ่ายปกติ
                                 </span>
@@ -367,9 +368,9 @@
         </div>
 
         <!-- Receipt Items -->
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 py-3">
-                <h6 class="mb-0 fw-bold text-success">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white border-0 py-2">
+                <h6 class="mb-0 fw-bold text-success" style="font-size: 0.95rem;">
                     <i class="fas fa-list me-2"></i>
                     รายการรับเงิน
                 </h6>
@@ -389,7 +390,7 @@
                             <tr>
                                 <td class="text-center">{{ item.order }}</td>
                                 <td>
-                                    {{ item.description }}
+                                    {{ item.description|safe }}
                                     {% if item.template %}
                                         <span class="badge bg-secondary ms-2">รายการสำเร็จรูป</span>
                                     {% endif %}
@@ -419,14 +420,14 @@
     
     <div class="col-lg-4">
         <!-- Receipt Information -->
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0 py-3">
-                <h6 class="mb-0 fw-bold text-success">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white border-0 py-2">
+                <h6 class="mb-0 fw-bold text-success" style="font-size: 0.95rem;">
                     <i class="fas fa-info-circle me-2"></i>
                     ข้อมูลใบสำคัญ
                 </h6>
             </div>
-            <div class="card-body">
+            <div class="card-body py-3">
                 <div class="row g-2 text-start">
                     <div class="col-5">
                         <small class="text-muted">เลขที่เอกสาร:</small>
@@ -441,6 +442,18 @@
                         </small>
                     </div>
                     <div class="col-5">
+                        <small class="text-muted">วันที่ออกใบสำคัญ:</small>
+                    </div>
+                    <div class="col-7">
+                        <small class="fw-bold">
+                            {% if receipt.receipt_date %}
+                                {{ receipt.receipt_date|thai_date:"full" }}
+                            {% else %}
+                                <span class="text-muted">(ยังไม่ระบุ)</span>
+                            {% endif %}
+                        </small>
+                    </div>
+                    <div class="col-5">
                         <small class="text-muted">รหัสเล่ม:</small>
                     </div>
                     <div class="col-7">
@@ -450,7 +463,7 @@
                         <small class="text-muted">วันที่สร้าง:</small>
                     </div>
                     <div class="col-7">
-                        <small>{{ receipt.created_at|date:"j M Y H:i" }}</small>
+                        <small>{{ receipt.created_at|thai_date:"full" }} {{ receipt.created_at|date:"H:i" }}</small>
                     </div>
                     <div class="col-5">
                         <small class="text-muted">ผู้สร้าง:</small>
@@ -463,11 +476,11 @@
                     </div>
                     <div class="col-7">
                         {% if receipt.status == 'completed' %}
-                            <small><span class="badge bg-success">เสร็จสิ้น</span></small>
+                            <small><span class="badge bg-success small">เสร็จสิ้น</span></small>
                         {% elif receipt.status == 'draft' %}
-                            <small><span class="badge bg-warning text-dark">ร่าง</span></small>
+                            <small><span class="badge bg-warning text-dark small">ร่าง</span></small>
                         {% else %}
-                            <small><span class="badge bg-danger">ยกเลิก</span></small>
+                            <small><span class="badge bg-danger small">ยกเลิก</span></small>
                         {% endif %}
                     </div>
                 </div>
@@ -535,7 +548,7 @@
                                 <h6 class="mb-0 fw-bold">{{ log.get_action_display }}</h6>
                                 <small class="text-muted">
                                     <i class="fas fa-clock me-1"></i>
-                                    {{ log.created_at|date:"j M Y H:i" }}
+                                    {{ log.created_at|thai_date:"full" }} {{ log.created_at|date:"H:i" }}
                                 </small>
                             </div>
 
@@ -549,7 +562,7 @@
                             {% if log.notes %}
                             <p class="mb-1 small">
                                 <i class="fas fa-comment-dots me-1"></i>
-                                <span class="log-notes-text">{{ log.notes }}</span>
+                                <span class="log-notes-text">{{ log.notes|striptags }}</span>
                             </p>
                             {% endif %}
 

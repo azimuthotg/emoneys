@@ -1668,13 +1668,38 @@ def receipt_save_ajax(request):
         
         # สร้างใบสำคัญรับเงิน
         from datetime import datetime
+        from utils.fiscal_year import get_current_fiscal_year, get_fiscal_year_dates
 
         status = data.get('status', 'draft')
 
-        # ตั้งค่า receipt_date ตามสถานะ
+        # ตั้งค่าและตรวจสอบ receipt_date
         receipt_date = None
-        if status == 'completed':
-            # ถ้าบันทึกเป็นเสร็จสิ้น ให้ใช้วันที่ปัจจุบัน
+        if data.get('receipt_date'):
+            try:
+                # Parse วันที่จาก string (YYYY-MM-DD)
+                receipt_date = datetime.strptime(data.get('receipt_date'), '%Y-%m-%d').date()
+
+                # ตรวจสอบวันที่
+                today = datetime.now().date()
+
+                # ห้ามวันที่อนาคต
+                if receipt_date > today:
+                    return JsonResponse({'success': False, 'message': 'ไม่สามารถกำหนดวันที่ล่วงหน้าได้'}, status=400)
+
+                # ตรวจสอบว่าไม่เกินต้นปีงบประมาณ
+                current_fy = get_current_fiscal_year()
+                fiscal_start, fiscal_end = get_fiscal_year_dates(current_fy)
+
+                if receipt_date < fiscal_start:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'วันที่ย้อนหลังเกินกำหนด (ย้อนหลังได้ถึง {fiscal_start.strftime("%d/%m/%Y")} เท่านั้น)'
+                    }, status=400)
+
+            except ValueError:
+                return JsonResponse({'success': False, 'message': 'รูปแบบวันที่ไม่ถูกต้อง'}, status=400)
+        elif status == 'completed':
+            # ถ้าบันทึกเป็นเสร็จสิ้นแต่ไม่มีวันที่ ให้ใช้วันที่ปัจจุบัน
             receipt_date = datetime.now().date()
 
         receipt = Receipt.objects.create(
@@ -4445,13 +4470,50 @@ def receipt_update_ajax(request, receipt_id):
         except (ValueError, TypeError):
             return JsonResponse({'success': False, 'message': 'จำนวนเงินไม่ถูกต้อง'}, status=400)
         
+        # ตรวจสอบและอัปเดต receipt_date
+        from datetime import datetime
+        from utils.fiscal_year import get_current_fiscal_year, get_fiscal_year_dates
+
+        if data.get('receipt_date'):
+            try:
+                # Parse วันที่จาก string (YYYY-MM-DD)
+                new_receipt_date = datetime.strptime(data.get('receipt_date'), '%Y-%m-%d').date()
+
+                # ตรวจสอบวันที่
+                today = datetime.now().date()
+
+                # ห้ามวันที่อนาคต
+                if new_receipt_date > today:
+                    return JsonResponse({'success': False, 'message': 'ไม่สามารถกำหนดวันที่ล่วงหน้าได้'}, status=400)
+
+                # ตรวจสอบว่าไม่เกินต้นปีงบประมาณ
+                current_fy = get_current_fiscal_year()
+                fiscal_start, fiscal_end = get_fiscal_year_dates(current_fy)
+
+                if new_receipt_date < fiscal_start:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'วันที่ย้อนหลังเกินกำหนด (ย้อนหลังได้ถึง {fiscal_start.strftime("%d/%m/%Y")} เท่านั้น)'
+                    }, status=400)
+
+                receipt.receipt_date = new_receipt_date
+
+            except ValueError:
+                return JsonResponse({'success': False, 'message': 'รูปแบบวันที่ไม่ถูกต้อง'}, status=400)
+
+        new_status = data.get('status', 'draft')
+
+        # ถ้าเปลี่ยนจาก draft เป็น completed และยังไม่มี receipt_date ให้ตั้งวันที่ปัจจุบัน
+        if new_status == 'completed' and not receipt.receipt_date:
+            receipt.receipt_date = datetime.now().date()
+
         # อัปเดตข้อมูลใบสำคัญ
         receipt.recipient_name = data.get('recipient_name', '')
         receipt.recipient_address = data.get('recipient_address', '')
         receipt.recipient_postal_code = data.get('recipient_postal_code', '')
         receipt.recipient_id_card = data.get('recipient_id_card', '')
         receipt.is_loan = data.get('is_loan', False)
-        receipt.status = data.get('status', 'draft')
+        receipt.status = new_status
         
         # ลบรายการเก่าทั้งหมด
         receipt.items.all().delete()
@@ -4487,8 +4549,9 @@ def receipt_update_ajax(request, receipt_id):
             except (ValueError, TypeError) as e:
                 return JsonResponse({'success': False, 'message': f'รายการที่ {idx} มีข้อผิดพลาด: {str(e)}'}, status=400)
         
-        # อัปเดต total_amount และบันทึก
+        # อัปเดต total_amount และ force regenerate total_amount_text
         receipt.total_amount = calculated_total
+        receipt.total_amount_text = Receipt.convert_amount_to_thai_text(calculated_total)
         receipt.save()  # จะ auto-generate ทั้ง hash และ qr code ใหม่
 
         # บันทึก Change Log
@@ -4537,11 +4600,16 @@ def receipt_complete_draft_ajax(request, receipt_id):
     if receipt.status != 'draft':
         return JsonResponse({'success': False, 'message': 'สามารถบันทึกได้เฉพาะใบสำคัญสถานะ "ร่าง" เท่านั้น'}, status=400)
 
-    # เปลี่ยนสถานะและอัปเดตวันที่ในใบสำคัญเป็นวันที่บันทึก
+    # เปลี่ยนสถานะเป็น completed
     from datetime import datetime
     old_status = receipt.status
     receipt.status = 'completed'
-    receipt.receipt_date = datetime.now().date()  # ใช้วันที่บันทึกเป็นวันที่ในใบสำคัญ
+
+    # ตั้งค่า receipt_date เฉพาะกรณีที่ยังไม่มีการกำหนดวันที่ (เผื่อกรณี legacy data)
+    # ไม่แทนที่วันที่ที่ผู้ใช้กำหนดไว้แล้ว
+    if not receipt.receipt_date:
+        receipt.receipt_date = datetime.now().date()
+
     receipt.save()
 
     # บันทึก Change Log

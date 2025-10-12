@@ -23,6 +23,7 @@ from django.conf import settings
 from django.http import HttpResponse
 from bs4 import BeautifulSoup
 import re
+from accounts.utils import convert_to_thai_date
 
 
 class DottedUnderline(Flowable):
@@ -63,7 +64,7 @@ class ReceiptPDFGenerator:
         self.page_width, self.page_height = A4
         self.margin_left = 2 * cm
         self.margin_right = 2 * cm
-        self.margin_top = 1.5 * cm # ลดเหลือ 1.5 cm หรือ 1 cm
+        self.margin_top = 0.5 * cm # ลดลงจาก 1.5 cm เป็น 0.5 cm (ลดลง 1 cm)
         self.margin_bottom = 2 * cm
         
         # ลงทะเบียนฟอนต์ไทย (ถ้ามี)
@@ -216,12 +217,12 @@ class ReceiptPDFGenerator:
         
         # สร้างเนื้อหา
         story = []
-        
-        # หัวเอกสาร
-        story.extend(self._create_header())
+
+        # หัวเอกสาร (รวมเล่มที่และเลขที่แล้ว)
+        story.extend(self._create_header(receipt))
         story.append(Spacer(1, 0.3 * cm))
-        
-        # ข้อมูลใบสำคัญ
+
+        # ข้อมูลใบสำคัญ (ชื่อหน่วยงาน + ที่อยู่ + วันที่)
         story.extend(self._create_receipt_info(receipt))
         story.append(Spacer(1, 0.3 * cm))
         
@@ -244,42 +245,67 @@ class ReceiptPDFGenerator:
         response.write(pdf)
         return response
     
-    def _create_header(self):
-        """สร้างหัวเอกสาร"""
+    def _create_header(self, receipt):
+        """สร้างหัวเอกสาร พร้อมเล่มที่และเลขที่ในบรรทัดเดียวกับ logo"""
         styles = getSampleStyleSheet()
-        
-        # สร้าง style สำหรับหัวเอกสาร
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontName=self.thai_font_bold,
-            fontSize=18,
-            textColor=colors.black,
-            alignment=TA_CENTER,
-            spaceAfter=0.3 * cm
-        )
-        
-        subtitle_style = ParagraphStyle(
-            'CustomSubtitle',
+
+        # สร้าง style สำหรับ เล่มที่/เลขที่
+        info_style = ParagraphStyle(
+            'InfoStyle',
             parent=styles['Normal'],
             fontName=self.thai_font,
-            fontSize=14,
+            fontSize=16,
             textColor=colors.black,
-            alignment=TA_CENTER,
-            spaceAfter=0.2 * cm
+            alignment=TA_LEFT
         )
-        
+
+        right_info_style = ParagraphStyle(
+            'RightInfoStyle',
+            parent=styles['Normal'],
+            fontName=self.thai_font,
+            fontSize=16,
+            textColor=colors.black,
+            alignment=TA_RIGHT
+        )
+
         content = []
-        
-        # Logo และหัวเอกสาร
+
+        # เตรียมข้อมูลเล่มที่และเลขที่
+        receipt_number_text = receipt.receipt_number if receipt.receipt_number else "xxxxx/xxxx"
+
+        # Logo และหัวเอกสาร (โลโก้กึ่งกลางพร้อมเล่มที่และเลขที่ข้างๆ)
         try:
             # ลองหา logo
             logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png')
             if not os.path.exists(logo_path):
                 logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.jpg')
-            
+
             if os.path.exists(logo_path):
-                # สร้าง style สำหรับหัวเอกสารพร้อม logo
+                # โลโก้กึ่งกลาง
+                logo_img = Image(logo_path, width=2.5*cm, height=2.5*cm)
+
+                # สร้างตารางแบบ 3 คอลัมน์: เล่มที่ | Logo | เลขที่
+                header_data = [
+                    [
+                        Paragraph(f"เล่มที่: {receipt.volume_code}", info_style),
+                        logo_img,
+                        Paragraph(f"เลขที่: {receipt_number_text}", right_info_style)
+                    ]
+                ]
+
+                header_table = Table(header_data, colWidths=[6*cm, 5*cm, 6*cm])
+                header_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (0, 0), 'LEFT'),      # เล่มที่ ชิดซ้าย
+                    ('ALIGN', (1, 0), (1, 0), 'CENTER'),    # Logo กึ่งกลาง
+                    ('ALIGN', (2, 0), (2, 0), 'RIGHT'),     # เลขที่ ชิดขวา
+                    ('VALIGN', (0, 0), (-1, 0), 'TOP'),     # ทั้งหมดชิดบน
+                    ('TOPPADDING', (0, 0), (-1, 0), 0),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 0),
+                ]))
+
+                content.append(header_table)
+
+                # ใบสำคัญรับเงินอยู่ใต้โลโก้
                 receipt_title_style = ParagraphStyle(
                     'ReceiptTitle',
                     parent=styles['Heading1'],
@@ -287,36 +313,8 @@ class ReceiptPDFGenerator:
                     fontSize=20,
                     textColor=colors.black,
                     alignment=TA_CENTER,
-                    spaceAfter=0.2 * cm
                 )
-                
-                # สร้างตารางที่มี logo และหัวเอกสาร
-                logo_img = Image(logo_path, width=2*cm, height=2*cm)
-                
-                header_data = [[
-                    logo_img,
-                    Paragraph("ใบสำคัญรับเงิน", receipt_title_style),
-                    ""  # คอลัมน์ว่างทางขวา
-                ]]
-                
-                header_table = Table(header_data, colWidths=[3*cm, 11*cm, 3*cm])
-                header_table.setStyle(TableStyle([
-                    # ('ALIGN', (0, 0), (0, 0), 'CENTER'),
-                    # ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-                    # ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    # ('GRID', (0, 0), (-1, -1), 1, colors.black),  # ← เพิ่มบรรทัดนี้
-
-                    ('ALIGN', (0, 0), (0, 0), 'LEFT'),      # โลโก้ชิดซ้าย
-                    ('ALIGN', (1, 0), (1, 0), 'CENTER'),    # หัวเรื่องกึ่งกลาง
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('LEFTPADDING',  (0, 0), (-1, -1), 6),
-                    ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-                    ('TOPPADDING',   (0, 0), (-1, -1), 4),
-                    ('BOTTOMPADDING',(0, 0), (-1, -1), 4),
-                    # ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                ]))
-                
-                content.append(header_table)
+                content.append(Paragraph("ใบสำคัญรับเงิน", receipt_title_style))
             else:
                 # ไม่มี logo ให้ใช้แบบเดิม
                 receipt_title_style = ParagraphStyle(
@@ -341,15 +339,15 @@ class ReceiptPDFGenerator:
                 spaceAfter=0.3 * cm
             )
             content.append(Paragraph("ใบสำคัญรับเงิน", receipt_title_style))
-        
+
         return content
     
     def _create_receipt_info(self, receipt):
-        """สร้างข้อมูลใบสำคัญ (ตามรูปแบบ Capture.JPG)"""
+        """สร้างข้อมูลใบสำคัญ - ชื่อหน่วยงาน + ที่อยู่ + วันที่ (ชิดซ้ายตรงเส้นกั้นกลางหน้ากระดาษ)"""
         styles = getSampleStyleSheet()
-        
-        info_style = ParagraphStyle(
-            'InfoStyle',
+
+        left_style = ParagraphStyle(
+            'LeftStyle',
             parent=styles['Normal'],
             fontName=self.thai_font,
             fontSize=16,
@@ -357,65 +355,41 @@ class ReceiptPDFGenerator:
             textColor=colors.black,
             alignment=TA_LEFT
         )
-        
-        right_style = ParagraphStyle(
-            'RightStyle',
-            parent=styles['Normal'],
-            fontName=self.thai_font,
-            fontSize=16,
-            leading=16,
-            textColor=colors.black,
-            alignment=TA_RIGHT
-        )
-        
+
         content = []
 
         # แปลงวันที่เป็นพุทธศักราช ค.ศ. 2568 (ถ้าร่างจะแสดง xx/xx/xxxx)
-        thai_date = self._convert_to_thai_date(receipt.receipt_date) if receipt.receipt_date else "xx/xx/xxxx"
+        thai_date = convert_to_thai_date(receipt.receipt_date, 'full') if receipt.receipt_date else "xx/xx/xxxx"
 
-        # สร้างตารางตามรูปแบบ Capture.JPG (สลับข้าง)
-        # จัดการกรณีไม่มีเลขที่ (draft) - ใช้ format เดียวกับเลขที่จริงเพื่อให้ layout ไม่เปลี่ยน
-        receipt_number_text = receipt.receipt_number if receipt.receipt_number else "xxxxx/xxxx"
-
+        # สร้างตาราง 2 คอลัมน์ - คอลัมน์ซ้ายว่าง, คอลัมน์ขวาชิดซ้าย (ตามเส้นแดงในรูป)
         data = [
-        # บรรทัด 1: รหัสเล่ม (ซ้าย) และ เลขที่ (ขวา)
-        [Paragraph(f"เล่มที่: {receipt.volume_code}", info_style),
-         Paragraph(f"เลขที่: {receipt_number_text}", info_style)],
-        # บรรทัด 2: ชื่อหน่วยงาน
-        [Paragraph("", info_style), Paragraph(f"{receipt.department.name} มหาวิทยาลัยนครพนม", info_style)],
-        # บรรทัด 3: ที่อยู่หน่วยงาน - ใช้ Paragraph แทน empty string เพื่อให้ layout สม่ำเสมอ
-            [Paragraph("", info_style), Paragraph(f"{receipt.department.get_full_address()}" or "ที่อยู่ไม่ระบุ", info_style)],
-        # บรรทัด 4: วันที่ไทย
-        [Paragraph("", info_style), Paragraph(f"วันที่ {thai_date}", info_style)]
+            # บรรทัด 1: ชื่อหน่วยงาน
+            ["", Paragraph(f"{receipt.department.name} มหาวิทยาลัยนครพนม", left_style)],
+            # บรรทัด 2: ที่อยู่หน่วยงาน
+            ["", Paragraph(f"{receipt.department.get_full_address()}" or "ที่อยู่ไม่ระบุ", left_style)],
+            # บรรทัด 3: วันที่ไทย
+            ["", Paragraph(f"วันที่ {thai_date}", left_style)]
         ]
-        
-        table = Table(data, colWidths=[9*cm, 8*cm])
+
+        # คอลัมน์ซ้ายกว้าง ~10cm, คอลัมน์ขวากว้าง ~7cm (ตรงกับเส้นกั้นในรูป)
+        table = Table(data, colWidths=[10*cm, 7*cm])
         table.setStyle(TableStyle([
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),      # คอลัมน์ขวาชิดซ้าย
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            # ('LEFTPADDING', (0, 0), (-1, -1), 2),
-            # ('RIGHTPADDING', (0, 0), (-1, -1), 2),
             ('TOPPADDING', (0, 0), (-1, -1), 0),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-            # ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            # ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
         ]))
-        
+
         content.append(table)
-        
+
         return content
     
     def _convert_to_thai_date(self, date):
-        """แปลงวันที่เป็นพุทธศักราชไทย"""
-        thai_months = [
-            'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
-        ]
-        
-        day = date.day
-        month = thai_months[date.month - 1]
-        year = date.year + 543  # แปลงเป็น พ.ศ.
-        
-        return f"{day} {month} {year}"
+        """
+        แปลงวันที่เป็นพุทธศักราชไทย
+        (Deprecated: ใช้ convert_to_thai_date จาก accounts.utils แทน)
+        """
+        return convert_to_thai_date(date, 'full')
     
     def _create_recipient_info(self, receipt):
         """สร้างข้อมูลผู้รับเงิน"""
@@ -446,15 +420,20 @@ class ReceiptPDFGenerator:
 
         content = []
 
-        # บรรทัด 1: ข้าพเจ้า + ที่อยู่เต็ม + รหัสไปรษณีย์ (จองพื้นที่ 2 บรรทัดเสมอ)
-        address_with_postal = receipt.recipient_address
-        if receipt.recipient_postal_code:
-            address_with_postal += f" รหัสไปรษณีย์ {receipt.recipient_postal_code}"
+        # แยกข้อมูลเป็น 2 บรรทัดตามรูป Capture.JPG
+        # บรรทัด 1: ข้าพเจ้า [ชื่อ]
+        recipient_line1 = f"ข้าพเจ้า {receipt.recipient_name}"
 
-        line1 = f"ข้าพเจ้า {receipt.recipient_name} อยู่บ้านเลขที่ {address_with_postal}"
+        # บรรทัด 2: ที่อยู่ [ที่อยู่] รหัสไปรษณีย์ [รหัส]
+        recipient_line2 = f"ที่อยู่ {receipt.recipient_address}"
+        if receipt.recipient_postal_code:
+            recipient_line2 += f" รหัสไปรษณีย์ {receipt.recipient_postal_code}"
+
+        # รวม 2 บรรทัดด้วย <br/> เพื่อให้แสดงแยกบรรทัด
+        full_text = f"{recipient_line1}<br/>{recipient_line2}"
 
         # ใช้ Table เพื่อกำหนดความสูงคงที่สำหรับ 2 บรรทัด
-        line1_table = Table([[Paragraph(line1, line1_style)]], colWidths=[17*cm], rowHeights=[1.2*cm])
+        line1_table = Table([[Paragraph(full_text, line1_style)]], colWidths=[17*cm], rowHeights=[1.2*cm])
         line1_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (0, 0), 'TOP'),
             ('LEFTPADDING', (0, 0), (0, 0), 6),  # ให้ตรงกับ LEFTPADDING ของตารางรายการ
@@ -464,16 +443,16 @@ class ReceiptPDFGenerator:
         ]))
         content.append(line1_table)
 
-        # เส้นจุดประใต้บรรทัด 1 (2 เส้นเพราะเว้นไว้ 2 บรรทัด)
-        # เส้นที่ 1 - ใต้บรรทัดแรก
+        # เส้นจุดประใต้บรรทัด (2 เส้นสำหรับ 2 บรรทัด)
+        # เส้นที่ 1 - ใต้บรรทัดแรก (ข้าพเจ้า...)
         content.append(DottedUnderline(15*cm, gap=1, y_offset=19, x_offset=42, gray_level=0.3))
-        # เส้นที่ 2 - ใต้บรรทัดที่สอง (y_offset ต่ำกว่าเส้นแรก)
-        content.append(DottedUnderline(16.3*cm, gap=1, y_offset=4, x_offset=6, gray_level=0.3))
+        # เส้นที่ 2 - ใต้บรรทัดที่สอง (ที่อยู่...)
+        content.append(DottedUnderline(15.6*cm, gap=1, y_offset=4, x_offset=27, gray_level=0.3))
         # content.append(Spacer(1, 0.1 * cm))
 
-        # บรรทัด 2: เลขบัตรประชาชน + ได้รับเงินจาก (ใช้ &nbsp; เพื่อเว้นช่องว่างจริงๆ)
-        line2 = f"เลขบัตรประชาชน&nbsp;&nbsp;&nbsp;{receipt.recipient_id_card}&nbsp;&nbsp;&nbsp;ได้รับเงินจาก&nbsp;&nbsp;&nbsp;มหาวิทยาลัยนครพนม"
-        content.append(Paragraph(line2, info_style))
+        # บรรทัดถัดไป: เลขบัตรประชาชน + ได้รับเงินจาก (ใช้ &nbsp; เพื่อเว้นช่องว่างจริงๆ)
+        id_card_line = f"เลขบัตรประชาชน&nbsp;&nbsp;&nbsp;{receipt.recipient_id_card}&nbsp;&nbsp;&nbsp;ได้รับเงินจาก&nbsp;&nbsp;&nbsp;มหาวิทยาลัยนครพนม"
+        content.append(Paragraph(id_card_line, info_style))
 
         # เส้นที่ 3 - ใต้เลขบัตรประชาชน
         content.append(DottedUnderline(3.3*cm, gap=1, y_offset=2 , x_offset=85, gray_level=0.3))
@@ -550,10 +529,10 @@ class ReceiptPDFGenerator:
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),  # ข้อความสีดำ
             
             # Padding สำหรับ cells เพื่อให้ข้อความไม่ติดขอบ
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             
             # แถวรวมเป็นเงิน
             ('SPAN', (0, last_row), (1, last_row)),  # merge คอลัมน์ 1-2
@@ -584,7 +563,13 @@ class ReceiptPDFGenerator:
     
     
     def _create_signature_section(self, receipt):
-        """สร้างส่วนลายเซ็น (QR Code จะแสดงมุมซ้ายล่างแบบ fixed)"""
+        """
+        สร้างส่วนลายเซ็น (รองรับทั้งจ่ายปกติและยืมเงิน)
+
+        Logic:
+        - จ่ายปกติ (is_loan=False): ชื่อว่างทั้ง 2 (แทนด้วยจุด)
+        - ยืมเงิน (is_loan=True): ผู้รับเงินว่าง, ผู้จ่ายเป็นชื่อผู้สร้าง
+        """
         styles = getSampleStyleSheet()
 
         signature_style = ParagraphStyle(
@@ -599,13 +584,23 @@ class ReceiptPDFGenerator:
         content = []
         content.append(Spacer(1, 1 * cm))
 
-        # ตารางลายเซ็น (ไม่มี QR Code)
+        # กำหนดชื่อตาม is_loan (ขยายจุดให้กว้างกว่าเดิม)
+        if receipt.is_loan:
+            # ยืมเงิน: ผู้รับเงินว่าง, ผู้จ่ายเป็นชื่อผู้สร้าง
+            recipient_name = '...........................................................'
+            payer_name = receipt.created_by.get_display_name()
+        else:
+            # จ่ายปกติ: ชื่อว่างทั้ง 2 (ขยายจุดให้กว้างกว่าเดิม)
+            recipient_name = '...........................................................'
+            payer_name = '...........................................................'
+
+        # ตารางลายเซ็น
         data = [
             ['ลงชื่อ ................................. ผู้รับเงิน'],
-            [f'({receipt.recipient_name})'],
+            [f'({recipient_name})'],
             [''],
             ['ลงชื่อ ................................. ผู้จ่ายเงิน'],
-            [f'({receipt.created_by.get_display_name()})']
+            [f'({payer_name})']
         ]
 
         table = Table(data, colWidths=[10*cm], rowHeights=[0.8*cm]*5)
@@ -627,6 +622,16 @@ class ReceiptPDFGenerator:
 
         return content
     
+    def _is_food_receipt(self, receipt):
+        """ตรวจสอบว่าเป็นใบสำคัญค่าอาหารหรือไม่"""
+        # เช็คว่ามีรายการที่เกี่ยวข้องกับค่าอาหารหรือไม่
+        food_keywords = ['ค่าอาหาร']
+        for item in receipt.items.all():
+            for keyword in food_keywords:
+                if keyword in item.description:
+                    return True
+        return False
+
     def _draw_floating_qr(self, canvas, doc, receipt):
         """วาด QR Code มุมซ้ายล่าง (รองรับทั้ง draft และใบสำคัญจริง)"""
         try:
@@ -642,7 +647,7 @@ class ReceiptPDFGenerator:
 
             # แปลง created_at เป็น timezone ของไทย
             local_time = timezone.localtime(receipt.created_at)
-            created_thai = self._convert_to_thai_date(local_time)
+            created_thai = convert_to_thai_date(local_time, 'full')
             time_thai = local_time.strftime('%H:%M:%S')
 
             # ถ้าเป็น draft ใช้ข้อความตัวอย่าง
@@ -662,12 +667,37 @@ class ReceiptPDFGenerator:
             # วาด QR Code ลงบน canvas
             qr_img.drawOn(canvas, qr_x, qr_y)
 
-            # วาดข้อความข้างๆ QR Code (ชิดขอบล่าง)
-            text_x = qr_x + 3.5*cm  # ข้างๆ QR Code (3cm + 0.5cm spacing)
-            text_y = qr_y + 0.3*cm  # ชิดขอบล่าง
+            # ตรวจสอบว่าเป็นใบสำคัญค่าอาหารหรือไม่
+            is_food = self._is_food_receipt(receipt)
 
-            canvas.setFont(self.thai_font, 12)
-            canvas.drawString(text_x, text_y, footer_info)
+            if is_food:
+                # หมายเหตุสำหรับค่าอาหาร (อยู่เหนือ footer_info)
+                note_x = qr_x + 3.5*cm
+                note_y_start = qr_y + 2.5*cm  # เริ่มจากตำแหน่งสูงกว่า footer_info
+
+                canvas.setFont(self.thai_font, 12)
+
+                # บรรทัดที่ 1
+                canvas.drawString(note_x, note_y_start, "1. ต้องแนบสำเนาบัตรประชาชนของผู้รับเงิน พร้อมเซ็นรับรองสำเนาถูกต้อง")
+
+                # บรรทัด ที่ 2
+                note_y_2 = note_y_start - 0.45*cm
+                canvas.drawString(note_x, note_y_2, "2. ลายเซ็นรับรองสำเนาถูกต้องในสำเนาบัตรประชาชนของผู้รับเงิน ต้องตรงกับลายเซ็นในใบสำคัญรับเงิน")
+
+                # บรรทัดที่ 3
+                note_y_3 = note_y_2 - 0.45*cm
+                canvas.drawString(note_x, note_y_3, "3. ต้องลงลายเซ็นด้วยปากกาสีน้ำเงินเท่านั้น")
+
+                # วาดข้อความ footer_info (ชิดขอบล่าง)
+                text_x = qr_x + 3.5*cm
+                text_y = qr_y + 0.3*cm
+                canvas.drawString(text_x, text_y, footer_info)
+            else:
+                # ไม่ใช่ค่าอาหาร แสดงแค่ footer_info
+                text_x = qr_x + 3.5*cm
+                text_y = qr_y + 0.3*cm
+                canvas.setFont(self.thai_font, 12)
+                canvas.drawString(text_x, text_y, footer_info)
 
         except Exception as e:
             # ถ้าวาด QR ไม่ได้ ไม่ต้องทำอะไร

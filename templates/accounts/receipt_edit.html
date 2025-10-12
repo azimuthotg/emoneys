@@ -6,8 +6,7 @@
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block extra_css %}
-<!-- Summernote CSS -->
-<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.css" rel="stylesheet">
+<!-- Custom CSS -->
 {% endblock %}
 
 {% block content %}
@@ -15,28 +14,27 @@
 <div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 9999; right: 0;"></div>
 
 <!-- Header Card -->
-<div class="row mb-4">
+<div class="row mb-3">
     <div class="col-12">
         <div class="card" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);">
-            <div class="card-body text-white p-4">
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <h5 class="mb-2 fw-bold">
+            <div class="card-body text-white py-2 px-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="mb-0 fw-bold">
                             <i class="fas fa-edit me-2"></i>
                             แก้ไขใบสำคัญรับเงิน (ร่าง)
-                        </h5>
-                        <p class="mb-0 opacity-90">
-                            <i class="fas fa-building me-2"></i>
+                        </h6>
+                        <small class="opacity-90">
+                            <i class="fas fa-building me-1"></i>
                             {{ department.name }} ({{ department.code }})
-                        </p>
-                        <p class="mb-0 opacity-75">
-                            <i class="fas fa-file-alt me-2"></i>
+                        </small>
+                        <br>
+                        <small class="opacity-75">
+                            <i class="fas fa-file-alt me-1"></i>
                             เลขที่: {% if receipt.receipt_number %}{{ receipt.receipt_number }}{% else %}(ยังไม่มีเลข){% endif %}
-                        </p>
+                        </small>
                     </div>
-                    <div class="col-md-4 text-md-end">
-                        <i class="fas fa-file-edit" style="font-size: 3rem; opacity: 0.3;"></i>
-                    </div>
+                    <i class="fas fa-file-edit" style="font-size: 2rem; opacity: 0.3;"></i>
                 </div>
             </div>
         </div>
@@ -51,54 +49,59 @@
             {% csrf_token %}
             
             <!-- Recipient Information -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white border-0 py-3">
-                    <h6 class="mb-0 fw-bold" style="color: #CFAE43;">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white border-0 py-2">
+                    <h6 class="mb-0 fw-bold" style="color: #CFAE43; font-size: 0.95rem;">
                         <i class="fas fa-user me-2"></i>
                         ข้อมูลผู้รับเงิน
                     </h6>
                 </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label for="recipient_name" class="form-label fw-bold">ชื่อผู้รับเงิน <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="recipient_name" name="recipient_name"
-                                   value="{{ receipt.recipient_name }}" required>
-                            <div class="form-text">ข้าพเจ้า ...</div>
+                <div class="card-body py-3">
+                    <div class="row g-2">
+                        <div class="col-md-12">
+                            <label for="recipient_name" class="form-label fw-bold mb-1 small">ชื่อผู้รับเงิน <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="recipient_name" name="recipient_name"
+                                   value="{{ receipt.recipient_name }}" required placeholder="ข้าพเจ้า...">
+                        </div>
+                        <div class="col-md-12">
+                            <label for="recipient_address" class="form-label fw-bold mb-1 small">ที่อยู่ <span class="text-danger">*</span></label>
+                            <textarea class="form-control form-control-sm" id="recipient_address" name="recipient_address" rows="2" required placeholder="บ้านเลขที่ หมู่ ซอย ถนน ตำบล อำเภอ จังหวัด">{{ receipt.recipient_address }}</textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="recipient_postal_code" class="form-label fw-bold mb-1 small">รหัสไปรษณีย์</label>
+                            <input type="text" class="form-control form-control-sm" id="recipient_postal_code" name="recipient_postal_code"
+                                   pattern="[0-9]{5}" maxlength="5" value="{{ receipt.recipient_postal_code }}" placeholder="5 หลัก">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="recipient_id_card" class="form-label fw-bold mb-1 small">เลขบัตรประชาชน <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="recipient_id_card" name="recipient_id_card"
+                                   pattern="[0-9]{13}" maxlength="13" value="{{ receipt.recipient_id_card }}" required placeholder="13 หลัก">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="receipt_date" class="form-label fw-bold mb-1 small">วันที่ออกใบสำคัญ <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control form-control-sm" id="receipt_date" name="receipt_date"
+                                   value="{{ receipt.receipt_date|date:'Y-m-d' }}" required>
+                            <div class="form-text small" id="receipt_date_help" style="font-size: 0.7rem;">ย้อนหลังได้ถึงต้นปีงบฯ</div>
                         </div>
                         <div class="col-12">
-                            <label for="recipient_address" class="form-label fw-bold">ที่อยู่ <span class="text-danger">*</span></label>
-                            <textarea class="form-control" id="recipient_address" name="recipient_address" rows="3" required>{{ receipt.recipient_address }}</textarea>
-                            <div class="form-text">บ้านเลขที่ หมู่ ซอย ถนน ตำบล อำเภอ จังหวัด</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="recipient_postal_code" class="form-label fw-bold">รหัสไปรษณีย์</label>
-                            <input type="text" class="form-control" id="recipient_postal_code" name="recipient_postal_code"
-                                   pattern="[0-9]{5}" maxlength="5" value="{{ receipt.recipient_postal_code }}">
-                        </div>
-                        <div class="col-md-6">
-                            <label for="recipient_id_card" class="form-label fw-bold">เลขบัตรประชาชน <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="recipient_id_card" name="recipient_id_card"
-                                   pattern="[0-9]{13}" maxlength="13" value="{{ receipt.recipient_id_card }}" required>
-                            <div class="form-text">13 หลัก ไม่ต้องใส่เครื่องหมาย</div>
-                        </div>
-                        <div class="col-12">
-                            <label for="is_loan" class="form-label fw-bold">ประเภทการจ่าย</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="is_loan" id="is_loan_false" value="false"
-                                       {% if not receipt.is_loan %}checked{% endif %}>
-                                <label class="form-check-label" for="is_loan_false">
-                                    <i class="fas fa-hand-holding-usd me-1"></i>
-                                    จ่ายปกติ
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="is_loan" id="is_loan_true" value="true"
-                                       {% if receipt.is_loan %}checked{% endif %}>
-                                <label class="form-check-label" for="is_loan_true">
-                                    <i class="fas fa-handshake me-1"></i>
-                                    ยืมเงิน (ใช้ชื่อ {{ user_full_name }} เป็นผู้จ่าย)
-                                </label>
+                            <label class="form-label fw-bold mb-1 small">ประเภทการจ่าย</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="is_loan" id="is_loan_false" value="false"
+                                           {% if not receipt.is_loan %}checked{% endif %}>
+                                    <label class="form-check-label small" for="is_loan_false">
+                                        <i class="fas fa-hand-holding-usd me-1"></i>
+                                        จ่ายปกติ
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="is_loan" id="is_loan_true" value="true"
+                                           {% if receipt.is_loan %}checked{% endif %}>
+                                    <label class="form-check-label small" for="is_loan_true">
+                                        <i class="fas fa-handshake me-1"></i>
+                                        ยืมเงิน (ใช้ชื่อ {{ user_full_name }} เป็นผู้จ่าย)
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -106,117 +109,36 @@
             </div>
 
             <!-- Receipt Items -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white border-0 py-3">
-                    <h6 class="mb-3 fw-bold" style="color: #CFAE43;">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white border-0 py-2">
+                    <h6 class="mb-0 fw-bold" style="color: #CFAE43; font-size: 0.95rem;">
                         <i class="fas fa-list me-2"></i>
                         รายการรับเงิน
                     </h6>
-                    
-                    <!-- Input Type Tabs -->
-                    <ul class="nav nav-tabs nav-tabs-custom" id="inputTypeTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="multi-line-tab" data-bs-toggle="tab"
-                                    data-bs-target="#multi-line" type="button" role="tab">
-                                <i class="fas fa-align-left me-2"></i>Multi Line
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="template-tab" data-bs-toggle="tab"
-                                    data-bs-target="#template" type="button" role="tab">
-                                <i class="fas fa-clipboard-list me-2"></i>Template
-                            </button>
-                        </li>
-                    </ul>
                 </div>
-                <div class="card-body">
-                    <!-- Tab Content -->
-                    <div class="tab-content" id="inputTypeTabContent">
-                        <!-- Multi Line Tab -->
-                        <div class="tab-pane fade show active" id="multi-line" role="tabpanel">
-                            <div class="row g-3 mb-3">
-                                <div class="col-md-8">
-                                    <label class="form-label fw-bold">รายการ (หลายบรรทัด)</label>
-                                    <textarea class="form-control" id="multi-item-description" rows="5" 
-                                              placeholder="กรอกรายการรับเงิน (สามารถขึ้นบรรทัดใหม่ได้)..."></textarea>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label fw-bold">จำนวนเงิน</label>
-                                    <div class="input-group">
-                                        <input type="number" class="form-control" id="multi-item-amount" 
-                                               step="0.01" min="0" placeholder="0.00">
-                                        <span class="input-group-text">บาท</span>
-                                    </div>
-                                </div>
-                                <div class="col-md-1">
-                                    <label class="form-label fw-bold">&nbsp;</label>
-                                    <button type="button" class="btn btn-success w-100" onclick="addItemFromMultiLine()">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Template Tab -->
-                        <div class="tab-pane fade" id="template" role="tabpanel">
-                            <div class="row g-3 mb-3">
-                                <div class="col-md-8">
-                                    <label class="form-label fw-bold">เลือก Template</label>
-                                    <select class="form-select" id="template-select" onchange="fillTemplateData()">
-                                        <option value="">-- เลือกรายการสำเร็จรูป --</option>
-                                        {% for template in receipt_templates %}
-                                        <option value="{{ template.id }}" 
-                                                data-name="{{ template.name }}"
-                                                data-fixed-amount="{{ template.fixed_amount|default:'0' }}"
-                                                data-max-amount="{{ template.max_amount|default:'0' }}">
-                                            {{ template.name }}
-                                            {% if template.fixed_amount %}({{ template.fixed_amount|floatformat:0|intcomma }} บาท){% endif %}
-                                            {% if template.max_amount %}(สูงสุด {{ template.max_amount|floatformat:0|intcomma }} บาท){% endif %}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label fw-bold">จำนวนเงิน</label>
-                                    <div class="input-group">
-                                        <input type="number" class="form-control" id="template-item-amount" 
-                                               step="0.01" min="0" placeholder="0.00" onchange="validateTemplateAmount()">
-                                        <span class="input-group-text">บาท</span>
-                                    </div>
-                                    <div id="template-amount-helper" class="form-text"></div>
-                                </div>
-                                <div class="col-md-1">
-                                    <label class="form-label fw-bold">&nbsp;</label>
-                                    <button type="button" class="btn btn-success w-100" onclick="addItemFromTemplate()">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
+                <div class="card-body py-3">
                     <!-- Items List -->
-                    <div class="mt-4">
-                        <h6 class="fw-bold mb-3">รายการที่เพิ่มแล้ว</h6>
+                    <div>
+                        <h6 class="fw-bold mb-2 small">รายการที่เพิ่มแล้ว</h6>
                     <div id="items-container">
                         <!-- Items will be loaded from existing receipt -->
                     </div>
-                    
+
                     <!-- Total Amount Display -->
-                    <div class="row mt-4 pt-3 border-top">
+                    <div class="row mt-3 pt-2 border-top">
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">จำนวนเงินรวม (ตัวเลข)</label>
+                            <label class="form-label fw-bold mb-1 small">จำนวนเงินรวม (ตัวเลข)</label>
                             <div class="input-group">
-                                <input type="text" class="form-control form-control-lg" id="total_amount_display" readonly 
-                                       style="font-size: 1.2rem; font-weight: bold; text-align: right;">
+                                <input type="text" class="form-control" id="total_amount_display" readonly
+                                       style="font-size: 1.1rem; font-weight: bold; text-align: right;">
                                 <span class="input-group-text">บาท</span>
                             </div>
                             <!-- Hidden field สำหรับเก็บค่าตัวเลขจริง -->
                             <input type="hidden" id="total_amount" name="total_amount">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">จำนวนเงิน (ตัวหนังสือ)</label>
-                            <input type="text" class="form-control form-control-lg" id="total_amount_text" readonly 
+                            <label class="form-label fw-bold mb-1 small">จำนวนเงิน (ตัวหนังสือ)</label>
+                            <input type="text" class="form-control" id="total_amount_text" readonly
                                    style="font-family: 'Sarabun', sans-serif;">
                         </div>
                     </div>
@@ -227,15 +149,15 @@
             <div class="row">
                 <div class="col-12">
                     <div class="d-flex gap-2 justify-content-end align-items-center">
-                        <a href="{% url 'receipt_detail' receipt.id %}" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left me-2"></i>
+                        <a href="{% url 'receipt_detail' receipt.id %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i>
                             ยกเลิก
                         </a>
-                        <button type="button" class="btn btn-warning" onclick="updateDraft()">
-                            <i class="fas fa-save me-2"></i>
+                        <button type="button" class="btn btn-warning btn-sm" onclick="updateDraft()">
+                            <i class="fas fa-save me-1"></i>
                             บันทึกร่าง
                         </button>
-                        <button type="button" class="btn btn-success btn-lg px-4" onclick="showCompleteConfirmation()">
+                        <button type="button" class="btn btn-success px-4" onclick="showCompleteConfirmation()">
                             <i class="fas fa-check-circle me-2"></i>
                             บันทึกใบสำคัญ
                         </button>
@@ -335,6 +257,7 @@ let savedReceiptId = {{ receipt.id }};
 document.addEventListener('DOMContentLoaded', function() {
     loadExistingItems();
     calculateTotal();
+    initializeReceiptDateField();
 });
 
 // Load existing receipt items
@@ -386,7 +309,7 @@ function loadExistingItems() {
         const escapedDescription = item.description.replace(/"/g, '&quot;');
 
         const itemHtml = `
-            <div class="item-row border rounded p-3 mb-3" data-item-id="${itemCounter}">
+            <div class="item-row border rounded p-2 mb-2" data-item-id="${itemCounter}">
                 <!-- Display Mode -->
                 <div class="item-display-mode">
                     <div class="d-flex justify-content-between align-items-start">
@@ -413,12 +336,12 @@ function loadExistingItems() {
                 <!-- Edit Mode (hidden by default) -->
                 <div class="item-edit-mode" style="display: none;">
                     <div class="mb-3">
-                        <label class="form-label fw-bold">รายการ</label>
-                        <textarea class="form-control item-description-edit" rows="3"></textarea>
+                        <label class="form-label fw-bold small">รายการ</label>
+                        <textarea class="form-control form-control-sm item-description-edit" rows="3"></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold">จำนวนเงิน (บาท)</label>
-                        <input type="number" class="form-control item-amount-edit" step="0.01" value="${item.amount}">
+                        <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
+                        <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01" value="${item.amount}">
                     </div>
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemCounter})">
@@ -436,125 +359,7 @@ function loadExistingItems() {
     });
 }
 
-// Add item from Multi Line tab
-function addItemFromMultiLine() {
-    // Get HTML content from Summernote
-    const description = $('#multi-item-description').summernote('code').trim();
-    const amount = parseFloat(document.getElementById('multi-item-amount').value) || 0;
-
-    // Check if description is empty (Summernote returns <p><br></p> when empty)
-    const isEmpty = !description || description === '<p><br></p>' || description === '';
-
-    if (isEmpty) {
-        alert('กรุณากรอกรายการ');
-        return;
-    }
-
-    if (amount <= 0) {
-        alert('กรุณากรอกจำนวนเงินที่ถูกต้อง');
-        return;
-    }
-
-    addItemToList(description, amount);
-
-    // Clear inputs
-    $('#multi-item-description').summernote('reset');
-    document.getElementById('multi-item-amount').value = '';
-}
-
-// Fill template data when template is selected
-function fillTemplateData() {
-    const select = document.getElementById('template-select');
-    const amountInput = document.getElementById('template-item-amount');
-    const helper = document.getElementById('template-amount-helper');
-    
-    if (!select.value) {
-        amountInput.value = '';
-        helper.textContent = '';
-        return;
-    }
-    
-    const option = select.selectedOptions[0];
-    const fixedAmount = parseFloat(option.dataset.fixedAmount) || 0;
-    const maxAmount = parseFloat(option.dataset.maxAmount) || 0;
-    
-    if (fixedAmount > 0) {
-        amountInput.value = fixedAmount;
-        amountInput.readOnly = true;
-        helper.textContent = `จำนวนเงินคงที่ ${fixedAmount.toLocaleString()} บาท`;
-        helper.className = 'form-text text-info';
-    } else if (maxAmount > 0) {
-        amountInput.value = '';
-        amountInput.readOnly = false;
-        helper.textContent = `ไม่เกิน ${maxAmount.toLocaleString()} บาท`;
-        helper.className = 'form-text text-warning';
-    } else {
-        amountInput.value = '';
-        amountInput.readOnly = false;
-        helper.textContent = 'ระบุจำนวนเงินได้อย่างอิสระ';
-        helper.className = 'form-text text-muted';
-    }
-}
-
-// Validate template amount
-function validateTemplateAmount() {
-    const select = document.getElementById('template-select');
-    const amountInput = document.getElementById('template-item-amount');
-    const helper = document.getElementById('template-amount-helper');
-    
-    if (!select.value) return;
-    
-    const option = select.selectedOptions[0];
-    const maxAmount = parseFloat(option.dataset.maxAmount) || 0;
-    const inputAmount = parseFloat(amountInput.value) || 0;
-    
-    if (maxAmount > 0 && inputAmount > maxAmount) {
-        helper.textContent = `เกินขีดจำกัด! ไม่เกิน ${maxAmount.toLocaleString()} บาท`;
-        helper.className = 'form-text text-danger';
-        amountInput.classList.add('is-invalid');
-    } else if (maxAmount > 0) {
-        helper.textContent = `ไม่เกิน ${maxAmount.toLocaleString()} บาท`;
-        helper.className = 'form-text text-warning';
-        amountInput.classList.remove('is-invalid');
-    }
-}
-
-// Add item from Template tab
-function addItemFromTemplate() {
-    const select = document.getElementById('template-select');
-    const amountInput = document.getElementById('template-item-amount');
-    
-    if (!select.value) {
-        alert('กรุณาเลือก Template');
-        return;
-    }
-    
-    const option = select.selectedOptions[0];
-    const description = option.dataset.name;
-    const amount = parseFloat(amountInput.value) || 0;
-    const maxAmount = parseFloat(option.dataset.maxAmount) || 0;
-    
-    if (amount <= 0) {
-        alert('กรุณากรอกจำนวนเงินที่ถูกต้อง');
-        return;
-    }
-    
-    if (maxAmount > 0 && amount > maxAmount) {
-        alert(`จำนวนเงินเกินขีดจำกัด ไม่เกิน ${maxAmount.toLocaleString()} บาท`);
-        return;
-    }
-    
-    addItemToList(description, amount);
-    
-    // Clear inputs
-    select.value = '';
-    amountInput.value = '';
-    document.getElementById('template-amount-helper').textContent = '';
-    amountInput.readOnly = false;
-    amountInput.classList.remove('is-invalid');
-}
-
-// Common function to add item to list
+// Common function to add item to list (not used in edit page, kept for compatibility)
 function addItemToList(description, amount) {
     itemCounter++;
     const container = document.getElementById('items-container');
@@ -582,7 +387,7 @@ function addItemToList(description, amount) {
     const displayDescription = plainText.replace(/\n/g, '<br>');
 
     const itemHtml = `
-        <div class="item-row border rounded p-3 mb-3" data-item-id="${itemCounter}">
+        <div class="item-row border rounded p-2 mb-2" data-item-id="${itemCounter}">
             <!-- Display Mode -->
             <div class="item-display-mode">
                 <div class="d-flex justify-content-between align-items-start">
@@ -609,12 +414,12 @@ function addItemToList(description, amount) {
             <!-- Edit Mode (hidden by default) -->
             <div class="item-edit-mode" style="display: none;">
                 <div class="mb-3">
-                    <label class="form-label fw-bold">รายการ</label>
-                    <textarea class="form-control item-description-edit" rows="3">${description}</textarea>
+                    <label class="form-label fw-bold small">รายการ</label>
+                    <textarea class="form-control form-control-sm item-description-edit" rows="3">${description}</textarea>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-bold">จำนวนเงิน (บาท)</label>
-                    <input type="number" class="form-control item-amount-edit" step="0.01" value="${amount}">
+                    <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
+                    <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01" value="${amount}">
                 </div>
                 <div class="d-flex gap-2">
                     <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemCounter})">
@@ -652,73 +457,339 @@ function removeItem(itemId) {
     }
 }
 
+// Check if item is a food item
+function isFoodItem(description) {
+    const foodKeywords = ['ค่าอาหารเช้า', 'ค่าอาหารกลางวัน', 'ค่าอาหารเย็น', 'ค่าอาหารว่าง'];
+    return foodKeywords.some(keyword => description.includes(keyword));
+}
+
+// Parse food item description back to fields
+function parseFoodItem(description) {
+    // Extract: "ค่าอาหารเช้า 1 มื้อ × 65 บาท × 5 คน (10 ตุลาคม 2568)"
+    // Pattern: <name> <meals> มื้อ × <price> บาท × <people> คน (<date>)
+
+    const result = {
+        name: '',
+        meals: 0,
+        price: 0,
+        people: 0,
+        date: '',
+        thaiDate: ''
+    };
+
+    // Extract food name
+    if (description.includes('ค่าอาหารเช้า')) result.name = 'ค่าอาหารเช้า';
+    else if (description.includes('ค่าอาหารกลางวัน')) result.name = 'ค่าอาหารกลางวัน';
+    else if (description.includes('ค่าอาหารเย็น')) result.name = 'ค่าอาหารเย็น';
+    else if (description.includes('ค่าอาหารว่าง')) result.name = 'ค่าอาหารว่าง';
+
+    // Extract numbers: meals, price, people
+    const numberPattern = /(\d+(?:\.\d+)?)\s*มื้อ\s*×\s*(\d+(?:\.\d+)?)\s*บาท\s*×\s*(\d+(?:\.\d+)?)\s*คน/;
+    const match = description.match(numberPattern);
+
+    if (match) {
+        result.meals = parseFloat(match[1]);
+        result.price = parseFloat(match[2]);
+        result.people = parseFloat(match[3]);
+    }
+
+    // Extract Thai date and convert to ISO format
+    const datePattern = /\((\d+)\s+(\S+)\s+(\d+)\)/;
+    const dateMatch = description.match(datePattern);
+
+    if (dateMatch) {
+        const day = parseInt(dateMatch[1]);
+        const monthName = dateMatch[2];
+        const buddhistYear = parseInt(dateMatch[3]);
+
+        result.thaiDate = `${day} ${monthName} ${buddhistYear}`;
+
+        // Convert Thai month to number
+        const thaiMonths = {
+            'มกราคม': 0, 'กุมภาพันธ์': 1, 'มีนาคม': 2, 'เมษายน': 3,
+            'พฤษภาคม': 4, 'มิถุนายน': 5, 'กรกฎาคม': 6, 'สิงหาคม': 7,
+            'กันยายน': 8, 'ตุลาคม': 9, 'พฤศจิกายน': 10, 'ธันวาคม': 11
+        };
+
+        const monthIndex = thaiMonths[monthName];
+        if (monthIndex !== undefined) {
+            const gregorianYear = buddhistYear - 543;
+            const date = new Date(gregorianYear, monthIndex, day);
+            result.date = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        }
+    }
+
+    return result;
+}
+
+// Convert Thai date string to ISO format for date input
+function convertThaiDateToISO(thaiDateStr) {
+    // "10 ตุลาคม 2568" -> "2025-10-10"
+    const datePattern = /(\d+)\s+(\S+)\s+(\d+)/;
+    const match = thaiDateStr.match(datePattern);
+
+    if (!match) return '';
+
+    const day = parseInt(match[1]);
+    const monthName = match[2];
+    const buddhistYear = parseInt(match[3]);
+
+    const thaiMonths = {
+        'มกราคม': 0, 'กุมภาพันธ์': 1, 'มีนาคม': 2, 'เมษายน': 3,
+        'พฤษภาคม': 4, 'มิถุนายน': 5, 'กรกฎาคม': 6, 'สิงหาคม': 7,
+        'กันยายน': 8, 'ตุลาคม': 9, 'พฤศจิกายน': 10, 'ธันวาคม': 11
+    };
+
+    const monthIndex = thaiMonths[monthName];
+    if (monthIndex === undefined) return '';
+
+    const gregorianYear = buddhistYear - 543;
+    const date = new Date(gregorianYear, monthIndex, day);
+    return date.toISOString().split('T')[0];
+}
+
+// Render regular item edit form (textarea)
+function renderRegularItemEditForm(item, description, amount) {
+    // Hide display mode, show edit mode
+    item.querySelector('.item-display-mode').style.display = 'none';
+    const editMode = item.querySelector('.item-edit-mode');
+    editMode.style.display = 'block';
+
+    // Set textarea value
+    const textarea = editMode.querySelector('.item-description-edit');
+    textarea.value = description.trim();
+    editMode.querySelector('.item-amount-edit').value = amount;
+}
+
+// Render food item edit form (special form with fields)
+function renderFoodItemEditForm(item, foodData, originalAmount, itemId) {
+    // Hide display mode
+    item.querySelector('.item-display-mode').style.display = 'none';
+
+    // Create custom edit form for food item
+    const editMode = item.querySelector('.item-edit-mode');
+
+    const html = `
+        <div class="food-edit-form p-3 bg-light rounded">
+            <h6 class="fw-bold mb-3">${foodData.name}</h6>
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label small">จำนวนมื้อ</label>
+                    <input type="number" class="form-control form-control-sm food-edit-meals"
+                           value="${foodData.meals}" min="0" step="1"
+                           onchange="calculateFoodEditTotal(${itemId})">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">มื้อละ (บาท)</label>
+                    <input type="number" class="form-control form-control-sm food-edit-price"
+                           value="${foodData.price}" min="0" step="0.01"
+                           onchange="calculateFoodEditTotal(${itemId})">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">จำนวนคน</label>
+                    <input type="number" class="form-control form-control-sm food-edit-people"
+                           value="${foodData.people}" min="0" step="1"
+                           onchange="calculateFoodEditTotal(${itemId})">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">วันที่</label>
+                    <input type="date" class="form-control form-control-sm food-edit-date"
+                           value="${foodData.date}">
+                </div>
+                <div class="col-12">
+                    <div class="alert alert-info mb-0 mt-2">
+                        <strong>รวม: </strong>
+                        <span id="food-edit-total-${itemId}" class="fs-6 fw-bold">${originalAmount.toLocaleString()} บาท</span>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button type="button" class="btn btn-sm btn-success" onclick="saveFoodItem(${itemId})">
+                    <i class="fas fa-save me-1"></i> บันทึก
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(${itemId})">
+                    <i class="fas fa-times me-1"></i> ยกเลิก
+                </button>
+            </div>
+        </div>
+    `;
+
+    editMode.innerHTML = html;
+    editMode.style.display = 'block';
+}
+
+// Calculate total for food item being edited
+function calculateFoodEditTotal(itemId) {
+    const item = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (!item) return 0;
+
+    const editMode = item.querySelector('.item-edit-mode');
+    const meals = parseFloat(editMode.querySelector('.food-edit-meals')?.value) || 0;
+    const price = parseFloat(editMode.querySelector('.food-edit-price')?.value) || 0;
+    const people = parseFloat(editMode.querySelector('.food-edit-people')?.value) || 0;
+
+    const total = meals * price * people;
+
+    const totalElement = document.getElementById(`food-edit-total-${itemId}`);
+    if (totalElement) {
+        totalElement.textContent = total.toLocaleString('th-TH', {minimumFractionDigits: 2}) + ' บาท';
+    }
+
+    return total;
+}
+
+// Save food item after editing
+function saveFoodItem(itemId) {
+    const item = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (!item) return;
+
+    const editMode = item.querySelector('.item-edit-mode');
+    const meals = parseFloat(editMode.querySelector('.food-edit-meals')?.value) || 0;
+    const price = parseFloat(editMode.querySelector('.food-edit-price')?.value) || 0;
+    const people = parseFloat(editMode.querySelector('.food-edit-people')?.value) || 0;
+    const date = editMode.querySelector('.food-edit-date')?.value || '';
+
+    // Validate
+    if (meals <= 0 || price <= 0 || people <= 0) {
+        alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+        return;
+    }
+
+    // Calculate total
+    const total = meals * price * people;
+
+    // Get food name from the current description
+    const originalDesc = item.querySelector('.item-description-hidden').value;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = originalDesc;
+    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+    const foodData = parseFoodItem(plainText);
+
+    // Convert date to Thai format
+    const thaiDate = date ? convertDateToThai(date) : '';
+    const newDescription = `${foodData.name} ${meals} มื้อ × ${price} บาท × ${people} คน${thaiDate ? ' (' + thaiDate + ')' : ''}`;
+
+    // Update hidden inputs
+    item.querySelector('.item-description-hidden').value = newDescription;
+    item.querySelector('.item-amount-hidden').value = total;
+
+    // Update display
+    item.querySelector('.item-description-display').textContent = newDescription;
+    item.querySelector('.item-amount-display').textContent = total.toLocaleString();
+
+    // Reset edit mode HTML to original structure
+    editMode.innerHTML = `
+        <div class="mb-3">
+            <label class="form-label fw-bold small">รายการ</label>
+            <textarea class="form-control form-control-sm item-description-edit" rows="3"></textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
+            <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01">
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemId})">
+                <i class="fas fa-save me-1"></i> บันทึก
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(${itemId})">
+                <i class="fas fa-times me-1"></i> ยกเลิก
+            </button>
+        </div>
+    `;
+
+    // Show display mode, hide edit mode
+    item.querySelector('.item-display-mode').style.display = 'block';
+    editMode.style.display = 'none';
+
+    // Recalculate total
+    calculateTotal();
+}
+
+// Convert date to Thai format (reuse from create page)
+function convertDateToThai(dateString) {
+    if (!dateString) return '';
+
+    const thaiMonths = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const month = thaiMonths[date.getMonth()];
+    const year = date.getFullYear() + 543;
+
+    return `${day} ${month} ${year}`;
+}
+
 // Edit item - Switch to edit mode
 function editItem(itemId) {
     const item = document.querySelector(`[data-item-id="${itemId}"]`);
-    if (item) {
-        // Get original HTML content from hidden input
-        const originalDesc = item.querySelector('.item-description-hidden').value;
+    if (!item) return;
 
-        // Hide display mode, show edit mode
-        item.querySelector('.item-display-mode').style.display = 'none';
-        item.querySelector('.item-edit-mode').style.display = 'block';
+    // Get original content from hidden input
+    const originalDesc = item.querySelector('.item-description-hidden').value;
+    const originalAmount = parseFloat(item.querySelector('.item-amount-hidden').value) || 0;
 
-        // Initialize Summernote for this item's textarea
-        const textarea = item.querySelector('.item-description-edit');
-        $(textarea).summernote({
-            height: 200,
-            lang: 'th-TH',
-            toolbar: [
-                ['view', ['fullscreen', 'codeview']]
-            ],
-            placeholder: 'พิมพ์รายการรับเงิน (กด Enter เพื่อขึ้นบรรทัดใหม่)',
-            disableDragAndDrop: true,
-            fontNames: ['Sarabun', 'THSarabunNew', 'Arial', 'Tahoma'],
-            fontNamesIgnoreCheck: ['Sarabun', 'THSarabunNew']
-        });
+    // Strip HTML tags from the original description
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = originalDesc;
+    const plainText = tempDiv.textContent || tempDiv.innerText || '';
 
-        // Load HTML content into Summernote
-        $(textarea).summernote('code', originalDesc);
+    // Check if it's a food item
+    if (isFoodItem(plainText)) {
+        // Parse food item data
+        const foodData = parseFoodItem(plainText);
+
+        // Create food item edit form
+        renderFoodItemEditForm(item, foodData, originalAmount, itemId);
+    } else {
+        // Regular item - use textarea
+        renderRegularItemEditForm(item, plainText, originalAmount);
     }
 }
 
 // Cancel edit - Switch back to display mode
 function cancelEdit(itemId) {
     const item = document.querySelector(`[data-item-id="${itemId}"]`);
-    if (item) {
-        // Destroy Summernote
-        const textarea = item.querySelector('.item-description-edit');
-        if ($(textarea).data('summernote')) {
-            $(textarea).summernote('destroy');
-        }
+    if (!item) return;
 
-        // Reset edit fields to original values
-        const originalDesc = item.querySelector('.item-description-hidden').value;
-        const originalAmount = item.querySelector('.item-amount-hidden').value;
+    const editMode = item.querySelector('.item-edit-mode');
 
-        textarea.value = originalDesc;
-        item.querySelector('.item-amount-edit').value = originalAmount;
+    // Reset edit mode HTML to original structure
+    editMode.innerHTML = `
+        <div class="mb-3">
+            <label class="form-label fw-bold small">รายการ</label>
+            <textarea class="form-control form-control-sm item-description-edit" rows="3"></textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
+            <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01">
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemId})">
+                <i class="fas fa-save me-1"></i> บันทึก
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(${itemId})">
+                <i class="fas fa-times me-1"></i> ยกเลิก
+            </button>
+        </div>
+    `;
 
-        // Show display mode, hide edit mode
-        item.querySelector('.item-display-mode').style.display = 'block';
-        item.querySelector('.item-edit-mode').style.display = 'none';
-    }
+    // Show display mode, hide edit mode
+    item.querySelector('.item-display-mode').style.display = 'block';
+    editMode.style.display = 'none';
 }
 
 // Save item - Update and switch back to display mode
 function saveItem(itemId) {
     const item = document.querySelector(`[data-item-id="${itemId}"]`);
     if (item) {
-        // Get new values from Summernote
+        // Get new values from textarea
         const textarea = item.querySelector('.item-description-edit');
-        const newDescriptionHTML = $(textarea).summernote('code').trim();
+        const newDescriptionText = textarea.value.trim();
         const newAmount = parseFloat(item.querySelector('.item-amount-edit').value) || 0;
 
-        // Check if empty (Summernote returns <p><br></p> when empty)
-        const isEmpty = !newDescriptionHTML || newDescriptionHTML === '<p><br></p>' || newDescriptionHTML === '';
-
         // Validate
-        if (isEmpty) {
+        if (!newDescriptionText) {
             alert('กรุณากรอกรายการ');
             return;
         }
@@ -728,28 +799,12 @@ function saveItem(itemId) {
             return;
         }
 
-        // Destroy Summernote
-        $(textarea).summernote('destroy');
-
-        // Update hidden inputs (store original HTML)
-        item.querySelector('.item-description-hidden').value = newDescriptionHTML;
+        // Update hidden inputs (store plain text)
+        item.querySelector('.item-description-hidden').value = newDescriptionText;
         item.querySelector('.item-amount-hidden').value = newAmount;
 
-        // Update display (convert HTML to text with line breaks preserved)
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = newDescriptionHTML;
-
-        // Replace block elements with newlines before getting text
-        tempDiv.querySelectorAll('p, div, br').forEach(el => {
-            if (el.tagName === 'BR') {
-                el.replaceWith('\n');
-            } else {
-                el.insertAdjacentText('afterend', '\n');
-            }
-        });
-
-        const plainText = (tempDiv.textContent || tempDiv.innerText || '').trim();
-        const displayDescription = plainText.replace(/\n/g, '<br>');
+        // Update display (convert line breaks to <br> for display)
+        const displayDescription = newDescriptionText.replace(/\n/g, '<br>');
 
         item.querySelector('.item-description-display').innerHTML = displayDescription;
         item.querySelector('.item-amount-display').textContent = newAmount.toLocaleString();
@@ -767,33 +822,35 @@ function saveItem(itemId) {
 function calculateTotal() {
     let total = 0;
     let itemCount = 0;
-    
+
     // Use the hidden input fields to calculate total
     document.querySelectorAll('.item-amount-hidden').forEach(input => {
         const value = parseFloat(input.value) || 0;
         total += value;
         if (value > 0) itemCount++;
     });
-    
+
     // Format number with commas for Thai display
     const formattedTotal = formatNumber(total);
-    
+
     const totalField = document.getElementById('total_amount');  // hidden field
     const totalDisplayField = document.getElementById('total_amount_display');  // display field
     const totalTextField = document.getElementById('total_amount_text');
-    
+
     // อัปเดต hidden field ด้วยค่าตัวเลขล้วนๆ
     if (totalField) {
         totalField.value = total;
     }
-    
+
     // อัปเดต display field ด้วยค่าที่มีจุลภาค
     if (totalDisplayField) {
         totalDisplayField.value = formattedTotal;
     }
-    
+
+    // อัปเดตตัวอ่านภาษาไทย
     if (totalTextField) {
         totalTextField.value = convertToThaiText(total);
+        console.log('Updated Thai text:', convertToThaiText(total), 'for amount:', total);
     }
 }
 
@@ -1023,6 +1080,7 @@ function updateReceipt(status, redirectToDetail = false) {
         recipient_address: document.getElementById('recipient_address').value,
         recipient_postal_code: document.getElementById('recipient_postal_code').value,
         recipient_id_card: document.getElementById('recipient_id_card').value,
+        receipt_date: document.getElementById('receipt_date').value,
         is_loan: document.querySelector('input[name="is_loan"]:checked').value === 'true',
         total_amount: parseFloat(document.getElementById('total_amount').value || 0),
         status: status,
@@ -1133,6 +1191,98 @@ function showToast(type, title, message) {
         toastElement.remove();
     });
 }
+
+// Initialize receipt date field with validation
+function initializeReceiptDateField() {
+    const receiptDateInput = document.getElementById('receipt_date');
+    if (!receiptDateInput) return;
+
+    const today = new Date();
+
+    // Calculate fiscal year start (1 October)
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); // 0-indexed (0 = January, 9 = October)
+    let fiscalYearStart;
+
+    if (currentMonth >= 9) { // October or later
+        fiscalYearStart = new Date(currentYear, 9, 1); // October 1 of current year
+    } else { // Before October
+        fiscalYearStart = new Date(currentYear - 1, 9, 1); // October 1 of previous year
+    }
+
+    const minDate = fiscalYearStart.toISOString().split('T')[0];
+    const maxDate = today.toISOString().split('T')[0];
+
+    receiptDateInput.setAttribute('min', minDate);
+    receiptDateInput.setAttribute('max', maxDate);
+
+    // Add change event listener
+    receiptDateInput.addEventListener('change', function() {
+        validateReceiptDate(this, minDate, maxDate, fiscalYearStart, today);
+    });
+
+    // Validate current value if exists
+    if (receiptDateInput.value) {
+        validateReceiptDate(receiptDateInput, minDate, maxDate, fiscalYearStart, today);
+    }
+}
+
+// Format date to Thai format
+function formatDateThai(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const thaiYear = date.getFullYear() + 543;
+    const thaiMonths = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+    return `${date.getDate()} ${thaiMonths[date.getMonth()]} ${thaiYear}`;
+}
+
+// Validate receipt date
+function validateReceiptDate(input, minDate, maxDate, fiscalYearStart, today) {
+    const selectedDate = new Date(input.value);
+    const helpText = document.getElementById('receipt_date_help');
+
+    if (!input.value) {
+        input.setCustomValidity('กรุณาเลือกวันที่');
+        if (helpText) {
+            helpText.textContent = 'กรุณาเลือกวันที่ออกใบสำคัญ';
+            helpText.className = 'form-text text-danger';
+        }
+        return false;
+    }
+
+    // Check if future date
+    if (selectedDate > today) {
+        input.setCustomValidity('ไม่สามารถกำหนดวันที่ล่วงหน้าได้');
+        if (helpText) {
+            helpText.textContent = '❌ ไม่สามารถกำหนดวันที่ล่วงหน้าได้';
+            helpText.className = 'form-text text-danger';
+        }
+        input.classList.add('is-invalid');
+        return false;
+    }
+
+    // Check if before fiscal year start
+    if (selectedDate < fiscalYearStart) {
+        input.setCustomValidity('วันที่ย้อนหลังเกินกำหนด (ต้นปีงบประมาณคือ ' + formatDateThai(minDate) + ')');
+        if (helpText) {
+            helpText.textContent = '❌ วันที่ย้อนหลังเกินกำหนด (ต้นปีงบประมาณคือ ' + formatDateThai(minDate) + ')';
+            helpText.className = 'form-text text-danger';
+        }
+        input.classList.add('is-invalid');
+        return false;
+    }
+
+    // Valid date
+    input.setCustomValidity('');
+    if (helpText) {
+        helpText.textContent = '✓ วันที่ถูกต้อง (' + formatDateThai(input.value) + ')';
+        helpText.className = 'form-text text-success';
+    }
+    input.classList.remove('is-invalid');
+    input.classList.add('is-valid');
+    return true;
+}
 </script>
 
 <style>
@@ -1207,27 +1357,6 @@ function showToast(type, title, message) {
 }
 </style>
 
-<!-- jQuery (required for Summernote) -->
+<!-- jQuery (included for Bootstrap compatibility) -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-<!-- Summernote JS -->
-<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/lang/summernote-th-TH.min.js"></script>
-<script>
-$(document).ready(function() {
-    // Initialize Summernote for multi-item description (Simple mode)
-    $('#multi-item-description').summernote({
-        height: 200,
-        lang: 'th-TH',
-        toolbar: [
-            // เหลือแค่ undo/redo และ fullscreen เท่านั้น
-            ['view', ['fullscreen', 'codeview']]
-        ],
-        placeholder: 'พิมพ์รายการรับเงิน (กด Enter เพื่อขึ้นบรรทัดใหม่)',
-        disableDragAndDrop: true,
-        fontNames: ['Sarabun', 'THSarabunNew', 'Arial', 'Tahoma'],
-        fontNamesIgnoreCheck: ['Sarabun', 'THSarabunNew']
-    });
-});
-</script>
 {% endblock %}
