@@ -612,16 +612,19 @@ function addFoodItems() {
 function addItemToList(description, amount) {
     itemCounter++;
     const container = document.getElementById('items-container');
-    
+
     // Remove empty message if it exists
     const emptyMessage = container.querySelector('.text-center');
     if (emptyMessage) {
         emptyMessage.remove();
     }
-    
+
     // Replace newlines with <br> for display
     const displayDescription = description.replace(/\n/g, '<br>');
-    
+
+    // Get template_id from currentTemplate if available
+    const templateId = currentTemplate ? currentTemplate.id : '';
+
     const itemHtml = `
         <div class="item-row border rounded p-3 mb-3" data-item-id="${itemCounter}">
             <div class="d-flex justify-content-between align-items-start">
@@ -630,6 +633,7 @@ function addItemToList(description, amount) {
                     <div class="text-muted">จำนวนเงิน: <span class="fw-bold">${amount.toLocaleString()}</span> บาท</div>
                     <input type="hidden" class="item-description-hidden" value="${description}">
                     <input type="hidden" class="item-amount-hidden" value="${amount}">
+                    <input type="hidden" class="item-template-id-hidden" value="${templateId}">
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${itemCounter})">
                     <i class="fas fa-trash"></i>
@@ -637,7 +641,7 @@ function addItemToList(description, amount) {
             </div>
         </div>
     `;
-    
+
     container.insertAdjacentHTML('beforeend', itemHtml);
     calculateTotal();
 }
@@ -848,11 +852,13 @@ function showCompleteConfirmation() {
     document.querySelectorAll('.item-row').forEach(row => {
         const description = row.querySelector('.item-description-hidden').value.trim();
         const amount = parseFloat(row.querySelector('.item-amount-hidden').value) || 0;
+        const templateId = row.querySelector('.item-template-id-hidden')?.value || '';
 
         if (description && amount > 0) {
             items.push({
                 description: description,
-                amount: amount
+                amount: amount,
+                template_id: templateId
             });
         }
     });
@@ -933,11 +939,13 @@ function saveReceipt(status) {
     document.querySelectorAll('.item-row').forEach(row => {
         const description = row.querySelector('.item-description-hidden').value.trim();
         const amount = parseFloat(row.querySelector('.item-amount-hidden').value) || 0;
-        
+        const templateId = row.querySelector('.item-template-id-hidden')?.value || '';
+
         if (description && amount > 0) {
             items.push({
                 description: description,
-                amount: amount
+                amount: amount,
+                template_id: templateId
             });
         }
     });

@@ -127,11 +127,11 @@
                         <thead class="table-light">
                             <tr>
                                 <th width="15%">เลขที่เอกสาร</th>
-                                <th width="25%">ชื่อผู้รับเงิน / จำนวนเงิน</th>
+                                <th width="30%">ชื่อผู้รับเงิน / จำนวนเงิน</th>
                                 <th width="10%">สถานะ</th>
                                 <th width="15%">วันที่สร้าง</th>
-                                <th width="15%">หน่วยงาน</th>
-                                <th width="20%" class="text-center">การดำเนินการ</th>
+                                <th width="12%">หน่วยงาน</th>
+                                <th width="18%" class="text-center">การดำเนินการ</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -147,11 +147,6 @@
                                         {% endif %}
                                     </div>
                                     <div class="mt-1 text-center">
-                                        {% if receipt.is_loan %}
-                                            <span class="badge bg-warning text-dark me-1" title="ยืมเงิน">
-                                                <i class="fas fa-handshake"></i>
-                                            </span>
-                                        {% endif %}
                                         {% if receipt.edit_status == 'pending' %}
                                             <span class="badge bg-orange me-1" title="รออนุมัติแก้ไข">
                                                 <i class="fas fa-clock"></i>
@@ -178,16 +173,31 @@
                                 </td>
                                 <td>
                                     <div>{{ receipt.recipient_name|truncatechars:40 }}</div>
-                                    <div class="font-monospace text-success fw-bold">จำนวน {{ receipt.total_amount|floatformat:0|intcomma }} บาท</div>
+                                    <div>
+                                        <small class="text-muted">
+                                            จำนวน {{ receipt.total_amount|floatformat:0|intcomma }} บาท
+                                        </small>
+                                    </div>
                                 </td>
                                 <td>
-                                    {% if receipt.status == 'completed' %}
-                                        <span class="badge bg-success">เสร็จสิ้น</span>
-                                    {% elif receipt.status == 'draft' %}
-                                        <span class="badge bg-warning text-dark">ร่าง</span>
-                                    {% else %}
-                                        <span class="badge bg-danger">ยกเลิก</span>
-                                    {% endif %}
+                                    <div>
+                                        {% if receipt.status == 'completed' %}
+                                            <span class="badge bg-success">เสร็จสิ้น</span>
+                                        {% elif receipt.status == 'draft' %}
+                                            <span class="badge bg-warning text-dark">ร่าง</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">ยกเลิก</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="mt-1">
+                                        <small class="text-muted">
+                                            {% if receipt.is_loan %}
+                                                ยืมเงิน
+                                            {% else %}
+                                                จ่ายปกติ
+                                            {% endif %}
+                                        </small>
+                                    </div>
                                 </td>
                                 <td>
                                     <div>{{ receipt.created_at|date:"j M Y" }}</div>
