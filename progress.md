@@ -627,6 +627,199 @@ Bugs Fixed: 1 (signature logic)
 
 ---
 
+## 📅 วันที่ 12 ตุลาคม 2568 (ช่วงบ่าย)
+
+### 🎯 **Debugging Session: แก้ปัญหา PDF แสดงผลไม่ถูกต้องบน Server**
+
+#### 🐛 **ปัญหาที่พบ:**
+
+**Localhost vs Server:**
+- ✅ Localhost: PDF แสดงผล signature ถูกต้อง
+- ❌ Server: PDF แสดงผล signature ผิด (ยังใช้ logic เก่า)
+
+**อาการ:**
+- Server แสดง PDF ไม่ถูกต้องแม้ว่า `git pull` แล้ว
+- Code ใน git repository ถูกต้อง แต่ไฟล์บน server ยังเป็นเวอร์ชันเก่า
+
+#### 🔍 **การ Debug:**
+
+**1. สร้าง Test Script:**
+- สร้าง `test_pdf_signature_logic.py` เพื่อตรวจสอบ:
+  - ✅ Source code inspection
+  - ✅ Database testing
+  - ✅ Mock testing
+  - ✅ Cache detection
+  - ✅ Recommendations
+
+**2. ทดสอบ Localhost:**
+```
+✅ Source code: Has NEW logic
+✅ Tests: All CORRECT
+⚠️  Cache: .pyc is NEWER than .py (using cache!)
+```
+
+**3. ทดสอบ Server (ก่อนแก้):**
+```
+❌ Source code: Still has OLD logic
+✓ Has 'receipt.recipient_name': False ❌
+⚠️  Cache: .pyc is NEWER than .py (using cache!)
+```
+
+#### 🔧 **Root Cause:**
+
+**ปัญหาจริง:** `pdf_generator.py` บน server ไม่ได้ถูก update แม้ว่า:
+1. ✅ `git pull` แล้ว
+2. ✅ Commit มีใน repository
+3. ✅ `git log` แสดง commit ถูกต้อง
+
+**สาเหตุ:** Git working directory ไม่ sync กับ commit (unknown reason)
+- File timestamp: 2025-10-12 **12:07:42** (เก่า)
+- Expected timestamp: 2025-10-12 **13:57:22** (ใหม่)
+
+#### ✅ **วิธีแก้:**
+
+**Solution: Copy ไฟล์จาก Localhost ไป Server โดยตรง**
+
+```bash
+# ที่ Localhost
+C:\projects\emoneys\accounts\pdf_generator.py
+
+# Copy ไป Server
+C:\inetpub\wwwroot\emoneys\accounts\pdf_generator.py
+
+# ลบ cache
+rd /s /q accounts\__pycache__
+
+# รัน test อีกครั้ง
+python test_pdf_signature_logic.py
+```
+
+**ผลลัพธ์หลัง Copy:**
+```
+✅ Source code: Has NEW logic
+✅ Tests: All CORRECT
+✅ PDF แสดงผลถูกต้องทั้ง จ่ายปกติ และ ยืมเงิน
+```
+
+#### 📊 **สถิติการแก้ปัญหา:**
+
+```
+Time Spent: ~1 ชั่วโมง
+Approaches Tried:
+  ❌ git pull (ไม่ได้ผล)
+  ❌ git reset --hard (ไม่ได้ผล)
+  ✅ Manual file copy (สำเร็จ!)
+
+Files Created:
+  ✅ test_pdf_signature_logic.py (270 lines)
+
+Tools Used:
+  ✅ Git inspection
+  ✅ Python bytecode analysis
+  ✅ Timestamp comparison
+  ✅ Source code inspection
+```
+
+#### 💡 **บทเรียนที่ได้:**
+
+**1. Git Sync Issues:**
+- Git pull ไม่ได้รับประกันว่าไฟล์จะถูก update เสมอ
+- ควรตรวจสอบ file timestamp หลัง pull
+- Manual copy เป็น fallback ที่ดี
+
+**2. Python Bytecode Cache:**
+- `.pyc` files อาจใช้ code เก่าถึงแม้ `.py` ใหม่
+- ต้องลบ `__pycache__` หลังจาก update code
+- ใช้ `python -Bc` เพื่อ force recompile
+
+**3. Test Scripts:**
+- Test script ช่วย diagnose ปัญหาได้รวดเร็ว
+- ควรมี test script สำหรับ critical functions
+- Localhost vs Server comparison เป็นเทคนิคที่ดี
+
+**4. Deployment Best Practices:**
+- ควรมี deployment script ที่เชื่อถือได้
+- Verify files หลัง deploy ทุกครั้ง
+- Keep test scripts in repository
+
+#### 🛠️ **Tools & Scripts สำหรับอนาคต:**
+
+**1. test_pdf_signature_logic.py**
+```python
+# Comprehensive test script ที่สร้างขึ้น
+- Source code inspection
+- Database testing
+- Mock testing
+- Cache detection
+- Automated recommendations
+```
+
+**2. Deployment Checklist:**
+```bash
+# 1. Pull code
+git pull origin main
+
+# 2. Verify critical files
+git diff HEAD@{1} HEAD -- accounts/pdf_generator.py
+
+# 3. Clear cache
+rd /s /q accounts\__pycache__
+
+# 4. Run tests
+python test_pdf_signature_logic.py
+
+# 5. Restart server
+python manage.py runserver
+
+# 6. Verify in browser (Incognito)
+```
+
+#### 🚀 **สถานะปัจจุบัน:**
+
+**PDF Display System: ✅ FIXED & VERIFIED**
+- ✅ Localhost: Working correctly
+- ✅ Server: Working correctly (after manual copy)
+- ✅ Test script created for future debugging
+- ✅ Both payment types display correctly:
+  - จ่ายปกติ: ผู้รับเงิน=ชื่อจริง, ผู้จ่าย=ว่าง ✓
+  - ยืมเงิน: ผู้รับเงิน=ชื่อจริง, ผู้จ่าย=ชื่อผู้สร้าง ✓
+
+#### 📁 **ไฟล์ใหม่:**
+
+```
+Project Root/
+└── test_pdf_signature_logic.py (NEW)
+    - 270 lines
+    - Comprehensive diagnostic tool
+    - Ready for production use
+    - Committed to repository (8c617e7)
+```
+
+#### 🎯 **ข้อแนะนำสำหรับการ Deploy ครั้งต่อไป:**
+
+1. **ใช้ rsync หรือ deployment tool:**
+   ```bash
+   # แทนการใช้ git pull อย่างเดียว
+   rsync -av --delete localhost_path/ server_path/
+   ```
+
+2. **Verify หลัง deploy:**
+   ```bash
+   python test_pdf_signature_logic.py
+   ```
+
+3. **Clear cache เป็นประจำ:**
+   ```bash
+   find . -type d -name __pycache__ -exec rm -rf {} +
+   ```
+
+4. **Monitor file timestamps:**
+   ```bash
+   stat accounts/pdf_generator.py
+   ```
+
+---
+
 **พัฒนาโดย:** Claude Code Assistant
-**วันที่อัปเดต:** 12 ตุลาคม 2568
-**Status:** 🟢 Production Ready
+**วันที่อัปเดต:** 12 ตุลาคม 2568 (17:15 น.)
+**Status:** 🟢 Production Ready & Debugged
