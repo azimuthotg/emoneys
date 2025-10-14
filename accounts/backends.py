@@ -14,18 +14,19 @@ User = get_user_model()
 class HybridAuthBackend(BaseBackend):
     """
     Hybrid Authentication Backend for NPU System
-    
+
     Authentication Flow:
     1. Check if user exists in MySQL database
     2. If exists and approved -> authenticate and allow login
     3. If not exists -> call NPU API for authentication
-    4. If NPU auth success -> create user in pending status
-    5. Admin approval required before user can login
-    
+    4. If NPU auth success -> create user with auto-approval and Basic User role
+    5. User can login immediately after first successful NPU authentication
+
     Features:
     - MySQL database lookup first
     - NPU API integration for new users
-    - Admin approval workflow
+    - Auto-approval for NPU-authenticated users
+    - Automatic Basic User role assignment
     - Field lock system for local overrides
     - API call logging and monitoring
     """
@@ -141,11 +142,12 @@ class HybridAuthBackend(BaseBackend):
                             return None
                             
                     except User.DoesNotExist:
-                        # User still doesn't exist, create new one
+                        # User still doesn't exist, create new one with auto-approval
                         user = self._create_pending_user(user_data)
                         if user:
-                            print(f"Created new pending user from NPU: {ldap_uid}")
-                            return None  # Don't allow login until approved
+                            # User is auto-approved, allow immediate login
+                            print(f"Created and auto-approved new NPU user: {ldap_uid} - allowing login")
+                            return user
                         else:
                             print(f"Failed to create user from NPU data: {ldap_uid}")
                             return None
@@ -161,15 +163,20 @@ class HybridAuthBackend(BaseBackend):
             return None
     
     def _create_pending_user(self, user_data):
-        """Create new user in pending approval status"""
+        """
+        Create new user with auto-approval for NPU users
+
+        All users authenticated via NPU API are considered NPU staff
+        and are automatically approved with Basic User role.
+        """
         try:
             user = User.objects.create_user(
                 username=user_data['username'],
                 ldap_uid=user_data['ldap_uid'],
-                
+
                 # NPU Staff Information
                 npu_staff_id=user_data.get('npu_staff_id', ''),
-                
+
                 # Personal Information
                 prefix_name=user_data.get('prefix_name', ''),
                 first_name_th=user_data.get('first_name_th', ''),
@@ -177,36 +184,47 @@ class HybridAuthBackend(BaseBackend):
                 full_name=user_data.get('full_name', ''),
                 birth_date=user_data.get('birth_date'),
                 gender=user_data.get('gender', ''),
-                
+
                 # Organization Information
                 department=user_data.get('department', ''),
                 position_title=user_data.get('position_title', ''),
                 staff_type=user_data.get('staff_type', ''),
                 staff_sub_type=user_data.get('staff_sub_type', ''),
                 employment_status=user_data.get('employment_status', ''),
-                
+
                 # Sync metadata
                 last_npu_sync=user_data.get('last_npu_sync'),
                 npu_last_login=user_data.get('npu_last_login'),
-                
-                # User status
-                approval_status='pending',
-                is_active=False,
-                
+
+                # User status - AUTO-APPROVE NPU users
+                approval_status='approved',
+                is_active=True,
+                approved_at=timezone.now(),
+
                 # Legacy fields (deprecated)
                 is_document_staff=False,
                 can_forward_documents=False,
             )
-            
+
             # Don't set password - we always authenticate via NPU
             user.set_unusable_password()
             user.save()
-            
-            print(f"Successfully created pending user: {user.ldap_uid}")
+
+            # Auto-assign "Basic User" role to new NPU users
+            try:
+                from .models import Role
+                basic_user_role = Role.objects.get(name='basic_user', is_active=True)
+                user.assign_role(basic_user_role)
+                print(f"Successfully created and auto-approved NPU user: {user.ldap_uid} with Basic User role")
+            except Role.DoesNotExist:
+                print(f"Warning: 'basic_user' role not found. User {user.ldap_uid} created without role.")
+            except Exception as role_error:
+                print(f"Warning: Failed to assign role to {user.ldap_uid}: {role_error}")
+
             return user
-            
+
         except Exception as e:
-            print(f"Error creating pending user: {e}")
+            print(f"Error creating user: {e}")
             return None
     
     def _authenticate_with_file(self, ldap_uid, password):
