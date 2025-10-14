@@ -1506,8 +1506,8 @@ def receipt_list_view(request):
             Q(recipient_name__icontains=search_query)
         )
     
-    # Order and paginate
-    receipts = receipts.select_related('department', 'created_by').order_by('-created_at')
+    # Order and paginate (prefetch items with template category)
+    receipts = receipts.select_related('department', 'created_by').prefetch_related('items__template').order_by('-created_at')
     
     paginator = Paginator(receipts, 20)
     page = request.GET.get('page')
