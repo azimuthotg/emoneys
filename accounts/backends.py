@@ -7,26 +7,29 @@ from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.utils import timezone
 from .npu_api import NPUApiClient, extract_user_data
+from .npu_student_api import NPUStudentApiClient, extract_student_data
 
 User = get_user_model()
 
 
 class HybridAuthBackend(BaseBackend):
     """
-    Hybrid Authentication Backend for NPU System
+    Hybrid Authentication Backend for NPU System (Staff + Student)
 
     Authentication Flow:
-    1. Check if user exists in MySQL database
-    2. If exists and approved -> authenticate and allow login
-    3. If not exists -> call NPU API for authentication
-    4. If NPU auth success -> create user with auto-approval and Basic User role
+    1. Auto-detect user type from username pattern (13 digits=staff, 12 digits=student)
+    2. Try primary endpoint based on detection
+    3. If failed, try secondary endpoint as fallback
+    4. Create user with auto-approval and appropriate role (Basic User or Student)
     5. User can login immediately after first successful NPU authentication
 
     Features:
+    - Smart user type detection (staff vs student)
+    - Fallback strategy (try both endpoints if needed)
     - MySQL database lookup first
-    - NPU API integration for new users
+    - NPU Staff API + NPU Student API integration
     - Auto-approval for NPU-authenticated users
-    - Automatic Basic User role assignment
+    - Automatic role assignment (Basic User for staff, Student for students)
     - Field lock system for local overrides
     - API call logging and monitoring
     """
@@ -46,133 +49,244 @@ class HybridAuthBackend(BaseBackend):
                 pass
             return None
         
-        # Main hybrid authentication flow
-        return self._hybrid_authenticate(username, password)
-    
-    def _hybrid_authenticate(self, ldap_uid, password):
+        # Main smart authentication flow with fallback
+        return self._smart_authenticate(username, password)
+
+    def _smart_authenticate(self, username, password):
         """
-        Hybrid authentication logic
-        
-        Step 1: Check MySQL database first
-        Step 2: If not found, try NPU API
-        Step 3: Create user if NPU auth successful
+        Smart authentication with auto-detect and fallback
+
+        Strategy:
+        1. Detect probable user type from username pattern
+        2. Try primary endpoint first (based on detection)
+        3. If failed, try secondary endpoint (fallback)
+        4. Log unexpected patterns for monitoring
         """
-        # Step 1: Check if user exists in database
-        existing_user = self._check_database_user(ldap_uid, password)
-        if existing_user:
-            return existing_user
-        
-        # Step 2: User not in database, try NPU API
-        npu_user = self._authenticate_with_npu_api(ldap_uid, password)
-        return npu_user
-    
-    def _check_database_user(self, ldap_uid, password):
-        """Check if user exists in MySQL database and validate"""
+        # Step 1: Detect probable user type
+        probable_type = self._detect_probable_user_type(username)
+
+        # Step 2: Try authentication in order of probability
+        if probable_type == 'staff':
+            # Try Staff API first
+            user = self._try_staff_auth(username, password)
+            if user:
+                return user
+
+            # Fallback: Try Student API
+            print(f"Staff auth failed for {username}, trying Student API as fallback")
+            user = self._try_student_auth(username, password)
+            if user:
+                self._log_unexpected_pattern(username, detected='staff', actual='student')
+                return user
+
+        elif probable_type == 'student':
+            # Try Student API first
+            user = self._try_student_auth(username, password)
+            if user:
+                return user
+
+            # Fallback: Try Staff API
+            print(f"Student auth failed for {username}, trying Staff API as fallback")
+            user = self._try_staff_auth(username, password)
+            if user:
+                self._log_unexpected_pattern(username, detected='student', actual='staff')
+                return user
+
+        else:
+            # Unknown pattern: try both
+            print(f"Unknown username pattern: {username}, trying both endpoints")
+            user = self._try_staff_auth(username, password)
+            if user:
+                return user
+            user = self._try_student_auth(username, password)
+            if user:
+                return user
+
+        return None
+
+    def _detect_probable_user_type(self, username):
+        """
+        Detect probable user type from username pattern
+
+        Rules:
+        - 13 digits → probably staff (citizen ID)
+        - 12 digits → probably student (student code)
+        - Other → unknown
+        """
+        username_clean = username.strip()
+
+        # All digits check
+        if not username_clean.isdigit():
+            return 'unknown'
+
+        # Length-based detection
+        if len(username_clean) == 13:
+            return 'staff'
+        elif len(username_clean) == 12:
+            return 'student'
+
+        return 'unknown'
+
+    def _try_staff_auth(self, ldap_uid, password):
+        """
+        Try to authenticate as staff
+        Returns User object if successful, None otherwise
+        """
         try:
-            user = User.objects.get(ldap_uid=ldap_uid)
-            
+            # Check database first (staff users only)
+            existing_user = self._check_database_staff(ldap_uid, password)
+            if existing_user:
+                return existing_user
+
+            # Try NPU Staff API
+            return self._authenticate_with_staff_api(ldap_uid, password)
+
+        except Exception as e:
+            print(f"Staff auth error for {ldap_uid}: {e}")
+            return None
+
+    def _try_student_auth(self, student_code, password):
+        """
+        Try to authenticate as student
+        Returns User object if successful, None otherwise
+        """
+        try:
+            # Check database first (student users only)
+            existing_user = self._check_database_student(student_code, password)
+            if existing_user:
+                return existing_user
+
+            # Try NPU Student API
+            return self._authenticate_with_student_api(student_code, password)
+
+        except Exception as e:
+            print(f"Student auth error for {student_code}: {e}")
+            return None
+
+    def _log_unexpected_pattern(self, username, detected, actual):
+        """
+        Log cases where auto-detection was wrong
+        This helps improve detection logic
+        """
+        print(f"⚠️ UNEXPECTED PATTERN: {username}")
+        print(f"   Detected as: {detected}")
+        print(f"   Actually is: {actual}")
+        print(f"   Length: {len(username)} digits")
+
+        # TODO: Save to database for analysis (future enhancement)
+    
+    # === STAFF AUTHENTICATION METHODS ===
+
+    def _check_database_staff(self, ldap_uid, password):
+        """Check if staff user exists in MySQL database and validate"""
+        try:
+            user = User.objects.get(ldap_uid=ldap_uid, user_type='staff')
+
             # User exists, but check their status
             if user.approval_status == 'pending':
-                print(f"User {ldap_uid} exists but pending approval")
+                print(f"Staff user {ldap_uid} exists but pending approval")
                 return None  # Block login until approved
-                
+
             elif user.approval_status == 'rejected':
-                print(f"User {ldap_uid} has been rejected")
+                print(f"Staff user {ldap_uid} has been rejected")
                 return None  # Block rejected users
-                
+
             elif user.approval_status == 'suspended':
-                print(f"User {ldap_uid} is suspended")
+                print(f"Staff user {ldap_uid} is suspended")
                 return None  # Block suspended users
-                
+
             elif user.approval_status == 'approved' and user.is_active:
                 # User is approved, verify password with NPU API
                 # (We always verify with NPU for security, no local passwords)
-                if self._verify_npu_password(ldap_uid, password):
+                if self._verify_npu_staff_password(ldap_uid, password):
                     # Update last login from NPU
                     user.last_login = timezone.now()
                     user.save(update_fields=['last_login'])
-                    print(f"Successful login for approved user: {ldap_uid}")
+                    print(f"✓ Staff login successful: {ldap_uid}")
                     return user
                 else:
-                    print(f"Invalid password for user: {ldap_uid}")
+                    print(f"Invalid password for staff user: {ldap_uid}")
                     return None
             else:
-                print(f"User {ldap_uid} in invalid state: {user.approval_status}")
+                print(f"Staff user {ldap_uid} in invalid state: {user.approval_status}")
                 return None
-                
+
         except User.DoesNotExist:
-            # User doesn't exist in database, will try NPU API
-            print(f"User {ldap_uid} not found in database")
+            # Staff user doesn't exist in database, will try NPU API
+            print(f"Staff user {ldap_uid} not found in database")
             return None
         except Exception as e:
-            print(f"Error checking database user {ldap_uid}: {e}")
+            print(f"Error checking database staff user {ldap_uid}: {e}")
             return None
     
-    def _verify_npu_password(self, ldap_uid, password):
-        """Verify password with NPU API (for existing users)"""
+    def _verify_npu_staff_password(self, ldap_uid, password):
+        """Verify staff password with NPU Staff API (for existing staff users)"""
         npu_client = NPUApiClient()
         result = npu_client.authenticate_user(ldap_uid, password)
         return result is not None and result.get('success', False)
-    
-    def _authenticate_with_npu_api(self, ldap_uid, password):
-        """Authenticate with NPU API and create new user if successful"""
+
+    def _authenticate_with_staff_api(self, ldap_uid, password):
+        """Authenticate with NPU Staff API and create new staff user if successful"""
         try:
-            # Call NPU API
+            # Call NPU Staff API
             npu_client = NPUApiClient()
             npu_response = npu_client.authenticate_user(ldap_uid, password)
-            
+
             if npu_response and npu_response.get('success'):
                 # Extract user data from NPU response
                 user_data = extract_user_data(npu_response)
-                
+
                 if user_data:
                     # Check if user was created between database check and now
                     try:
-                        existing_user = User.objects.get(ldap_uid=ldap_uid)
-                        print(f"User {ldap_uid} was just created, checking status")
-                        
+                        existing_user = User.objects.get(ldap_uid=ldap_uid, user_type='staff')
+                        print(f"Staff user {ldap_uid} was just created, checking status")
+
                         if existing_user.approval_status == 'pending':
-                            print(f"User {ldap_uid} exists but pending approval")
+                            print(f"Staff user {ldap_uid} exists but pending approval")
                             return None  # Don't allow login until approved
                         elif existing_user.approval_status == 'approved':
-                            print(f"User {ldap_uid} is approved, allowing login")
+                            print(f"Staff user {ldap_uid} is approved, allowing login")
                             return existing_user
                         else:
-                            print(f"User {ldap_uid} status: {existing_user.approval_status}")
+                            print(f"Staff user {ldap_uid} status: {existing_user.approval_status}")
                             return None
-                            
+
                     except User.DoesNotExist:
                         # User still doesn't exist, create new one with auto-approval
-                        user = self._create_pending_user(user_data)
+                        user = self._create_staff_user(user_data)
                         if user:
                             # User is auto-approved, allow immediate login
-                            print(f"Created and auto-approved new NPU user: {ldap_uid} - allowing login")
+                            print(f"✓ New staff created: {ldap_uid}")
                             return user
                         else:
-                            print(f"Failed to create user from NPU data: {ldap_uid}")
+                            print(f"Failed to create staff user from NPU data: {ldap_uid}")
                             return None
                 else:
-                    print(f"Failed to extract user data from NPU response: {ldap_uid}")
+                    print(f"Failed to extract staff user data from NPU response: {ldap_uid}")
                     return None
             else:
-                print(f"NPU authentication failed for: {ldap_uid}")
+                print(f"NPU Staff API authentication failed for: {ldap_uid}")
                 return None
-                
+
         except Exception as e:
-            print(f"Error during NPU authentication for {ldap_uid}: {e}")
+            print(f"Error during NPU Staff API authentication for {ldap_uid}: {e}")
             return None
     
-    def _create_pending_user(self, user_data):
+    def _create_staff_user(self, user_data):
         """
-        Create new user with auto-approval for NPU users
+        Create new staff user with auto-approval for NPU staff
 
-        All users authenticated via NPU API are considered NPU staff
-        and are automatically approved with Basic User role.
+        All staff authenticated via NPU Staff API are automatically
+        approved with Basic User role.
         """
         try:
             user = User.objects.create_user(
                 username=user_data['username'],
                 ldap_uid=user_data['ldap_uid'],
+
+                # User type
+                user_type='staff',
 
                 # NPU Staff Information
                 npu_staff_id=user_data.get('npu_staff_id', ''),
@@ -196,7 +310,7 @@ class HybridAuthBackend(BaseBackend):
                 last_npu_sync=user_data.get('last_npu_sync'),
                 npu_last_login=user_data.get('npu_last_login'),
 
-                # User status - AUTO-APPROVE NPU users
+                # User status - AUTO-APPROVE NPU staff
                 approval_status='approved',
                 is_active=True,
                 approved_at=timezone.now(),
@@ -210,12 +324,12 @@ class HybridAuthBackend(BaseBackend):
             user.set_unusable_password()
             user.save()
 
-            # Auto-assign "Basic User" role to new NPU users
+            # Auto-assign "Basic User" role to new NPU staff
             try:
                 from .models import Role
                 basic_user_role = Role.objects.get(name='basic_user', is_active=True)
                 user.assign_role(basic_user_role)
-                print(f"Successfully created and auto-approved NPU user: {user.ldap_uid} with Basic User role")
+                print(f"Successfully created and auto-approved NPU staff: {user.ldap_uid} with Basic User role")
             except Role.DoesNotExist:
                 print(f"Warning: 'basic_user' role not found. User {user.ldap_uid} created without role.")
             except Exception as role_error:
@@ -224,9 +338,169 @@ class HybridAuthBackend(BaseBackend):
             return user
 
         except Exception as e:
-            print(f"Error creating user: {e}")
+            print(f"Error creating staff user: {e}")
             return None
-    
+
+    # === STUDENT AUTHENTICATION METHODS ===
+
+    def _check_database_student(self, student_code, password):
+        """Check if student user exists in MySQL database and validate"""
+        try:
+            user = User.objects.get(student_code=student_code, user_type='student')
+
+            # User exists, but check their status
+            if user.approval_status == 'pending':
+                print(f"Student user {student_code} exists but pending approval")
+                return None  # Block login until approved
+
+            elif user.approval_status == 'rejected':
+                print(f"Student user {student_code} has been rejected")
+                return None  # Block rejected users
+
+            elif user.approval_status == 'suspended':
+                print(f"Student user {student_code} is suspended")
+                return None  # Block suspended users
+
+            elif user.approval_status == 'approved' and user.is_active:
+                # User is approved, verify password with NPU Student API
+                if self._verify_npu_student_password(student_code, password):
+                    # Update last login
+                    user.last_login = timezone.now()
+                    user.save(update_fields=['last_login'])
+                    print(f"✓ Student login successful: {student_code}")
+                    return user
+                else:
+                    print(f"Invalid password for student user: {student_code}")
+                    return None
+            else:
+                print(f"Student user {student_code} in invalid state: {user.approval_status}")
+                return None
+
+        except User.DoesNotExist:
+            # Student user doesn't exist in database, will try NPU API
+            print(f"Student user {student_code} not found in database")
+            return None
+        except Exception as e:
+            print(f"Error checking database student user {student_code}: {e}")
+            return None
+
+    def _verify_npu_student_password(self, student_code, password):
+        """Verify student password with NPU Student API (for existing student users)"""
+        try:
+            student_client = NPUStudentApiClient()
+            response = student_client.authenticate_student(student_code, password)
+            return response and response.get('success', False)
+        except Exception as e:
+            print(f"Student password verification error: {e}")
+            return False
+
+    def _authenticate_with_student_api(self, student_code, password):
+        """Authenticate with NPU Student API and create new student user if successful"""
+        try:
+            # Call NPU Student API
+            student_client = NPUStudentApiClient()
+            npu_response = student_client.authenticate_student(student_code, password)
+
+            if npu_response and npu_response.get('success'):
+                # Extract student data from NPU response
+                student_data = extract_student_data(npu_response)
+
+                if student_data:
+                    # Check if user was created between database check and now
+                    try:
+                        existing_user = User.objects.get(student_code=student_code, user_type='student')
+                        print(f"Student user {student_code} was just created, checking status")
+
+                        if existing_user.approval_status == 'pending':
+                            print(f"Student user {student_code} exists but pending approval")
+                            return None
+                        elif existing_user.approval_status == 'approved':
+                            print(f"Student user {student_code} is approved, allowing login")
+                            return existing_user
+                        else:
+                            print(f"Student user {student_code} status: {existing_user.approval_status}")
+                            return None
+
+                    except User.DoesNotExist:
+                        # User still doesn't exist, create new one with auto-approval
+                        user = self._create_student_user(student_data)
+                        if user:
+                            print(f"✓ New student created: {student_code}")
+                            return user
+                        else:
+                            print(f"Failed to create student user: {student_code}")
+                            return None
+                else:
+                    print(f"Failed to extract student data from NPU response: {student_code}")
+                    return None
+            else:
+                print(f"NPU Student API authentication failed for: {student_code}")
+                return None
+
+        except Exception as e:
+            print(f"Error during NPU Student API authentication for {student_code}: {e}")
+            return None
+
+    def _create_student_user(self, student_data):
+        """
+        Create new student user with auto-approval
+
+        All students authenticated via NPU Student API are automatically
+        approved with Student role.
+        """
+        try:
+            user = User.objects.create_user(
+                username=student_data['username'],
+
+                # User type
+                user_type='student',
+
+                # Student Information
+                student_code=student_data['student_code'],
+                student_level=student_data.get('student_level', ''),
+                student_program=student_data.get('student_program', ''),
+                student_faculty=student_data.get('student_faculty', ''),
+                student_degree=student_data.get('student_degree', ''),
+
+                # Personal Information
+                prefix_name=student_data.get('prefix_name', ''),
+                first_name_th=student_data.get('first_name_th', ''),
+                last_name_th=student_data.get('last_name_th', ''),
+                full_name=student_data.get('full_name', ''),
+
+                # Sync metadata
+                last_npu_sync=student_data.get('last_npu_sync'),
+                npu_last_login=student_data.get('npu_last_login'),
+
+                # User status - AUTO-APPROVE NPU students
+                approval_status='approved',
+                is_active=True,
+                approved_at=timezone.now(),
+            )
+
+            # Don't set password - we always authenticate via NPU
+            user.set_unusable_password()
+            user.save()
+
+            # Auto-assign "Student" role to new NPU students
+            try:
+                from .models import Role
+                student_role = Role.objects.get(name='student', is_active=True)
+                user.assign_role(student_role)
+                print(f"Successfully created and auto-approved NPU student: {user.student_code} with Student role")
+            except Role.DoesNotExist:
+                print(f"Warning: 'student' role not found. User {user.student_code} created without role.")
+            except Exception as role_error:
+                print(f"Warning: Failed to assign role to {user.student_code}: {role_error}")
+
+            return user
+
+        except Exception as e:
+            print(f"Error creating student user: {e}")
+            return None
+
+    # === FILE-BASED AUTHENTICATION (Legacy) ===
+
     def _authenticate_with_file(self, ldap_uid, password):
         """Authenticate with file data and sync user"""
         try:

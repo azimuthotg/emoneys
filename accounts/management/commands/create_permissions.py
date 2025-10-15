@@ -119,7 +119,34 @@ class Command(BaseCommand):
         else:
             self.stdout.write("- Role exists: Department Manager")
 
+        # Role: Student (นักศึกษา)
+        student_role, created = Role.objects.get_or_create(
+            name='student',
+            defaults={
+                'display_name': 'Student (นักศึกษา)',
+                'description': 'Student users who can only view their own documents',
+                'is_active': True
+            }
+        )
+
+        if created:
+            # Add permissions for Student (create and view own receipts)
+            student_permissions = Permission.objects.filter(
+                name__in=['receipt_create', 'receipt_view_own'],
+                is_active=True
+            )
+            student_role.permissions.set(student_permissions)
+            self.stdout.write("✓ Created Role: Student (นักศึกษา)")
+        else:
+            # Update existing Student role permissions
+            student_permissions = Permission.objects.filter(
+                name__in=['receipt_create', 'receipt_view_own'],
+                is_active=True
+            )
+            student_role.permissions.set(student_permissions)
+            self.stdout.write("- Role exists: Student (นักศึกษา) - Updated permissions")
+
         self.stdout.write(f"\nRole creation complete!")
         self.stdout.write(f"Total active roles: {Role.objects.filter(is_active=True).count()}")
-        
+
         self.stdout.write(self.style.SUCCESS('\nAll permissions and roles have been created successfully!'))

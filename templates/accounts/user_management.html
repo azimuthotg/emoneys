@@ -205,7 +205,7 @@
                                                 <br><small class="text-muted">{{ user.contact_email|default:user.username }}</small>
                                             </div>
                                         </td>
-                                        <td>{{ user.department|default:"ไม่ระบุ" }}</td>
+                                        <td>{{ user.get_department|default:"ไม่ระบุ" }}</td>
                                         <td>
                                             <div class="d-flex flex-column gap-1">
                                                 {% for role in user.get_roles %}
@@ -304,7 +304,7 @@
                                                 <br><small class="text-muted">{{ user.username }}</small>
                                             </div>
                                         </td>
-                                        <td>{{ user.department|default:"ไม่ระบุ" }}</td>
+                                        <td>{{ user.get_department|default:"ไม่ระบุ" }}</td>
                                         <td>{{ user.position_title|default:"ไม่ระบุ" }}</td>
                                         <td><small>{{ user.date_joined|date:"d/m/Y H:i" }}</small></td>
                                         <td class="text-center">
@@ -378,7 +378,7 @@
                                                 <br><small class="text-muted">{{ user.contact_email|default:user.username }}</small>
                                             </div>
                                         </td>
-                                        <td>{{ user.department|default:"ไม่ระบุ" }}</td>
+                                        <td>{{ user.get_department|default:"ไม่ระบุ" }}</td>
                                         <td><small>{{ user.suspended_at|date:"d/m/Y"|default:"-" }}</small></td>
                                         <td><small class="text-muted">{{ user.suspension_reason|default:"ไม่ระบุ" }}</small></td>
                                         <td class="text-center">
@@ -456,7 +456,7 @@
                                                 <br><small class="text-muted">{{ user.contact_email|default:user.username }}</small>
                                             </div>
                                         </td>
-                                        <td>{{ user.department|default:"ไม่ระบุ" }}</td>
+                                        <td>{{ user.get_department|default:"ไม่ระบุ" }}</td>
                                         <td>
                                             {% for role in user.get_roles %}
                                             <span class="badge bg-primary">{{ role.display_name }}</span>
@@ -696,7 +696,7 @@ function editUserRoles(userId) {
             // Set user info
             document.getElementById('selectedUserInfo').innerHTML = `
                 <strong>${data.user.full_name}</strong>
-                <small class="text-muted d-block">${data.user.ldap_uid} | ${data.user.department}</small>
+                <small class="text-muted d-block">${data.user.ldap_uid} | ${data.user.get_department}</small>
             `;
             
             // Load available roles and set user's current roles

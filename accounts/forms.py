@@ -13,10 +13,10 @@ class LoginForm(AuthenticationForm):
         widget=forms.TextInput(attrs={
             'class': 'form-control form-control-lg',
             'id': 'ldap_uid',
-            'placeholder': 'กรอกรหัสบัตรประชาชน 13 หลัก หรือ username สำหรับ admin',
+            'placeholder': 'รหัสบัตรประชาชน 13 หลัก / รหัสนักศึกษา 12 หลัก',
             'required': True,
         }),
-        label='รหัสบัตรประชาชน / Username'
+        label='รหัสบัตรประชาชน / รหัสนักศึกษา'
     )
     
     password = forms.CharField(
@@ -31,19 +31,20 @@ class LoginForm(AuthenticationForm):
 
     def clean_username(self):
         username = self.cleaned_data.get('username', '').strip()
-        
+
         # Skip validation for admin users (allow alphanumeric)
         admin_usernames = ['admin', 'superuser', 'admin_e', 'administrator']
         if username in admin_usernames or username.startswith('admin'):
             return username
-        
-        # Validate Thai ID format (13 digits) for regular users
+
+        # Validate format (must be digits)
         if not username.isdigit():
-            raise forms.ValidationError('รหัสบัตรประชาชนต้องเป็นตัวเลข 13 หลัก และรหัสผ่านของคุณ')
-        
-        if len(username) != 13:
-            raise forms.ValidationError('รหัสบัตรประชาชนต้องเป็นตัวเลข 13 หลัก และรหัสผ่านของคุณ')
-        
+            raise forms.ValidationError('รหัสต้องเป็นตัวเลขเท่านั้น (12 หลักสำหรับนักศึกษา หรือ 13 หลักสำหรับเจ้าหน้าที่)')
+
+        # Accept both 12 digits (student) and 13 digits (staff)
+        if len(username) not in [12, 13]:
+            raise forms.ValidationError('รหัสต้องเป็น 12 หลัก (นักศึกษา) หรือ 13 หลัก (เจ้าหน้าที่)')
+
         return username
 
 

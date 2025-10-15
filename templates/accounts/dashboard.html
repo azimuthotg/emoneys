@@ -15,19 +15,48 @@
                             <i class="fas fa-hand-wave me-2" style="color: #CFAE43;"></i>
                             สวัสดี, {{ user.full_name|default:user.username }}
                         </h4>
-                        <p class="mb-1 opacity-90">
-                            <i class="fas fa-building me-2"></i>
-                            {{ user.department|default:"ไม่ระบุหน่วยงาน" }}
-                        </p>
-                        {% if user.position_title %}
-                        <p class="mb-0 opacity-75">
-                            <i class="fas fa-user-tie me-2"></i>
-                            {{ user.position_title }}
-                        </p>
+
+                        {% if user.user_type == 'student' %}
+                            <!-- แสดงข้อมูลนักศึกษา -->
+                            {% if user.student_code %}
+                            <p class="mb-1 opacity-90">
+                                <i class="fas fa-id-card me-2"></i>
+                                รหัสนักศึกษา: {{ user.student_code }}
+                            </p>
+                            {% endif %}
+                            {% if user.student_faculty %}
+                            <p class="mb-1 opacity-90">
+                                <i class="fas fa-university me-2"></i>
+                                {{ user.student_faculty }}
+                            </p>
+                            {% endif %}
+                            {% if user.student_program %}
+                            <p class="mb-0 opacity-75">
+                                <i class="fas fa-graduation-cap me-2"></i>
+                                สาขา: {{ user.student_program }}
+                                {% if user.student_level %} ({{ user.student_level }}){% endif %}
+                            </p>
+                            {% endif %}
+                        {% else %}
+                            <!-- แสดงข้อมูลเจ้าหน้าที่ -->
+                            <p class="mb-1 opacity-90">
+                                <i class="fas fa-building me-2"></i>
+                                {{ user.get_department|default:"ไม่ระบุหน่วยงาน" }}
+                            </p>
+                            {% if user.position_title %}
+                            <p class="mb-0 opacity-75">
+                                <i class="fas fa-user-tie me-2"></i>
+                                {{ user.position_title }}
+                            </p>
+                            {% endif %}
                         {% endif %}
                     </div>
                     <div class="col-md-4 text-md-end">
-                        <i class="fas fa-user-circle" style="font-size: 3.5rem; opacity: 0.3; color: #CFAE43;"></i>
+                        {% if user.user_type == 'student' %}
+                            <i class="fas fa-user-graduate" style="font-size: 3.5rem; opacity: 0.3; color: #CFAE43;"></i>
+                        {% else %}
+                            <i class="fas fa-user-circle" style="font-size: 3.5rem; opacity: 0.3; color: #CFAE43;"></i>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -189,25 +218,27 @@
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-lg-3 col-md-6">
+                        <div class="{% if user.user_type == 'student' %}col-lg-4{% else %}col-lg-3{% endif %} col-md-6">
                             <a href="{% url 'receipt_create' %}" class="btn w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3" style="background-color: #002F6C; color: white; border: none; text-decoration: none;">
                                 <i class="fas fa-plus-circle fa-2x mb-2" style="color: #CFAE43;"></i>
                                 <span>สร้างใบสำคัญรับเงินใหม่</span>
                             </a>
                         </div>
-                        <div class="col-lg-3 col-md-6">
+                        <div class="{% if user.user_type == 'student' %}col-lg-4{% else %}col-lg-3{% endif %} col-md-6">
                             <a href="{% url 'receipt_list' %}" class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3">
                                 <i class="fas fa-search fa-2x mb-2"></i>
                                 <span>ค้นหาใบสำคัญรับเงิน</span>
                             </a>
                         </div>
+                        {% if user.user_type == 'staff' %}
                         <div class="col-lg-3 col-md-6">
                             <a href="{% url 'reports_dashboard' %}" class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3">
                                 <i class="fas fa-chart-bar fa-2x mb-2"></i>
                                 <span>รายงานการเงิน</span>
                             </a>
                         </div>
-                        <div class="col-lg-3 col-md-6">
+                        {% endif %}
+                        <div class="{% if user.user_type == 'student' %}col-lg-4{% else %}col-lg-3{% endif %} col-md-6">
                             <a href="{% url 'profile' %}" class="btn btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3">
                                 <i class="fas fa-user-cog fa-2x mb-2"></i>
                                 <span>ตั้งค่าบัญชี</span>
@@ -221,7 +252,7 @@
     
     <!-- Recent Activities -->
     <div class="row">
-        <div class="col-lg-6 mb-4">
+        <div class="{% if user.user_type == 'student' %}col-12{% else %}col-lg-6{% endif %} mb-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 py-3">
                     <h5 class="mb-0">
@@ -279,7 +310,8 @@
                 </div>
             </div>
         </div>
-        
+
+        {% if user.user_type == 'staff' %}
         <div class="col-lg-6 mb-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 py-3">
@@ -335,6 +367,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
 {% endblock %}
 

@@ -25,16 +25,25 @@
                         <form method="post" novalidate>
                             {% csrf_token %}
                             
-                            <!-- Thai ID Input -->
+                            <!-- Thai ID / Student ID Input -->
                             <div class="mb-4">
                                 <label for="id_username" class="form-label fw-medium text-secondary">
-                                    รหัสบัตรประชาชน
+                                    รหัสบัตรประชาชน / รหัสนักศึกษา
                                 </label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-transparent border-end-0" aria-label="รหัสบัตรประชาชน">
+                                    <span class="input-group-text bg-transparent border-end-0" aria-label="รหัสบัตรประชาชนหรือรหัสนักศึกษา">
                                         <i class="fas fa-id-card text-muted"></i>
                                     </span>
                                     {{ form.username }}
+                                </div>
+                                <!-- Real-time User Type Hint -->
+                                <div id="userTypeHint" class="mt-2" style="display: none;">
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge" id="userTypeBadge" style="font-size: 0.85rem; padding: 6px 12px;">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            <span id="userTypeText"></span>
+                                        </span>
+                                    </div>
                                 </div>
                                 {% if form.username.help_text %}
                                     <div class="form-text text-muted small">{{ form.username.help_text }}</div>
@@ -107,7 +116,7 @@
                         <div class="text-center pt-3">
                             <small class="text-muted">
                                 <i class="fas fa-info-circle me-1 opacity-75"></i>
-                                ใช้รหัสบัตรประชาชน 13 หลัก และรหัสผ่านของคุณ
+                                เจ้าหน้าที่: รหัสบัตรประชาชน 13 หลัก | นักศึกษา: รหัสนักศึกษา 12 หลัก
                             </small>
                         </div>
                     </div>
@@ -174,26 +183,52 @@
 
 {% block extra_js %}
 <script>
-// Thai ID Validation with Visual Feedback
+// Username Input Validation with Real-time User Type Detection
 document.getElementById('id_username').addEventListener('input', function(e) {
     let value = e.target.value.replace(/\D/g, '');
     if (value.length > 13) value = value.slice(0, 13);
     e.target.value = value;
-    
+
+    // Get hint elements
+    const hintDiv = document.getElementById('userTypeHint');
+    const badgeElement = document.getElementById('userTypeBadge');
+    const textElement = document.getElementById('userTypeText');
+
     // Remove existing validation classes
     e.target.classList.remove('is-valid', 'is-invalid');
-    
+
     // Skip validation for admin user
     if (value === 'admin') {
         e.target.classList.add('is-valid');
+        hintDiv.style.display = 'none';
         return;
     }
-    
-    // Validation feedback
+
+    // Real-time user type detection and hint display
     if (value.length === 13) {
+        // Staff (13 digits)
         e.target.classList.add('is-valid');
+        hintDiv.style.display = 'block';
+        badgeElement.className = 'badge bg-primary';
+        badgeElement.style.cssText = 'font-size: 0.85rem; padding: 6px 12px;';
+        textElement.innerHTML = 'เจ้าหน้าที่ (รหัสบัตรประชาชน 13 หลัก)';
+    } else if (value.length === 12) {
+        // Student (12 digits)
+        e.target.classList.add('is-valid');
+        hintDiv.style.display = 'block';
+        badgeElement.className = 'badge bg-success';
+        badgeElement.style.cssText = 'font-size: 0.85rem; padding: 6px 12px;';
+        textElement.innerHTML = 'นักศึกษา (รหัสนักศึกษา 12 หลัก)';
     } else if (value.length > 0) {
+        // Invalid length
         e.target.classList.add('is-invalid');
+        hintDiv.style.display = 'block';
+        badgeElement.className = 'badge bg-warning text-dark';
+        badgeElement.style.cssText = 'font-size: 0.85rem; padding: 6px 12px;';
+        textElement.innerHTML = 'กรุณากรอก 12 หลัก (นักศึกษา) หรือ 13 หลัก (เจ้าหน้าที่)';
+    } else {
+        // Empty field
+        hintDiv.style.display = 'none';
     }
 });
 
@@ -215,30 +250,37 @@ document.getElementById('togglePassword').addEventListener('click', function() {
 
 // Form Validation on Submit
 document.querySelector('form').addEventListener('submit', function(e) {
-    const ldapUidField = document.getElementById('id_username');
+    const usernameField = document.getElementById('id_username');
     const passwordField = document.getElementById('id_password');
-    
-    const ldapUid = ldapUidField.value.trim();
+
+    const username = usernameField.value.trim();
     const password = passwordField.value;
-    
+
     let isValid = true;
-    
+
     // Clear previous validation
-    ldapUidField.classList.remove('is-invalid');
+    usernameField.classList.remove('is-invalid');
     passwordField.classList.remove('is-invalid');
-    
-    // Validate Thai ID (skip for admin)
-    if (ldapUid !== 'admin' && (ldapUid.length !== 13 || !ldapUid.match(/^\d{13}$/))) {
-        ldapUidField.classList.add('is-invalid');
+
+    // Validate Username (accept 12 digits for students, 13 digits for staff, or 'admin')
+    if (username === 'admin') {
+        // Admin is always valid
+    } else if (username.length === 12 && username.match(/^\d{12}$/)) {
+        // Student ID (12 digits) - valid
+    } else if (username.length === 13 && username.match(/^\d{13}$/)) {
+        // Staff ID (13 digits) - valid
+    } else {
+        // Invalid
+        usernameField.classList.add('is-invalid');
         isValid = false;
     }
-    
+
     // Validate password
     if (!password) {
         passwordField.classList.add('is-invalid');
         isValid = false;
     }
-    
+
     if (!isValid) {
         e.preventDefault();
     }

@@ -158,7 +158,7 @@ def handle_api_login(request):
                         'id': user.id,
                         'username': user.username,
                         'full_name': user.full_name,
-                        'department': user.department,
+                        'department': user.get_department(),
                         'position_title': user.position_title,
                         'roles': [role.name for role in user.get_roles()],
                     }
@@ -202,13 +202,14 @@ def dashboard(request):
     
     # Get user's department access
     user_departments = Department.objects.none()  # Empty queryset
-    if hasattr(request.user, 'department') and request.user.department:
+    user_department = request.user.get_department()
+    if user_department:
         # Find Department objects that match user's department name
-        user_departments = Department.objects.filter(name=request.user.department)
-        
+        user_departments = Department.objects.filter(name=user_department)
+
         # If no matching department found, create it or handle gracefully
         if not user_departments.exists():
-            print(f"Warning: Department '{request.user.department}' not found in Department table")
+            print(f"Warning: Department '{user_department}' not found in Department table")
     
     # Calculate actual receipt statistics for user's department(s)
     from django.db.models import Count, Sum
@@ -264,7 +265,7 @@ def dashboard(request):
     if request.user.has_permission('receipt_edit_approve') or request.user.has_permission('receipt_edit_approve_manager'):
         # นับคำขอแก้ไขที่รออนุมัติในแผนกตัวเอง
         edit_requests = ReceiptEditRequest.objects.filter(
-            receipt__department__name=request.user.department,
+            receipt__department__name=request.user.get_department(),
             status='pending'
         )
 
@@ -276,7 +277,7 @@ def dashboard(request):
     if request.user.has_permission('receipt_cancel_approve') or request.user.has_permission('receipt_cancel_approve_manager'):
         # นับคำขอยกเลิกที่รออนุมัติในแผนกตัวเอง
         cancel_requests = ReceiptCancelRequest.objects.filter(
-            receipt__department__name=request.user.department,
+            receipt__department__name=request.user.get_department(),
             status='pending'
         )
 
@@ -424,7 +425,7 @@ def user_details_ajax(request, user_id):
         user_data = {
             'ldap_uid': user.ldap_uid,
             'full_name': user.full_name,
-            'department': user.department,
+            'department': user.get_department(),
             'position_title': user.position_title,
             'staff_type': user.staff_type,
             'employment_status': user.employment_status,
@@ -1320,7 +1321,7 @@ def user_roles_ajax(request, user_id):
             'id': user.id,
             'full_name': user.full_name or user.username,
             'ldap_uid': user.ldap_uid,
-            'department': user.department or 'ไม่ระบุ',
+            'department': user.get_department() or 'ไม่ระบุ',
             'role_ids': list(user_roles.values_list('id', flat=True)),  # Get role IDs for matching
         }
         return JsonResponse({'success': True, 'user': user_data})
@@ -1448,7 +1449,7 @@ def receipt_create_view(request):
     
     # ดึงหน่วยงานของผู้ใช้
     try:
-        user_department = Department.objects.get(name=request.user.department)
+        user_department = Department.objects.get(name=request.user.get_department())
     except Department.DoesNotExist:
         messages.error(request, 'ไม่พบหน่วยงานของคุณในระบบ กรุณาติดต่อผู้ดูแล')
         return redirect('dashboard')
@@ -1483,12 +1484,12 @@ def receipt_list_view(request):
         view_scope = 'ทั้งหมด'
     elif request.user.has_permission('receipt_view_department'):
         # ดูได้เฉพาะหน่วยงาน
-        receipts = Receipt.objects.filter(department__name=request.user.department)
-        view_scope = f'หน่วยงาน: {request.user.department}'
+        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        view_scope = f'หน่วยงาน: {request.user.get_department()}'
     elif request.user.has_permission('receipt_view_own'):
         # Basic Users can see all receipts in their department for receipt number tracking
-        receipts = Receipt.objects.filter(department__name=request.user.department)
-        view_scope = f'หน่วยงาน: {request.user.department}'
+        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        view_scope = f'หน่วยงาน: {request.user.get_department()}'
     else:
         # ไม่มีสิทธิ์ดูใด ๆ
         receipts = Receipt.objects.none()
@@ -1585,11 +1586,11 @@ def receipt_detail_view(request, receipt_id):
         
         if request.user.has_permission('receipt_view_all'):
             can_view = True
-        elif request.user.has_permission('receipt_view_department') and receipt.department.name == request.user.department:
+        elif request.user.has_permission('receipt_view_department') and receipt.department.name == request.user.get_department():
             can_view = True
         elif request.user.has_permission('receipt_view_own'):
             # Basic Users can view all receipts in their department for receipt number tracking
-            can_view = (receipt.department.name == request.user.department)
+            can_view = (receipt.department.name == request.user.get_department())
         else:
             can_view = False
         
@@ -1657,14 +1658,19 @@ def receipt_save_ajax(request):
         except (ValueError, TypeError):
             return JsonResponse({'success': False, 'message': 'จำนวนเงินไม่ถูกต้อง'}, status=400)
         
-        # ดึงหน่วยงาน
-        if not request.user.department:
+        # ดึงหน่วยงาน (รองรับทั้ง staff และ student)
+        department_name = request.user.get_department()
+        if not department_name:
             return JsonResponse({'success': False, 'message': 'ไม่พบข้อมูลหน่วยงานของคุณ'}, status=400)
-            
-        try:
-            department = Department.objects.get(name=request.user.department)
-        except Department.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'ไม่พบหน่วยงานของคุณในระบบ'}, status=400)
+
+        # หาหรือสร้าง Department (สำหรับนักศึกษาที่คณะยังไม่มีในระบบ)
+        department, created = Department.objects.get_or_create(
+            name=department_name,
+            defaults={
+                'code': department_name[:20],  # ใช้ชื่อย่อจากชื่อเต็ม (ตัดไม่เกิน 20 ตัวอักษร)
+                'is_active': True,
+            }
+        )
         
         # สร้างใบสำคัญรับเงิน
         from datetime import datetime
@@ -1805,7 +1811,7 @@ def receipt_pdf_view(request, receipt_id):
                 messages.error(request, 'ไม่มีสิทธิ์ดูใบสำคัญรับเงินนี้')
                 return redirect('receipt_list')
         
-        if request.user.has_permission('receipt_view_department') and receipt.department.name != request.user.department:
+        if request.user.has_permission('receipt_view_department') and receipt.department.name != request.user.get_department():
             # ถ้ามีสิทธิ์ดูเฉพาะหน่วยงาน แต่ไม่ใช่หน่วยงานเดียวกัน
             if not request.user.has_permission('receipt_view_all'):
                 messages.error(request, 'ไม่มีสิทธิ์ดูใบสำคัญรับเงินของหน่วยงานอื่น')
@@ -1845,7 +1851,7 @@ def receipt_pdf_download_view(request, receipt_id):
                 messages.error(request, 'ไม่มีสิทธิ์ดูใบสำคัญรับเงินนี้')
                 return redirect('receipt_list')
         
-        if request.user.has_permission('receipt_view_department') and receipt.department.name != request.user.department:
+        if request.user.has_permission('receipt_view_department') and receipt.department.name != request.user.get_department():
             if not request.user.has_permission('receipt_view_all'):
                 messages.error(request, 'ไม่มีสิทธิ์ดูใบสำคัญรับเงินของหน่วยงานอื่น')
                 return redirect('receipt_list')
@@ -1888,7 +1894,7 @@ def receipt_pdf_v2_view(request, receipt_id):
                 messages.error(request, 'ไม่มีสิทธิ์ดูใบสำคัญรับเงินนี้')
                 return redirect('receipt_list')
         
-        if request.user.has_permission('receipt_view_department') and receipt.department.name != request.user.department:
+        if request.user.has_permission('receipt_view_department') and receipt.department.name != request.user.get_department():
             # ถ้ามีสิทธิ์ดูเฉพาะหน่วยงาน แต่ไม่ใช่หน่วยงานเดียวกัน
             if not request.user.has_permission('receipt_view_all'):
                 messages.error(request, 'ไม่มีสิทธิ์ดูใบสำคัญรับเงินของหน่วยงานอื่น')
@@ -1963,7 +1969,7 @@ def receipt_pdf_v2_download_view(request, receipt_id):
                 messages.error(request, 'ไม่มีสิทธิ์ดูใบสำคัญรับเงินนี้')
                 return redirect('receipt_list')
         
-        if request.user.has_permission('receipt_view_department') and receipt.department.name != request.user.department:
+        if request.user.has_permission('receipt_view_department') and receipt.department.name != request.user.get_department():
             # ถ้ามีสิทธิ์ดูเฉพาะหน่วยงาน แต่ไม่ใช่หน่วยงานเดียวกัน
             if not request.user.has_permission('receipt_view_all'):
                 messages.error(request, 'ไม่มีสิทธิ์ดูใบสำคัญรับเงินของหน่วยงานอื่น')
@@ -2186,7 +2192,7 @@ def edit_request_list_view(request):
     elif request.user.has_permission('receipt_edit_approve'):
         # Department Manager: ดูเฉพาะหน่วยงานตัวเอง
         edit_requests = ReceiptEditRequest.objects.filter(
-            receipt__department__name=request.user.department
+            receipt__department__name=request.user.get_department()
         )
     else:
         # Basic User: ดูเฉพาะของตัวเอง
@@ -2244,7 +2250,7 @@ def edit_request_detail_view(request, request_id):
     can_view = False
     if request.user.has_permission('receipt_view_all'):
         can_view = True
-    elif request.user.has_permission('receipt_edit_approve') and edit_request.receipt.department.name == request.user.department:
+    elif request.user.has_permission('receipt_edit_approve') and edit_request.receipt.department.name == request.user.get_department():
         can_view = True
     elif edit_request.requested_by == request.user:
         can_view = True
@@ -2665,9 +2671,9 @@ def reports_dashboard_view(request):
         view_scope = "ทุกหน่วยงาน"
     else:
         # Basic User และ Department Manager - ดูระดับหน่วยงาน
-        receipts = Receipt.objects.filter(department__name=request.user.department)
-        edit_requests = ReceiptEditRequest.objects.filter(receipt__department__name=request.user.department)
-        view_scope = f"หน่วยงาน: {request.user.department}"
+        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        edit_requests = ReceiptEditRequest.objects.filter(receipt__department__name=request.user.get_department())
+        view_scope = f"หน่วยงาน: {request.user.get_department()}"
     
     # วันที่ปัจจุบัน
     now = timezone.now()
@@ -2864,9 +2870,9 @@ def receipt_report_view(request):
         view_scope = "ทุกหน่วยงาน"
     else:
         # Basic User และ Department Manager - ดูระดับหน่วยงาน
-        receipts = Receipt.objects.filter(department__name=request.user.department)
-        departments = Department.objects.filter(name=request.user.department, is_active=True)
-        view_scope = f"หน่วยงาน: {request.user.department}"
+        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        departments = Department.objects.filter(name=request.user.get_department(), is_active=True)
+        view_scope = f"หน่วยงาน: {request.user.get_department()}"
     
     # รับค่า filter จาก form
     date_from = request.GET.get('date_from')
@@ -2984,9 +2990,9 @@ def revenue_summary_report_view(request):
         departments = Department.objects.filter(is_active=True)
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.department)
-        departments = Department.objects.filter(name=request.user.department, is_active=True)
-        view_scope = f"หน่วยงาน: {request.user.department}"
+        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        departments = Department.objects.filter(name=request.user.get_department(), is_active=True)
+        view_scope = f"หน่วยงาน: {request.user.get_department()}"
     
     # รับค่า filter
     period_type = request.GET.get('period', 'monthly')  # daily, monthly, fiscal_year
@@ -3201,9 +3207,9 @@ def revenue_summary_excel_export(request):
         departments = Department.objects.filter(is_active=True)
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.department)
-        departments = Department.objects.filter(name=request.user.department, is_active=True)
-        view_scope = f"หน่วยงาน: {request.user.department}"
+        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        departments = Department.objects.filter(name=request.user.get_department(), is_active=True)
+        view_scope = f"หน่วยงาน: {request.user.get_department()}"
     
     # รับค่า filter
     period_type = request.GET.get('period', 'monthly')
@@ -3532,9 +3538,9 @@ def revenue_summary_pdf_export(request):
         departments = Department.objects.filter(is_active=True)
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.department)
-        departments = Department.objects.filter(name=request.user.department, is_active=True)
-        view_scope = f"หน่วยงาน: {request.user.department}"
+        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        departments = Department.objects.filter(name=request.user.get_department(), is_active=True)
+        view_scope = f"หน่วยงาน: {request.user.get_department()}"
     
     # รับค่า filter
     period_type = request.GET.get('period', 'monthly')
@@ -3896,8 +3902,8 @@ def receipt_report_pdf_export(request):
         receipts = Receipt.objects.all()
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.department)
-        view_scope = f"หน่วยงาน: {request.user.department}"
+        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        view_scope = f"หน่วยงาน: {request.user.get_department()}"
     
     # รับค่า filter
     date_from = request.GET.get('date_from')
@@ -4066,8 +4072,8 @@ def receipt_report_excel_export(request):
         receipts = Receipt.objects.all()
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.department)
-        view_scope = f"หน่วยงาน: {request.user.department}"
+        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        view_scope = f"หน่วยงาน: {request.user.get_department()}"
     
     # รับค่า filter
     date_from = request.GET.get('date_from')
@@ -4406,7 +4412,7 @@ def receipt_edit_view(request, receipt_id):
     
     # ดึงข้อมูลที่จำเป็น
     try:
-        user_department = Department.objects.get(name=request.user.department)
+        user_department = Department.objects.get(name=request.user.get_department())
     except Department.DoesNotExist:
         messages.error(request, 'ไม่พบหน่วยงานของคุณในระบบ')
         return redirect('receipt_detail', receipt_id=receipt_id)
@@ -4653,9 +4659,9 @@ def cancel_request_list_view(request):
     elif request.user.has_permission('receipt_cancel_approve'):
         # Department Manager: ดูเฉพาะหน่วยงานตัวเอง
         cancel_requests = ReceiptCancelRequest.objects.filter(
-            receipt__department__name=request.user.department
+            receipt__department__name=request.user.get_department()
         )
-        view_scope = f'หน่วยงาน: {request.user.department}'
+        view_scope = f'หน่วยงาน: {request.user.get_department()}'
     else:
         # Basic User: ดูเฉพาะของตัวเอง
         cancel_requests = ReceiptCancelRequest.objects.filter(

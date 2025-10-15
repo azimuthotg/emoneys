@@ -109,7 +109,55 @@ class User(AbstractUser):
         blank=True,
         verbose_name="login ล่าสุดจาก NPU API"
     )
-    
+
+    # === USER TYPE & STUDENT FIELDS ===
+    USER_TYPE_CHOICES = [
+        ('staff', 'เจ้าหน้าที่'),
+        ('student', 'นักศึกษา'),
+    ]
+
+    user_type = models.CharField(
+        max_length=20,
+        choices=USER_TYPE_CHOICES,
+        default='staff',
+        verbose_name="ประเภทผู้ใช้",
+        help_text="ประเภทผู้ใช้ระบบ (เจ้าหน้าที่ หรือ นักศึกษา)"
+    )
+
+    # Student Information (nullable - ใช้เฉพาะนักศึกษา)
+    student_code = models.CharField(
+        max_length=15,
+        unique=True,
+        blank=True,
+        null=True,
+        verbose_name="รหัสนักศึกษา",
+        help_text="เก็บ student_code จาก NPU Student API"
+    )
+    student_level = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="ระดับการศึกษา",
+        help_text="เช่น ปริญญาตรี, ปริญญาโท"
+    )
+    student_program = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="สาขาวิชา",
+        help_text="เก็บ program_name จาก NPU Student API"
+    )
+    student_faculty = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="คณะ",
+        help_text="เก็บ faculty_name จาก NPU Student API"
+    )
+    student_degree = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="ระดับปริญญา",
+        help_text="เก็บ degree_name จาก NPU Student API"
+    )
+
     # Internal Management Fields  
     # department_internal = models.ForeignKey(
     #     'Department', 
@@ -234,7 +282,19 @@ class User(AbstractUser):
             return f"{self.first_name} {self.last_name}"
         else:
             return self.username
-    
+
+    def get_department(self):
+        """
+        Get appropriate department/faculty based on user type
+
+        Returns:
+            str: department for staff, student_faculty for student
+        """
+        if self.user_type == 'student':
+            return self.student_faculty or 'ไม่ระบุคณะ'
+        else:
+            return self.department or 'ไม่ระบุหน่วยงาน'
+
     def get_roles(self):
         """ได้บทบาททั้งหมดของผู้ใช้"""
         return Role.objects.filter(
@@ -281,7 +341,10 @@ class User(AbstractUser):
         UserRole.objects.filter(user=self, role=role).update(is_active=False)
 
     def __str__(self):
-        return f"{self.full_name or self.username} ({self.ldap_uid or self.username})"
+        if self.user_type == 'student':
+            return f"{self.full_name or self.username} ({self.student_code or self.username})"
+        else:
+            return f"{self.full_name or self.username} ({self.ldap_uid or self.username})"
 
     class Meta:
         verbose_name = "ผู้ใช้"
@@ -1251,7 +1314,7 @@ class Receipt(models.Model):
 
         # Senior Manager: ยกเลิกได้ในหน่วยงานตัวเอง
         if user.has_permission('receipt_cancel_approve_manager'):
-            return user.department == self.department.name
+            return user.get_department() == self.department.name
 
         # Department Manager และ Basic User: ยกเลิกได้เฉพาะของตัวเอง (ต้องขออนุมัติ)
         if self.created_by == user:
@@ -1536,7 +1599,7 @@ class ReceiptEditRequest(models.Model):
         # Admin/Aadmin: ดูได้อย่างเดียว ไม่มีสิทธิ์อนุมัติ (ลบออก)
 
         # ต้องอยู่แผนกเดียวกันเท่านั้น
-        if user.department != self.receipt.department.name:
+        if user.get_department() != self.receipt.department.name:
             return False
 
         # Senior Manager อนุมัติได้สำหรับ Department Manager ในแผนกเดียวกัน
@@ -1825,7 +1888,7 @@ class ReceiptCancelRequest(models.Model):
         # Admin/Aadmin: ดูได้อย่างเดียว ไม่มีสิทธิ์อนุมัติ (ลบออก)
 
         # ต้องอยู่ในแผนกเดียวกันเท่านั้น
-        if user.department != self.receipt.department.name:
+        if user.get_department() != self.receipt.department.name:
             return False
 
         # เช็คว่า requester เป็น Basic User หรือ Manager

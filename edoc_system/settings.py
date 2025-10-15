@@ -179,6 +179,24 @@ NPU_API_SETTINGS = {
     }
 }
 
+# NPU Student API Configuration
+NPU_STUDENT_API_BASE_URL = config('NPU_STUDENT_API_BASE_URL', default='https://api.npu.ac.th/v2/ldap/')
+NPU_STUDENT_API_AUTH_ENDPOINT = config('NPU_STUDENT_API_AUTH_ENDPOINT', default='auth_and_get_student/')
+NPU_STUDENT_API_TOKEN = config('NPU_STUDENT_API_TOKEN', default='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzgxNzY2MDQ4LCJpYXQiOjE3NTAyMzAwNDgsImp0aSI6IjE3MWFlZWIyZDEzMTRkZDM4M2Q1YWI2OGViYWMwMjZlIiwidXNlcl9pZCI6Nn0.Lw46efm04LQnBS3AwtlnDjtJwgcvOsFDt0e8yfrtgKk')
+NPU_STUDENT_API_TIMEOUT = config('NPU_STUDENT_API_TIMEOUT', default=30, cast=int)  # seconds
+
+# NPU Student API Settings
+NPU_STUDENT_API_SETTINGS = {
+    'base_url': NPU_STUDENT_API_BASE_URL,
+    'auth_endpoint': NPU_STUDENT_API_AUTH_ENDPOINT,
+    'token': NPU_STUDENT_API_TOKEN,
+    'timeout': NPU_STUDENT_API_TIMEOUT,
+    'headers': {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {NPU_STUDENT_API_TOKEN}',
+    }
+}
+
 # File-based Authentication Settings (Legacy - kept for fallback)
 USERS_FILE_PATH = config('USERS_FILE_PATH', default=os.path.join(BASE_DIR, 'data', 'users.csv'))
 

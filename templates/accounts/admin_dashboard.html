@@ -146,7 +146,7 @@
                                                 <small class="text-muted">{{ user.username }}</small>
                                             </div>
                                         </td>
-                                        <td>{{ user.department|default:"ไม่ระบุ" }}</td>
+                                        <td>{{ user.get_department|default:"ไม่ระบุ" }}</td>
                                         <td>{{ user.position_title|default:"ไม่ระบุ" }}</td>
                                         <td>
                                             <small>{{ user.date_joined|date:"d/m/Y H:i" }}</small>

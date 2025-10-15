@@ -131,7 +131,7 @@ class FieldLockAdmin(admin.ModelAdmin):
     
     def get_user_department(self, obj):
         """Get user's department"""
-        return obj.user.department or 'ไม่ระบุ'
+        return obj.user.get_department() or 'ไม่ระบุ'
     get_user_department.short_description = 'หน่วยงาน'
 
 
