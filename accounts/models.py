@@ -1100,6 +1100,40 @@ class Receipt(models.Model):
         return get_volume_code(self.department.code, fiscal_year)
     
     def save(self, *args, **kwargs):
+        # Track if this is a new completion (status changing to completed)
+        is_new_completion = False
+        if self.pk:
+            try:
+                old_receipt = Receipt.objects.get(pk=self.pk)
+                is_new_completion = (old_receipt.status != 'completed' and self.status == 'completed')
+            except Receipt.DoesNotExist:
+                pass
+        else:
+            # New receipt being saved as completed
+            is_new_completion = (self.status == 'completed')
+
+        # Auto-create DocumentVolume for this department if not exists
+        # This ensures every department gets a volume automatically when completing first receipt
+        if self.status == 'completed':
+            from utils.fiscal_year import get_fiscal_year_from_date
+            from datetime import datetime
+
+            receipt_date = self.receipt_date or datetime.now().date()
+            fiscal_year = get_fiscal_year_from_date(receipt_date)
+
+            # Create volume if it doesn't exist
+            volume, created = DocumentVolume.get_or_create_volume_for_department(
+                department=self.department,
+                fiscal_year=fiscal_year,
+                user=self.created_by
+            )
+
+            if created:
+                # Log that a new volume was auto-created
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Auto-created DocumentVolume: {volume.volume_code} for {self.department.name}")
+
         # Auto-generate receipt number ONLY when status is 'completed' and no number yet
         # Draft receipts don't get a number to avoid gaps in numbering
         if self.status == 'completed' and not self.receipt_number:
@@ -1118,6 +1152,37 @@ class Receipt(models.Model):
             self.qr_code_data = self.generate_qr_code_data()
 
         super().save(*args, **kwargs)
+
+        # Update DocumentVolume.last_document_number after saving receipt
+        # This keeps track of how many receipts have been issued from this volume
+        if is_new_completion and self.status == 'completed':
+            from utils.fiscal_year import get_fiscal_year_from_date
+            from datetime import datetime
+
+            receipt_date = self.receipt_date or datetime.now().date()
+            fiscal_year = get_fiscal_year_from_date(receipt_date)
+
+            # Get the volume for this department and fiscal year
+            try:
+                volume = DocumentVolume.objects.get(
+                    department=self.department,
+                    fiscal_year=fiscal_year
+                )
+
+                # Count total completed receipts for this volume
+                total_receipts = Receipt.objects.filter(
+                    department=self.department,
+                    status='completed',
+                    receipt_date__gte=volume.fiscal_year_start,
+                    receipt_date__lte=volume.fiscal_year_end
+                ).count()
+
+                # Update volume's last_document_number
+                volume.last_document_number = total_receipts
+                volume.save(update_fields=['last_document_number'])
+
+            except DocumentVolume.DoesNotExist:
+                pass  # Volume doesn't exist (shouldn't happen, but handle gracefully)
     
     def generate_receipt_number(self):
         """สร้างเลขที่ใบสำคัญรับเงินแบบ ddmmyy/xxxx"""

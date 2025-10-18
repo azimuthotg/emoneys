@@ -868,16 +868,19 @@ def document_numbering_view(request):
         
         volumes_stats = []
         for volume in current_volumes:
-            usage_percentage = volume.get_usage_percentage()
-            is_nearly_full = volume.is_nearly_full()
-            is_critical = usage_percentage >= 95
-            
+            # Get latest receipt for this volume
+            from .models import Receipt
+            latest_receipt = Receipt.objects.filter(
+                department=volume.department,
+                status='completed',
+                receipt_date__gte=volume.fiscal_year_start,
+                receipt_date__lte=volume.fiscal_year_end
+            ).order_by('-receipt_date', '-created_at').first()
+
             volumes_stats.append({
                 'volume': volume,
-                'usage_percentage': usage_percentage,
-                'is_nearly_full': is_nearly_full,
-                'is_critical': is_critical,
-                'remaining_capacity': volume.max_documents - volume.last_document_number
+                'total_receipts': volume.last_document_number,
+                'latest_receipt': latest_receipt,
             })
         
         context = {
