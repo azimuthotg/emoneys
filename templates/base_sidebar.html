@@ -442,9 +442,34 @@
         </div>
     </div>
     {% endif %}
-    
+
+    <!-- Global Confirmation Modal -->
+    <div class="modal fade" id="globalConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" id="confirmModalHeader">
+                    <h5 class="modal-title" id="confirmModalTitle">
+                        <i class="fas fa-question-circle me-2"></i>ยืนยันการทำงาน
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="confirmModalBody">
+                    คุณต้องการดำเนินการต่อหรือไม่?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>ยกเลิก
+                    </button>
+                    <button type="button" class="btn btn-primary" id="confirmModalConfirmBtn">
+                        <i class="fas fa-check me-1"></i>ยืนยัน
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
-    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;" id="globalToastContainer">
         {% if messages %}
             {% for message in messages %}
             <div class="toast show" role="alert" data-bs-autohide="true" data-bs-delay="5000">
@@ -519,6 +544,131 @@
             }
         }
         
+        // ========================================
+        // Global Notification System
+        // ========================================
+
+        /**
+         * แสดง Toast notification (แทนที่ alert())
+         * @param {string} message - ข้อความที่จะแสดง
+         * @param {string} type - ประเภท: 'success', 'error', 'warning', 'info' (default: 'info')
+         */
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('globalToastContainer');
+            if (!container) {
+                console.error('Toast container not found');
+                return;
+            }
+
+            const toastId = 'toast-' + Date.now();
+
+            // กำหนด icon และ title ตาม type
+            let icon, title, bgClass;
+            switch(type) {
+                case 'success':
+                    icon = 'fa-check-circle';
+                    title = 'สำเร็จ';
+                    bgClass = 'bg-success';
+                    break;
+                case 'error':
+                    icon = 'fa-exclamation-circle';
+                    title = 'ข้อผิดพลาด';
+                    bgClass = 'bg-danger';
+                    break;
+                case 'warning':
+                    icon = 'fa-exclamation-triangle';
+                    title = 'คำเตือน';
+                    bgClass = 'bg-warning';
+                    break;
+                default:
+                    icon = 'fa-info-circle';
+                    title = 'ข้อมูล';
+                    bgClass = 'bg-info';
+            }
+
+            const toastHTML = `
+                <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="fas ${icon} me-2"></i>
+                            <strong>${title}:</strong> ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+
+            container.insertAdjacentHTML('beforeend', toastHTML);
+
+            const toastElement = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastElement, {
+                autohide: true,
+                delay: 4000
+            });
+
+            toast.show();
+
+            // ลบออกจาก DOM หลัง hide
+            toastElement.addEventListener('hidden.bs.toast', () => {
+                toastElement.remove();
+            });
+        }
+
+        /**
+         * แสดง Confirmation Modal (แทนที่ confirm())
+         * @param {string} message - ข้อความที่จะถาม
+         * @param {function} onConfirm - callback เมื่อกดยืนยัน
+         * @param {string} title - หัวข้อ modal (optional)
+         * @param {string} confirmBtnText - ข้อความปุ่มยืนยัน (optional)
+         * @param {string} confirmBtnClass - class ของปุ่มยืนยัน (optional, default: 'btn-primary')
+         */
+        function showConfirm(message, onConfirm, title = 'ยืนยันการทำงาน', confirmBtnText = 'ยืนยัน', confirmBtnClass = 'btn-primary') {
+            const modal = document.getElementById('globalConfirmModal');
+            const modalTitle = document.getElementById('confirmModalTitle');
+            const modalBody = document.getElementById('confirmModalBody');
+            const confirmBtn = document.getElementById('confirmModalConfirmBtn');
+            const modalHeader = document.getElementById('confirmModalHeader');
+
+            if (!modal) {
+                console.error('Confirmation modal not found');
+                return;
+            }
+
+            // ตั้งค่าเนื้อหา
+            modalTitle.innerHTML = `<i class="fas fa-question-circle me-2"></i>${title}`;
+            modalBody.innerHTML = message;
+            confirmBtn.textContent = confirmBtnText;
+
+            // ตั้งค่าสี header และปุ่มตาม type
+            modalHeader.className = 'modal-header';
+            confirmBtn.className = `btn ${confirmBtnClass}`;
+
+            if (confirmBtnClass.includes('danger')) {
+                modalHeader.classList.add('bg-danger', 'text-white');
+                modalTitle.querySelector('.btn-close')?.classList.add('btn-close-white');
+            } else if (confirmBtnClass.includes('warning')) {
+                modalHeader.classList.add('bg-warning');
+            }
+
+            // ลบ event listeners เก่า
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+            // เพิ่ม event listener ใหม่
+            newConfirmBtn.addEventListener('click', function() {
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                modalInstance.hide();
+
+                if (typeof onConfirm === 'function') {
+                    onConfirm();
+                }
+            });
+
+            // แสดง modal
+            const modalInstance = new bootstrap.Modal(modal);
+            modalInstance.show();
+        }
+
         // Auto-hide toasts
         document.addEventListener('DOMContentLoaded', function() {
             // Toggle button event
@@ -527,7 +677,7 @@
                 toggleBtn.addEventListener('click', toggleSidebar);
                 toggleBtn.setAttribute('data-listener-added', 'true');
             }
-            
+
             // Toast handling
             var toasts = document.querySelectorAll('.toast');
             toasts.forEach(function(toast) {
@@ -540,7 +690,7 @@
                     bsToast.show();
                 }
             });
-            
+
             // Global tooltip initialization with safety check
             const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]:not([data-bs-initialized]), [title]:not([data-bs-initialized])');
             tooltipTriggerList.forEach(function(tooltipTriggerEl) {
@@ -549,7 +699,7 @@
                     tooltipTriggerEl.setAttribute('data-bs-initialized', 'true');
                 }
             });
-            
+
             // Global dropdown initialization with safety check
             const dropdownTriggerList = document.querySelectorAll('[data-bs-toggle="dropdown"]:not([data-bs-initialized])');
             dropdownTriggerList.forEach(function(dropdownTriggerEl) {

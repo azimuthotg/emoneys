@@ -651,7 +651,7 @@ function saveFoodItem(itemId) {
 
     // Validate
     if (meals <= 0 || price <= 0 || people <= 0) {
-        alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+        showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
         return;
     }
 
@@ -790,12 +790,12 @@ function saveItem(itemId) {
 
         // Validate
         if (!newDescriptionText) {
-            alert('กรุณากรอกรายการ');
+            showToast('กรุณากรอกรายการ', 'warning');
             return;
         }
 
         if (newAmount <= 0) {
-            alert('กรุณากรอกจำนวนเงินที่ถูกต้อง');
+            showToast('กรุณากรอกจำนวนเงินที่ถูกต้อง', 'warning');
             return;
         }
 
@@ -989,7 +989,7 @@ function showCompleteConfirmation() {
     });
 
     if (items.length === 0) {
-        alert('กรุณาเพิ่มรายการรับเงิน');
+        showToast('กรุณาเพิ่มรายการรับเงิน', 'warning');
         return;
     }
 
@@ -1070,7 +1070,7 @@ function updateReceipt(status, redirectToDetail = false) {
     });
 
     if (items.length === 0) {
-        alert('กรุณาเพิ่มรายการรับเงิน');
+        showToast('กรุณาเพิ่มรายการรับเงิน', 'warning');
         return;
     }
 

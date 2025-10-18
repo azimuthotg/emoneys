@@ -578,93 +578,117 @@ function toggleSelectAll(type) {
 
 // User actions
 function approveUser(userId) {
-    if (confirm('คุณต้องการอนุมัติผู้ใช้นี้หรือไม่?')) {
-        fetch(`/accounts/management/approve-user/${userId}/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById(`user-row-${userId}`).remove();
-                showToast('success', 'อนุมัติผู้ใช้เรียบร้อย');
-                updateStats();
-            } else {
-                showToast('error', data.message || 'เกิดข้อผิดพลาด');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('error', 'เกิดข้อผิดพลาดในการติดต่อเซิร์ฟเวอร์');
-        });
-    }
+    showConfirm(
+        'คุณต้องการอนุมัติผู้ใช้นี้หรือไม่?',
+        function() {
+            fetch(`/accounts/management/approve-user/${userId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById(`user-row-${userId}`).remove();
+                    showToast('success', 'อนุมัติผู้ใช้เรียบร้อย');
+                    updateStats();
+                } else {
+                    showToast('error', data.message || 'เกิดข้อผิดพลาด');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'เกิดข้อผิดพลาดในการติดต่อเซิร์ฟเวอร์');
+            });
+        },
+        'ยืนยันการอนุมัติ',
+        'อนุมัติ',
+        'btn-success'
+    );
 }
 
 function rejectUser(userId) {
-    if (confirm('คุณต้องการปฏิเสธผู้ใช้นี้หรือไม่?')) {
-        fetch(`/accounts/management/reject-user/${userId}/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById(`user-row-${userId}`).remove();
-                showToast('warning', 'ปฏิเสธผู้ใช้เรียบร้อย');
-                updateStats();
-            } else {
-                showToast('error', data.message || 'เกิดข้อผิดพลาด');
-            }
-        });
-    }
+    showConfirm(
+        'คุณต้องการปฏิเสธผู้ใช้นี้หรือไม่?',
+        function() {
+            fetch(`/accounts/management/reject-user/${userId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById(`user-row-${userId}`).remove();
+                    showToast('warning', 'ปฏิเสธผู้ใช้เรียบร้อย');
+                    updateStats();
+                } else {
+                    showToast('error', data.message || 'เกิดข้อผิดพลาด');
+                }
+            });
+        },
+        'ยืนยันการปฏิเสธ',
+        'ปฏิเสธ',
+        'btn-danger'
+    );
 }
 
 function suspendUser(userId) {
-    if (confirm('คุณต้องการระงับการใช้งานของผู้ใช้นี้หรือไม่?')) {
-        fetch(`/accounts/management/suspend-user/${userId}/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('warning', 'ระงับผู้ใช้เรียบร้อย');
-                location.reload();
-            } else {
-                showToast('error', data.message || 'เกิดข้อผิดพลาด');
-            }
-        });
-    }
+    showConfirm(
+        'คุณต้องการระงับการใช้งานของผู้ใช้นี้หรือไม่?',
+        function() {
+            fetch(`/accounts/management/suspend-user/${userId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('warning', 'ระงับผู้ใช้เรียบร้อย');
+                    location.reload();
+                } else {
+                    showToast('error', data.message || 'เกิดข้อผิดพลาด');
+                }
+            });
+        },
+        'ยืนยันการระงับ',
+        'ระงับ',
+        'btn-danger'
+    );
 }
 
 function activateUser(userId) {
-    if (confirm('คุณต้องการเปิดใช้งานผู้ใช้นี้หรือไม่?')) {
-        fetch(`/accounts/management/activate-user/${userId}/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', 'เปิดใช้งานผู้ใช้เรียบร้อย');
-                location.reload();
-            } else {
-                showToast('error', data.message || 'เกิดข้อผิดพลาด');
-            }
-        });
-    }
+    showConfirm(
+        'คุณต้องการเปิดใช้งานผู้ใช้นี้หรือไม่?',
+        function() {
+            fetch(`/accounts/management/activate-user/${userId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', 'เปิดใช้งานผู้ใช้เรียบร้อย');
+                    location.reload();
+                } else {
+                    showToast('error', data.message || 'เกิดข้อผิดพลาด');
+                }
+            });
+        },
+        'ยืนยันการเปิดใช้งาน',
+        'เปิดใช้งาน',
+        'btn-success'
+    );
 }
 
 function viewUserDetails(userId) {
@@ -800,13 +824,19 @@ function bulkApproveUsers() {
         showToast('warning', 'กรุณาเลือกผู้ใช้ที่ต้องการอนุมัติ');
         return;
     }
-    
-    if (confirm(`คุณต้องการอนุมัติผู้ใช้ ${selected.length} คน ใช่หรือไม่?`)) {
-        showToast('info', 'กำลังอนุมัติผู้ใช้...');
-        selected.forEach(userId => {
-            setTimeout(() => approveUser(userId), 100);
-        });
-    }
+
+    showConfirm(
+        `คุณต้องการอนุมัติผู้ใช้ ${selected.length} คน ใช่หรือไม่?`,
+        function() {
+            showToast('info', 'กำลังอนุมัติผู้ใช้...');
+            selected.forEach(userId => {
+                setTimeout(() => approveUser(userId), 100);
+            });
+        },
+        'ยืนยันการอนุมัติหลายคน',
+        'อนุมัติทั้งหมด',
+        'btn-success'
+    );
 }
 
 function bulkActivateUsers() {
@@ -815,13 +845,19 @@ function bulkActivateUsers() {
         showToast('warning', 'กรุณาเลือกผู้ใช้ที่ต้องการเปิดใช้งาน');
         return;
     }
-    
-    if (confirm(`คุณต้องการเปิดใช้งานผู้ใช้ ${selected.length} คน ใช่หรือไม่?`)) {
-        showToast('info', 'กำลังเปิดใช้งานผู้ใช้...');
-        selected.forEach(userId => {
-            setTimeout(() => activateUser(userId), 100);
-        });
-    }
+
+    showConfirm(
+        `คุณต้องการเปิดใช้งานผู้ใช้ ${selected.length} คน ใช่หรือไม่?`,
+        function() {
+            showToast('info', 'กำลังเปิดใช้งานผู้ใช้...');
+            selected.forEach(userId => {
+                setTimeout(() => activateUser(userId), 100);
+            });
+        },
+        'ยืนยันการเปิดใช้งานหลายคน',
+        'เปิดใช้งานทั้งหมด',
+        'btn-success'
+    );
 }
 
 function getSelectedUsers(type) {

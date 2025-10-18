@@ -310,7 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // If reject is selected, notes must be provided
                 if (radio.value === 'reject' && !notesField.value.trim()) {
                     e.preventDefault();
-                    alert('กรุณาระบุเหตุผลในการปฏิเสธ');
+                    showToast('กรุณาระบุเหตุผลในการปฏิเสธ', 'warning');
                     notesField.focus();
                     return;
                 }
@@ -319,17 +319,25 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!actionSelected) {
             e.preventDefault();
-            alert('กรุณาเลือกการตัดสินใจ');
+            showToast('กรุณาเลือกการตัดสินใจ', 'warning');
             return;
         }
         
         // Confirm decision
         const selectedAction = document.querySelector('input[name="action"]:checked');
         const actionText = selectedAction.value === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ';
-        
-        if (!confirm(`ยืนยันการ${actionText}คำขอนี้หรือไม่?`)) {
-            e.preventDefault();
-        }
+        const actionBtnClass = selectedAction.value === 'approve' ? 'btn-success' : 'btn-danger';
+
+        e.preventDefault();
+        showConfirm(
+            `ยืนยันการ${actionText}คำขอนี้หรือไม่?`,
+            function() {
+                form.submit();
+            },
+            `ยืนยันการ${actionText}`,
+            'ยืนยัน',
+            actionBtnClass
+        );
     });
     
     // Auto-focus notes when reject is selected

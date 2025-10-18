@@ -254,56 +254,68 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute
 
 // Approve user function
 function approveUser(userId) {
-    if (confirm('คุณต้องการอนุมัติผู้ใช้นี้หรือไม่?')) {
-        fetch(`/accounts/management/approve-user/${userId}/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById(`user-row-${userId}`).remove();
-                showToast('success', 'อนุมัติผู้ใช้เรียบร้อย');
-                updateStats();
-            } else {
-                showToast('error', data.message || 'เกิดข้อผิดพลาด');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('error', 'เกิดข้อผิดพลาดในการติดต่อเซิร์ฟเวอร์');
-        });
-    }
+    showConfirm(
+        'คุณต้องการอนุมัติผู้ใช้นี้หรือไม่?',
+        function() {
+            fetch(`/accounts/management/approve-user/${userId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById(`user-row-${userId}`).remove();
+                    showToast('success', 'อนุมัติผู้ใช้เรียบร้อย');
+                    updateStats();
+                } else {
+                    showToast('error', data.message || 'เกิดข้อผิดพลาด');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'เกิดข้อผิดพลาดในการติดต่อเซิร์ฟเวอร์');
+            });
+        },
+        'ยืนยันการอนุมัติ',
+        'อนุมัติ',
+        'btn-success'
+    );
 }
 
 // Reject user function
 function rejectUser(userId) {
-    if (confirm('คุณต้องการปฏิเสธผู้ใช้นี้หรือไม่?')) {
-        fetch(`/accounts/management/reject-user/${userId}/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById(`user-row-${userId}`).remove();
-                showToast('warning', 'ปฏิเสธผู้ใช้เรียบร้อย');
-                updateStats();
-            } else {
-                showToast('error', data.message || 'เกิดข้อผิดพลาด');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('error', 'เกิดข้อผิดพลาดในการติดต่อเซิร์ฟเวอร์');
-        });
-    }
+    showConfirm(
+        'คุณต้องการปฏิเสธผู้ใช้นี้หรือไม่?',
+        function() {
+            fetch(`/accounts/management/reject-user/${userId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById(`user-row-${userId}`).remove();
+                    showToast('warning', 'ปฏิเสธผู้ใช้เรียบร้อย');
+                    updateStats();
+                } else {
+                    showToast('error', data.message || 'เกิดข้อผิดพลาด');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'เกิดข้อผิดพลาดในการติดต่อเซิร์ฟเวอร์');
+            });
+        },
+        'ยืนยันการปฏิเสธ',
+        'ปฏิเสธ',
+        'btn-danger'
+    );
 }
 
 // View user details function
@@ -356,31 +368,43 @@ function approveSelectedUsers() {
         showToast('warning', 'กรุณาเลือกผู้ใช้ที่ต้องการอนุมัติ');
         return;
     }
-    
-    if (confirm(`คุณต้องการอนุมัติผู้ใช้ ${selected.length} คน ใช่หรือไม่?`)) {
-        showToast('info', 'กำลังอนุมัติผู้ใช้...');
-        // Implementation for bulk approval
-        selected.forEach(userId => {
-            setTimeout(() => approveUser(userId), 100);
-        });
-    }
+
+    showConfirm(
+        `คุณต้องการอนุมัติผู้ใช้ ${selected.length} คน ใช่หรือไม่?`,
+        function() {
+            showToast('info', 'กำลังอนุมัติผู้ใช้...');
+            // Implementation for bulk approval
+            selected.forEach(userId => {
+                setTimeout(() => approveUser(userId), 100);
+            });
+        },
+        'ยืนยันการอนุมัติหลายคน',
+        'อนุมัติทั้งหมด',
+        'btn-success'
+    );
 }
 
-// Reject selected users  
+// Reject selected users
 function rejectSelectedUsers() {
     const selected = getSelectedUsers();
     if (selected.length === 0) {
         showToast('warning', 'กรุณาเลือกผู้ใช้ที่ต้องการปฏิเสธ');
         return;
     }
-    
-    if (confirm(`คุณต้องการปฏิเสธผู้ใช้ ${selected.length} คน ใช่หรือไม่?`)) {
-        showToast('info', 'กำลังปฏิเสธผู้ใช้...');
-        // Implementation for bulk rejection
-        selected.forEach(userId => {
-            setTimeout(() => rejectUser(userId), 100);
-        });
-    }
+
+    showConfirm(
+        `คุณต้องการปฏิเสธผู้ใช้ ${selected.length} คน ใช่หรือไม่?`,
+        function() {
+            showToast('info', 'กำลังปฏิเสธผู้ใช้...');
+            // Implementation for bulk rejection
+            selected.forEach(userId => {
+                setTimeout(() => rejectUser(userId), 100);
+            });
+        },
+        'ยืนยันการปฏิเสธหลายคน',
+        'ปฏิเสธทั้งหมด',
+        'btn-danger'
+    );
 }
 
 // Get selected user IDs

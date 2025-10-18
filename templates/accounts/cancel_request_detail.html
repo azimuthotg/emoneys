@@ -248,10 +248,9 @@
             </a>
 
             {% if cancel_request.status == 'pending' and can_withdraw %}
-            <form method="POST" action="{% url 'cancel_request_withdraw' cancel_request.id %}" style="display: inline;">
+            <form method="POST" action="{% url 'cancel_request_withdraw' cancel_request.id %}" style="display: inline;" id="withdrawForm">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-danger btn-sm"
-                        onclick="return confirm('ต้องการถอนคำขอนี้หรือไม่?')">
+                <button type="submit" class="btn btn-outline-danger btn-sm" id="withdrawBtn">
                     <i class="fas fa-times me-1"></i>
                     ถอนคำขอ
                 </button>
@@ -266,6 +265,23 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Withdraw button confirmation
+    const withdrawForm = document.getElementById('withdrawForm');
+    if (withdrawForm) {
+        withdrawForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            showConfirm(
+                'ต้องการถอนคำขอนี้หรือไม่?',
+                function() {
+                    withdrawForm.submit();
+                },
+                'ยืนยันการถอนคำขอ',
+                'ถอนคำขอ',
+                'btn-danger'
+            );
+        });
+    }
+
     // Approval form validation
     const approvalForm = document.getElementById('approvalForm');
     if (approvalForm) {
@@ -285,23 +301,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!actionSelected) {
                 e.preventDefault();
-                alert('กรุณาเลือกการตัดสินใจ');
+                showToast('กรุณาเลือกการตัดสินใจ', 'warning');
                 return;
             }
 
             // If reject is selected, notes must be provided
             if (selectedAction === 'reject' && !notesField.value.trim()) {
                 e.preventDefault();
-                alert('กรุณาระบุเหตุผลในการปฏิเสธ');
+                showToast('กรุณาระบุเหตุผลในการปฏิเสธ', 'warning');
                 notesField.focus();
                 return;
             }
 
             // Confirm decision
             const actionText = selectedAction === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ';
-            if (!confirm(`ยืนยันการ${actionText}คำขอนี้หรือไม่?\n\nการตัดสินใจนี้ไม่สามารถเปลี่ยนแปลงได้`)) {
-                e.preventDefault();
-            }
+            const actionBtnClass = selectedAction === 'approve' ? 'btn-success' : 'btn-danger';
+
+            e.preventDefault();
+            showConfirm(
+                `ยืนยันการ${actionText}คำขอนี้หรือไม่?<br><br><small class="text-muted">การตัดสินใจนี้ไม่สามารถเปลี่ยนแปลงได้</small>`,
+                function() {
+                    approvalForm.submit();
+                },
+                `ยืนยันการ${actionText}`,
+                'ยืนยัน',
+                actionBtnClass
+            );
         });
 
         // Auto-focus notes when reject is selected

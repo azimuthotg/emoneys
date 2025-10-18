@@ -269,13 +269,12 @@
                                     <th>สถานะ</th>
                                     <th>การใช้งาน</th>
                                     <th>เอกสารล่าสุด</th>
-                                    <th>วันที่สร้าง</th>
                                     <th class="text-center">การดำเนินการ</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for stat in volumes_stats %}
-                                <tr id="volume-row-{{ stat.volume.id }}" {% if stat.is_critical %}class="table-danger"{% elif stat.is_nearly_full %}class="table-warning"{% endif %}>
+                                <tr id="volume-row-{{ stat.volume.id }}">
                                     <td>
                                         <span class="badge" style="background-color: #CFAE43; color: white; font-size: 0.9rem; padding: 8px 12px;">
                                             {{ stat.volume.volume_code }}
@@ -295,34 +294,22 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="progress me-2" style="width: 100px; height: 8px;">
-                                                <div class="progress-bar 
-                                                    {% if stat.is_critical %}bg-danger
-                                                    {% elif stat.is_nearly_full %}bg-warning
-                                                    {% else %}bg-success
-                                                    {% endif %}" 
-                                                    style="width: {{ stat.usage_percentage }}%">
-                                                </div>
+                                        {% if stat.total_receipts > 0 %}
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-file-invoice me-2" style="color: #002F6C;"></i>
+                                                <strong style="color: #002F6C;">{{ stat.total_receipts }}</strong>
+                                                <small class="text-muted ms-1">ใบสำคัญ</small>
                                             </div>
-                                            <small class="text-muted">{{ stat.usage_percentage|floatformat:1 }}%</small>
-                                        </div>
-                                        <small class="text-muted">
-                                            {{ stat.volume.last_document_number }}/{{ stat.volume.max_documents }}
-                                            (เหลือ {{ stat.remaining_capacity }})
-                                        </small>
-                                    </td>
-                                    <td>
-                                        {% if stat.volume.last_document_number > 0 %}
-                                            <span class="badge bg-light text-dark">{{ stat.volume.volume_code }}-{{ stat.volume.last_document_number|stringformat:"04d" }}</span>
                                         {% else %}
-                                            <small class="text-muted">ยังไม่มี</small>
+                                            <small class="text-muted">ยังไม่มีใบสำคัญ</small>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <small class="text-muted">{{ stat.volume.created_at|date:"d/m/Y H:i" }}</small>
-                                        {% if stat.volume.created_by %}
-                                            <br><small class="text-muted">โดย {{ stat.volume.created_by.get_display_name }}</small>
+                                        {% if stat.latest_receipt %}
+                                            <span class="badge bg-light text-dark" style="font-size: 0.85rem;">{{ stat.latest_receipt.receipt_number }}</span>
+                                            <br><small class="text-muted">{{ stat.latest_receipt.receipt_date|date:"d/m/Y" }}</small>
+                                        {% else %}
+                                            <small class="text-muted">ยังไม่มี</small>
                                         {% endif %}
                                     </td>
                                     <td class="text-center">

@@ -339,12 +339,12 @@ function saveItem(itemId) {
 
     // Validate
     if (!newDescriptionText) {
-        alert('กรุณากรอกรายการ');
+        showToast('กรุณากรอกรายการ', 'warning');
         return;
     }
 
     if (newAmount <= 0) {
-        alert('กรุณากรอกจำนวนเงินที่ถูกต้อง');
+        showToast('กรุณากรอกจำนวนเงินที่ถูกต้อง', 'warning');
         return;
     }
 
@@ -368,24 +368,30 @@ function saveItem(itemId) {
 
 // Remove item
 function removeItem(itemId) {
-    if (!confirm('ต้องการลบรายการนี้หรือไม่?')) return;
+    showConfirm(
+        'ต้องการลบรายการนี้หรือไม่?',
+        function() {
+            const item = document.querySelector(`[data-item-id="${itemId}"]`);
+            if (item) {
+                item.remove();
+                calculateTotal();
 
-    const item = document.querySelector(`[data-item-id="${itemId}"]`);
-    if (item) {
-        item.remove();
-        calculateTotal();
-
-        // Show empty message if no items left
-        const container = document.getElementById('items-container');
-        if (container.querySelectorAll('.item-row').length === 0) {
-            container.innerHTML = `
-                <div class="text-center text-muted py-4">
-                    <i class="fas fa-list-alt fa-2x mb-2"></i>
-                    <p>ไม่มีรายการ</p>
-                </div>
-            `;
-        }
-    }
+                // Show empty message if no items left
+                const container = document.getElementById('items-container');
+                if (container.querySelectorAll('.item-row').length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-list-alt fa-2x mb-2"></i>
+                            <p>ไม่มีรายการ</p>
+                        </div>
+                    `;
+                }
+            }
+        },
+        'ยืนยันการลบรายการ',
+        'ลบ',
+        'btn-danger'
+    );
 }
 
 // Calculate total amount
@@ -503,7 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const reason = document.getElementById('reason').value.trim();
         if (!reason) {
             e.preventDefault();
-            alert('กรุณาระบุเหตุผลในการขอแก้ไข');
+            showToast('กรุณาระบุเหตุผลในการขอแก้ไข', 'warning');
             return false;
         }
     });

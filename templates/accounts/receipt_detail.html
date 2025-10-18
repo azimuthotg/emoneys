@@ -769,37 +769,9 @@ function formatAmounts() {
     });
 }
 
-// Complete draft receipt
+// Legacy function - now shows confirmation modal first
 function completeDraft() {
-    if (!confirm('ต้องการบันทึกใบสำคัญนี้หรือไม่?\n\nเมื่อบันทึกแล้ว สถานะจะเปลี่ยนเป็น "เสร็จสิ้น"')) {
-        return;
-    }
-
-    // Get CSRF token from cookie or from the template
-    const csrftoken = getCookie('csrftoken') || '{{ csrf_token }}';
-
-    fetch(`/receipt/{{ receipt.id }}/complete/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrftoken
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast('success', 'บันทึกสำเร็จ!', 'กำลังรีโหลดหน้า...');
-            setTimeout(() => {
-                window.location.reload();
-            }, 2000);
-        } else {
-            showToast('error', 'เกิดข้อผิดพลาด', data.message || 'ไม่สามารถบันทึกได้');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showToast('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์');
-    });
+    showCompleteConfirmationFromDraft();
 }
 
 // Show toast notification
@@ -934,11 +906,6 @@ function confirmCompleteDraft() {
         console.error('Error:', error);
         showToast('error', 'ผิดพลาด', 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
     });
-}
-
-// Legacy function - now shows confirmation modal first
-function completeDraft() {
-    showCompleteConfirmationFromDraft();
 }
 
 // Highlight status keywords in change logs

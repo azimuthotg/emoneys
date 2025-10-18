@@ -464,17 +464,17 @@ function addSimpleItem() {
     const amount = parseFloat(document.getElementById('simple-amount').value) || 0;
 
     if (!description) {
-        alert('กรุณากรอกรายละเอียด');
+        showToast('กรุณากรอกรายละเอียด', 'warning');
         return;
     }
 
     if (amount <= 0) {
-        alert('กรุณากรอกจำนวนเงิน');
+        showToast('กรุณากรอกจำนวนเงิน', 'warning');
         return;
     }
 
     if (currentTemplate.maxAmount > 0 && amount > currentTemplate.maxAmount) {
-        alert(`จำนวนเงินเกิน ${currentTemplate.maxAmount.toLocaleString()} บาท`);
+        showToast(`จำนวนเงินเกิน ${currentTemplate.maxAmount.toLocaleString()} บาท`, 'error');
         return;
     }
 
@@ -492,12 +492,12 @@ function addTextareaItem() {
     const amount = parseFloat(document.getElementById('textarea-amount').value) || 0;
 
     if (!description) {
-        alert('กรุณากรอกรายละเอียด');
+        showToast('กรุณากรอกรายละเอียด', 'warning');
         return;
     }
 
     if (amount <= 0) {
-        alert('กรุณากรอกจำนวนเงิน');
+        showToast('กรุณากรอกจำนวนเงิน', 'warning');
         return;
     }
 
@@ -574,12 +574,12 @@ function addFoodItems() {
     const grandTotal = calculateFoodTotal();
 
     if (grandTotal <= 0) {
-        alert('กรุณากรอกข้อมูลอย่างน้อย 1 รายการ');
+        showToast('กรุณากรอกข้อมูลอย่างน้อย 1 รายการ', 'warning');
         return;
     }
 
     if (currentTemplate.maxAmount > 0 && grandTotal > currentTemplate.maxAmount) {
-        alert(`จำนวนเงินรวมเกิน ${currentTemplate.maxAmount.toLocaleString()} บาท`);
+        showToast(`จำนวนเงินรวมเกิน ${currentTemplate.maxAmount.toLocaleString()} บาท`, 'error');
         return;
     }
 
@@ -822,16 +822,22 @@ function updatePreview() {
 
 // Form actions
 function resetForm() {
-    if (confirm('ต้องการเคลียร์ข้อมูลทั้งหมดหรือไม่?')) {
-        document.getElementById('receiptForm').reset();
-        document.getElementById('items-container').innerHTML = `
-            <div class="text-center text-muted py-4">
-                <i class="fas fa-list-alt fa-2x mb-2"></i>
-                <p>กรุณาเพิ่มรายการรับเงิน</p>
-            </div>
-        `;
-        calculateTotal();
-    }
+    showConfirm(
+        'ต้องการเคลียร์ข้อมูลทั้งหมดหรือไม่?',
+        function() {
+            document.getElementById('receiptForm').reset();
+            document.getElementById('items-container').innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-list-alt fa-2x mb-2"></i>
+                    <p>กรุณาเพิ่มรายการรับเงิน</p>
+                </div>
+            `;
+            calculateTotal();
+        },
+        'ยืนยันการเคลียร์ข้อมูล',
+        'เคลียร์',
+        'btn-warning'
+    );
 }
 
 function saveDraft() {
@@ -864,7 +870,7 @@ function showCompleteConfirmation() {
     });
 
     if (items.length === 0) {
-        alert('กรุณาเพิ่มรายการรับเงิน');
+        showToast('กรุณาเพิ่มรายการรับเงิน', 'warning');
         return;
     }
 
@@ -951,7 +957,7 @@ function saveReceipt(status) {
     });
     
     if (items.length === 0) {
-        alert('กรุณาเพิ่มรายการรับเงิน');
+        showToast('กรุณาเพิ่มรายการรับเงิน', 'warning');
         return;
     }
     

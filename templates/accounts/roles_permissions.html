@@ -399,28 +399,34 @@ function saveRole() {
 
 // Delete role
 function deleteRole(roleId) {
-    if (confirm('คุณต้องการลบบทบาทนี้หรือไม่?')) {
-        fetch(`/accounts/admin/role/${roleId}/delete/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', data.message);
-                document.getElementById(`role-row-${roleId}`).remove();
-            } else {
-                showToast('error', data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('error', 'เกิดข้อผิดพลาดในการลบ');
-        });
-    }
+    showConfirm(
+        'คุณต้องการลบบทบาทนี้หรือไม่?',
+        function() {
+            fetch(`/accounts/admin/role/${roleId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', data.message);
+                    document.getElementById(`role-row-${roleId}`).remove();
+                } else {
+                    showToast('error', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'เกิดข้อผิดพลาดในการลบ');
+            });
+        },
+        'ยืนยันการลบบทบาท',
+        'ลบ',
+        'btn-danger'
+    );
 }
 
 

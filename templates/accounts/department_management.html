@@ -477,80 +477,98 @@ function saveDepartment() {
 
 // Activate department
 function activateDepartment(departmentId) {
-    if (confirm('คุณต้องการเปิดใช้งานหน่วยงานนี้หรือไม่?')) {
-        fetch(`/accounts/management/department/${departmentId}/activate/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', data.message);
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showToast('error', data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('error', 'เกิดข้อผิดพลาดในการเปิดใช้งาน');
-        });
-    }
+    showConfirm(
+        'คุณต้องการเปิดใช้งานหน่วยงานนี้หรือไม่?',
+        function() {
+            fetch(`/accounts/management/department/${departmentId}/activate/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast('error', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'เกิดข้อผิดพลาดในการเปิดใช้งาน');
+            });
+        },
+        'ยืนยันการเปิดใช้งาน',
+        'เปิดใช้งาน',
+        'btn-success'
+    );
 }
 
 // Deactivate department
 function deactivateDepartment(departmentId) {
-    if (confirm('คุณต้องการปิดใช้งานหน่วยงานนี้หรือไม่?\nการปิดใช้งานจะไม่ส่งผลกระทบต่อบุคลากรที่มีอยู่')) {
-        fetch(`/accounts/management/department/${departmentId}/deactivate/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('warning', data.message);
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showToast('error', data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('error', 'เกิดข้อผิดพลาดในการปิดใช้งาน');
-        });
-    }
+    showConfirm(
+        'คุณต้องการปิดใช้งานหน่วยงานนี้หรือไม่?<br><br><small class="text-muted">การปิดใช้งานจะไม่ส่งผลกระทบต่อบุคลากรที่มีอยู่</small>',
+        function() {
+            fetch(`/accounts/management/department/${departmentId}/deactivate/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('warning', data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast('error', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'เกิดข้อผิดพลาดในการปิดใช้งาน');
+            });
+        },
+        'ยืนยันการปิดใช้งาน',
+        'ปิดใช้งาน',
+        'btn-warning'
+    );
 }
 
 // Delete department code (not the NPU department itself)
 function deleteDepartment(departmentId) {
-    if (confirm('คุณต้องการลบชื่อย่อหน่วยงานนี้หรือไม่?\nชื่อหน่วยงานจาก NPU AD จะยังคงอยู่ แต่จะไม่มีชื่อย่อแล้ว')) {
-        fetch(`/accounts/management/department/${departmentId}/delete/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', data.message);
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showToast('error', data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('error', 'เกิดข้อผิดพลาดในการลบ');
-        });
-    }
+    showConfirm(
+        'คุณต้องการลบชื่อย่อหน่วยงานนี้หรือไม่?<br><br><small class="text-muted">ชื่อหน่วยงานจาก NPU AD จะยังคงอยู่ แต่จะไม่มีชื่อย่อแล้ว</small>',
+        function() {
+            fetch(`/accounts/management/department/${departmentId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast('error', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'เกิดข้อผิดพลาดในการลบ');
+            });
+        },
+        'ยืนยันการลบชื่อย่อ',
+        'ลบ',
+        'btn-danger'
+    );
 }
 
 // Show all departments

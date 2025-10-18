@@ -387,10 +387,72 @@
 </div>
 {% endif %}
 
+<!-- Toast Container (for notifications) -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="globalToastContainer"></div>
+</div>
+
 <script>
+/**
+ * แสดง Toast notification
+ */
+function showToast(message, type = 'info') {
+    const container = document.getElementById('globalToastContainer');
+    if (!container) return;
+
+    const toastId = 'toast-' + Date.now();
+
+    let icon, title, bgClass;
+    switch(type) {
+        case 'success':
+            icon = 'fa-check-circle';
+            title = 'สำเร็จ';
+            bgClass = 'bg-success';
+            break;
+        case 'error':
+            icon = 'fa-exclamation-circle';
+            title = 'ข้อผิดพลาด';
+            bgClass = 'bg-danger';
+            break;
+        case 'warning':
+            icon = 'fa-exclamation-triangle';
+            title = 'คำเตือน';
+            bgClass = 'bg-warning';
+            break;
+        default:
+            icon = 'fa-info-circle';
+            title = 'ข้อมูล';
+            bgClass = 'bg-info';
+    }
+
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas ${icon} me-2"></i>
+                    <strong>${title}:</strong> ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', toastHTML);
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, {
+        autohide: true,
+        delay: 5000
+    });
+    toast.show();
+
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
 function startQRScanner() {
     // TODO: Implement QR scanner using camera
-    alert('QR Scanner จะเพิ่มในเวอร์ชันถัดไป\nกรุณาใส่รหัสตรวจสอบด้วยตนเองก่อน');
+    showToast('QR Scanner จะเพิ่มในเวอร์ชันถัดไป กรุณาใส่รหัสตรวจสอบด้วยตนเองก่อน', 'info');
 }
 
 // Format amounts with commas
