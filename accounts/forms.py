@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 from django.forms import formset_factory, modelformset_factory
 from django_summernote.widgets import SummernoteWidget
-from .models import User, Receipt, ReceiptEditRequest, ReceiptEditRequestItem, ReceiptItem
+from .models import User, Receipt, ReceiptEditRequest, ReceiptEditRequestItem, ReceiptItem, Role, Department
 
 
 class LoginForm(AuthenticationForm):
@@ -281,3 +281,350 @@ ReceiptEditRequestItemFormSet = modelformset_factory(
     extra=0,
     can_delete=True
 )
+
+
+# ===== MANUAL USER CREATION FORMS =====
+
+class ManualStaffCreateForm(forms.ModelForm):
+    """ฟอร์มสร้างเจ้าหน้าที่แบบ Manual (สำหรับ superuser เท่านั้น)"""
+
+    username = forms.CharField(
+        label='Username (ชื่อผู้ใช้)',
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'เช่น staff_somchai, admin_finance (ถ้าไม่มีรหัสบัตรประชาชน)',
+        }),
+        help_text='ระบุ Username ถ้าไม่มีรหัสบัตรประชาชน (ต้องไม่ซ้ำในระบบ)'
+    )
+
+    password1 = forms.CharField(
+        label='รหัสผ่าน',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'ตั้งรหัสผ่านเริ่มต้น (อย่างน้อย 8 ตัวอักษร)',
+            'required': True
+        }),
+        help_text='ตั้งรหัสผ่านเริ่มต้นให้ผู้ใช้ (ควรแจ้งให้ผู้ใช้เปลี่ยนรหัสผ่านทันทีหลังเข้าระบบครั้งแรก)'
+    )
+
+    password2 = forms.CharField(
+        label='ยืนยันรหัสผ่าน',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'ยืนยันรหัสผ่านอีกครั้ง',
+            'required': True
+        })
+    )
+
+    department_select = forms.ModelChoiceField(
+        queryset=Department.objects.filter(is_active=True).order_by('name'),
+        required=True,
+        empty_label='-- เลือกหน่วยงาน/คณะ --',
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+        }),
+        label='หน่วยงาน/คณะ *',
+        help_text='เลือกหน่วยงาน/คณะที่ผู้ใช้สังกัด'
+    )
+
+    roles = forms.ModelMultipleChoiceField(
+        queryset=Role.objects.filter(is_active=True),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label='บทบาท',
+        help_text='เลือกบทบาทที่ต้องการกำหนดให้ผู้ใช้'
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            'ldap_uid', 'prefix_name', 'first_name_th', 'last_name_th',
+            'full_name', 'birth_date', 'gender',
+            'position_title', 'contact_email'
+        ]
+        widgets = {
+            'ldap_uid': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'รหัสบัตรประชาชน 13 หลัก (ไม่บังคับ)',
+                'maxlength': '13'
+            }),
+            'prefix_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'นาย/นาง/นางสาว'
+            }),
+            'first_name_th': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'ชื่อ (ภาษาไทย)',
+                'required': True
+            }),
+            'last_name_th': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'นามสกุล (ภาษาไทย)',
+                'required': True
+            }),
+            'full_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'ชื่อ-นามสกุลเต็ม (เช่น นายสมชาย ใจดี)'
+            }),
+            'birth_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date'
+            }),
+            'gender': forms.Select(
+                choices=[('', 'เลือกเพศ'), ('ชาย', 'ชาย'), ('หญิง', 'หญิง')],
+                attrs={'class': 'form-control'}
+            ),
+            'position_title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'ตำแหน่ง'
+            }),
+            'contact_email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'อีเมล'
+            })
+        }
+        labels = {
+            'ldap_uid': 'รหัสบัตรประชาชน (ไม่บังคับ)',
+            'prefix_name': 'คำนำหน้า',
+            'first_name_th': 'ชื่อ (ภาษาไทย) *',
+            'last_name_th': 'นามสกุล (ภาษาไทย) *',
+            'full_name': 'ชื่อ-นามสกุลเต็ม',
+            'birth_date': 'วันเกิด',
+            'gender': 'เพศ',
+            'position_title': 'ตำแหน่ง',
+            'contact_email': 'อีเมล'
+        }
+
+    def clean_ldap_uid(self):
+        ldap_uid = self.cleaned_data.get('ldap_uid')
+
+        # Handle None or empty string
+        if ldap_uid:
+            ldap_uid = ldap_uid.strip()
+        else:
+            return ''  # Return empty string if None
+
+        # If provided, validate format
+        if ldap_uid:
+            if not ldap_uid.isdigit():
+                raise forms.ValidationError('รหัสบัตรประชาชนต้องเป็นตัวเลขเท่านั้น')
+
+            if len(ldap_uid) != 13:
+                raise forms.ValidationError('รหัสบัตรประชาชนต้องเป็น 13 หลัก')
+
+            # Check uniqueness
+            if User.objects.filter(ldap_uid=ldap_uid).exists():
+                raise forms.ValidationError('รหัสบัตรประชาชนนี้มีอยู่ในระบบแล้ว')
+
+        return ldap_uid
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+
+        # Handle None or empty string
+        if username:
+            username = username.strip()
+        else:
+            return ''  # Return empty string if None
+
+        if username:
+            # Validate format (alphanumeric + underscore only)
+            import re
+            if not re.match(r'^[a-zA-Z0-9_]+$', username):
+                raise forms.ValidationError('Username ต้องเป็นตัวอักษร ตัวเลข และ _ (underscore) เท่านั้น')
+
+            # Check uniqueness
+            if User.objects.filter(username=username).exists():
+                raise forms.ValidationError('Username นี้มีอยู่ในระบบแล้ว')
+
+            # Minimum length
+            if len(username) < 4:
+                raise forms.ValidationError('Username ต้องมีอย่างน้อย 4 ตัวอักษร')
+
+        return username
+
+    def clean_password2(self):
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError('รหัสผ่านไม่ตรงกัน')
+
+        # Password strength validation
+        if password1 and len(password1) < 8:
+            raise forms.ValidationError('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร')
+
+        return password2
+
+    def clean(self):
+        cleaned_data = super().clean()
+        ldap_uid = cleaned_data.get('ldap_uid', '').strip() if cleaned_data.get('ldap_uid') else ''
+        username = cleaned_data.get('username', '').strip() if cleaned_data.get('username') else ''
+
+        # ต้องมี ldap_uid หรือ username อย่างน้อย 1 อย่าง
+        if not ldap_uid and not username:
+            raise forms.ValidationError('กรุณาระบุ รหัสบัตรประชาชน หรือ Username อย่างน้อย 1 อย่าง')
+
+        # Auto-generate full_name if not provided
+        if not cleaned_data.get('full_name'):
+            prefix = cleaned_data.get('prefix_name', '')
+            first_name = cleaned_data.get('first_name_th', '')
+            last_name = cleaned_data.get('last_name_th', '')
+
+            if prefix:
+                cleaned_data['full_name'] = f"{prefix}{first_name} {last_name}"
+            else:
+                cleaned_data['full_name'] = f"{first_name} {last_name}"
+
+        return cleaned_data
+
+
+class ManualStudentCreateForm(forms.ModelForm):
+    """ฟอร์มสร้างนักศึกษาแบบ Manual (สำหรับ superuser เท่านั้น)"""
+
+    password1 = forms.CharField(
+        label='รหัสผ่าน',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'ตั้งรหัสผ่านเริ่มต้น (อย่างน้อย 8 ตัวอักษร)',
+            'required': True
+        }),
+        help_text='ตั้งรหัสผ่านเริ่มต้นให้นักศึกษา (ควรแจ้งให้นักศึกษาเปลี่ยนรหัสผ่านทันทีหลังเข้าระบบครั้งแรก)'
+    )
+
+    password2 = forms.CharField(
+        label='ยืนยันรหัสผ่าน',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'ยืนยันรหัสผ่านอีกครั้ง',
+            'required': True
+        })
+    )
+
+    student_faculty_select = forms.ModelChoiceField(
+        queryset=Department.objects.filter(is_active=True).order_by('name'),
+        required=True,
+        empty_label='-- เลือกคณะ --',
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+        }),
+        label='คณะ *',
+        help_text='เลือกคณะที่นักศึกษาสังกัด'
+    )
+
+    roles = forms.ModelMultipleChoiceField(
+        queryset=Role.objects.filter(is_active=True),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label='บทบาท',
+        help_text='เลือกบทบาทที่ต้องการกำหนดให้นักศึกษา'
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            'student_code', 'prefix_name', 'first_name_th', 'last_name_th',
+            'full_name', 'student_level', 'student_program',
+            'student_degree', 'contact_email'
+        ]
+        widgets = {
+            'student_code': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'รหัสนักศึกษา 12 หลัก',
+                'maxlength': '12',
+                'required': True
+            }),
+            'prefix_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'นาย/นาง/นางสาว'
+            }),
+            'first_name_th': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'ชื่อ (ภาษาไทย)',
+                'required': True
+            }),
+            'last_name_th': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'นามสกุล (ภาษาไทย)',
+                'required': True
+            }),
+            'full_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'ชื่อ-นามสกุลเต็ม (เช่น นายสมชาย ใจดี)'
+            }),
+            'student_level': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'ระดับการศึกษา (เช่น ปริญญาตรี)'
+            }),
+            'student_program': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'สาขาวิชา'
+            }),
+            'student_degree': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'ระดับปริญญา (เช่น วิทยาศาสตรบัณฑิต)'
+            }),
+            'contact_email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'อีเมล'
+            })
+        }
+        labels = {
+            'student_code': 'รหัสนักศึกษา *',
+            'prefix_name': 'คำนำหน้า',
+            'first_name_th': 'ชื่อ (ภาษาไทย) *',
+            'last_name_th': 'นามสกุล (ภาษาไทย) *',
+            'full_name': 'ชื่อ-นามสกุลเต็ม',
+            'student_level': 'ระดับการศึกษา',
+            'student_program': 'สาขาวิชา',
+            'student_degree': 'ระดับปริญญา',
+            'contact_email': 'อีเมล'
+        }
+
+    def clean_student_code(self):
+        student_code = self.cleaned_data.get('student_code', '').strip()
+
+        if not student_code:
+            raise forms.ValidationError('กรุณาระบุรหัสนักศึกษา')
+
+        if not student_code.isdigit():
+            raise forms.ValidationError('รหัสนักศึกษาต้องเป็นตัวเลขเท่านั้น')
+
+        if len(student_code) != 12:
+            raise forms.ValidationError('รหัสนักศึกษาต้องเป็น 12 หลัก')
+
+        # Check uniqueness
+        if User.objects.filter(student_code=student_code).exists():
+            raise forms.ValidationError('รหัสนักศึกษานี้มีอยู่ในระบบแล้ว')
+
+        return student_code
+
+    def clean_password2(self):
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError('รหัสผ่านไม่ตรงกัน')
+
+        # Password strength validation
+        if password1 and len(password1) < 8:
+            raise forms.ValidationError('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร')
+
+        return password2
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Auto-generate full_name if not provided
+        if not cleaned_data.get('full_name'):
+            prefix = cleaned_data.get('prefix_name', '')
+            first_name = cleaned_data.get('first_name_th', '')
+            last_name = cleaned_data.get('last_name_th', '')
+
+            if prefix:
+                cleaned_data['full_name'] = f"{prefix}{first_name} {last_name}"
+            else:
+                cleaned_data['full_name'] = f"{first_name} {last_name}"
+
+        return cleaned_data

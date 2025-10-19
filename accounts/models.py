@@ -110,6 +110,30 @@ class User(AbstractUser):
         verbose_name="login ล่าสุดจาก NPU API"
     )
 
+    # === USER SOURCE & MANUAL CREATION ===
+    USER_SOURCE_CHOICES = [
+        ('npu_api', 'NPU API'),
+        ('manual', 'Manual Creation'),
+    ]
+
+    source = models.CharField(
+        max_length=20,
+        choices=USER_SOURCE_CHOICES,
+        default='npu_api',
+        verbose_name="แหล่งที่มาของผู้ใช้",
+        help_text="ระบุว่าผู้ใช้ถูกสร้างจาก NPU API หรือสร้างแบบ Manual โดย Admin"
+    )
+
+    created_by_user = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_users',
+        verbose_name="สร้างโดยผู้ใช้",
+        help_text="ผู้ใช้ที่สร้าง user นี้ (สำหรับ manual creation เท่านั้น)"
+    )
+
     # === USER TYPE & STUDENT FIELDS ===
     USER_TYPE_CHOICES = [
         ('staff', 'เจ้าหน้าที่'),

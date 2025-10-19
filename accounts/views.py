@@ -7,6 +7,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.db import IntegrityError
+from django.utils import timezone
+from django.utils.safestring import mark_safe
 import json
 
 from .forms import LoginForm, ReceiptEditRequestForm, EditRequestApprovalForm, ReceiptEditRequestItemFormSet
@@ -5069,3 +5071,190 @@ def user_activity_log_excel_export(request):
 
     wb.save(response)
     return response
+
+
+# ===== MANUAL USER CREATION VIEWS =====
+
+@login_required
+def manual_staff_create_view(request):
+    """
+    สร้างเจ้าหน้าที่แบบ Manual (superuser only)
+
+    Features:
+    - Create staff with local password
+    - Auto-approve
+    - Assign roles
+    - Audit logging
+    """
+    # Superuser only
+    if not request.user.is_superuser:
+        messages.error(request, 'เฉพาะ Superuser เท่านั้นที่สามารถสร้างผู้ใช้แบบ Manual ได้')
+        return redirect('user_management')
+
+    from .forms import ManualStaffCreateForm
+
+    if request.method == 'POST':
+        form = ManualStaffCreateForm(request.POST)
+
+        if form.is_valid():
+            try:
+                # Create user instance (don't save yet)
+                user = form.save(commit=False)
+
+                # Set user type and source
+                user.user_type = 'staff'
+                user.source = 'manual'
+
+                # Auto-approve manual users
+                user.approval_status = 'approved'
+                user.is_active = True
+                user.approved_at = timezone.now()
+
+                # Set creator
+                user.created_by_user = request.user
+
+                # Set department from dropdown
+                department_obj = form.cleaned_data.get('department_select')
+                if department_obj:
+                    user.department = department_obj.name
+
+                # Set username (priority: ldap_uid > custom username > auto-generate)
+                custom_username = form.cleaned_data.get('username', '')
+                if custom_username:
+                    custom_username = custom_username.strip()
+
+                if user.ldap_uid:
+                    user.username = user.ldap_uid
+                elif custom_username:
+                    user.username = custom_username
+                else:
+                    # Fallback: auto-generate (ไม่ควรเกิด เพราะ form validation)
+                    import time
+                    user.username = f"staff_{user.first_name_th[:4]}_{int(time.time())}"
+
+                # Set password
+                password = form.cleaned_data['password1']
+                user.set_password(password)
+
+                # Save user
+                user.save()
+
+                # Assign roles
+                selected_roles = form.cleaned_data.get('roles', [])
+                for role in selected_roles:
+                    user.assign_role(role)
+
+                # Log activity
+                print(f"✓ Manual staff created: {user.username} by {request.user.username}")
+
+                messages.success(
+                    request,
+                    mark_safe(
+                        f'สร้างเจ้าหน้าที่ {user.get_display_name()} สำเร็จ<br>'
+                        f'Username: <strong>{user.username}</strong><br>'
+                        f'รหัสผ่าน: <strong>{password}</strong><br>'
+                        f'<strong class="text-danger">⚠️ กรุณาบันทึกรหัสผ่านนี้และแจ้งให้ผู้ใช้ทราบ</strong>'
+                    )
+                )
+
+                return redirect('user_management')
+
+            except Exception as e:
+                messages.error(request, f'เกิดข้อผิดพลาด: {str(e)}')
+    else:
+        form = ManualStaffCreateForm()
+
+    context = {
+        'title': 'สร้างเจ้าหน้าที่แบบ Manual',
+        'form': form,
+        'user_type': 'staff'
+    }
+
+    return render(request, 'accounts/manual_user_create.html', context)
+
+
+@login_required
+def manual_student_create_view(request):
+    """
+    สร้างนักศึกษาแบบ Manual (superuser only)
+
+    Features:
+    - Create student with local password
+    - Auto-approve
+    - Assign roles
+    - Audit logging
+    """
+    # Superuser only
+    if not request.user.is_superuser:
+        messages.error(request, 'เฉพาะ Superuser เท่านั้นที่สามารถสร้างผู้ใช้แบบ Manual ได้')
+        return redirect('user_management')
+
+    from .forms import ManualStudentCreateForm
+
+    if request.method == 'POST':
+        form = ManualStudentCreateForm(request.POST)
+
+        if form.is_valid():
+            try:
+                # Create user instance (don't save yet)
+                user = form.save(commit=False)
+
+                # Set user type and source
+                user.user_type = 'student'
+                user.source = 'manual'
+
+                # Auto-approve manual users
+                user.approval_status = 'approved'
+                user.is_active = True
+                user.approved_at = timezone.now()
+
+                # Set creator
+                user.created_by_user = request.user
+
+                # Set faculty from dropdown
+                faculty_obj = form.cleaned_data.get('student_faculty_select')
+                if faculty_obj:
+                    user.student_faculty = faculty_obj.name
+
+                # Generate username from student_code
+                user.username = user.student_code
+
+                # Set password
+                password = form.cleaned_data['password1']
+                user.set_password(password)
+
+                # Save user
+                user.save()
+
+                # Assign roles
+                selected_roles = form.cleaned_data.get('roles', [])
+                for role in selected_roles:
+                    user.assign_role(role)
+
+                # Log activity
+                print(f"✓ Manual student created: {user.username} by {request.user.username}")
+
+                messages.success(
+                    request,
+                    mark_safe(
+                        f'สร้างนักศึกษา {user.get_display_name()} สำเร็จ<br>'
+                        f'รหัสนักศึกษา: <strong>{user.student_code}</strong><br>'
+                        f'รหัสผ่าน: <strong>{password}</strong><br>'
+                        f'<strong class="text-danger">⚠️ กรุณาบันทึกรหัสผ่านนี้และแจ้งให้นักศึกษาทราบ</strong>'
+                    )
+                )
+
+                return redirect('user_management')
+
+            except Exception as e:
+                messages.error(request, f'เกิดข้อผิดพลาด: {str(e)}')
+    else:
+        form = ManualStudentCreateForm()
+
+    context = {
+        'title': 'สร้างนักศึกษาแบบ Manual',
+        'form': form,
+        'user_type': 'student'
+    }
+
+    return render(request, 'accounts/manual_user_create.html', context)

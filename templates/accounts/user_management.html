@@ -28,6 +28,34 @@
     </div>
 </div>
 
+<!-- Quick Actions (Superuser Only) -->
+{% if request.user.is_superuser %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="mb-0 fw-bold" style="color: #002F6C;">
+                            <i class="fas fa-magic me-2"></i>Quick Actions
+                        </h6>
+                        <small class="text-muted">สร้างผู้ใช้แบบ Manual สำหรับการทดสอบหรือกรณีเร่งด่วน</small>
+                    </div>
+                    <div class="btn-group">
+                        <a href="{% url 'manual_staff_create' %}" class="btn btn-primary">
+                            <i class="fas fa-user-tie me-2"></i>สร้างเจ้าหน้าที่
+                        </a>
+                        <a href="{% url 'manual_student_create' %}" class="btn btn-success">
+                            <i class="fas fa-user-graduate me-2"></i>สร้างนักศึกษา
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Statistics Cards -->
 <div class="row mb-4">
     <div class="col-md-3 mb-3">

@@ -1,0 +1,328 @@
+{% extends 'base_sidebar.html' %}
+{% block title %}{{ title }} - ระบบออกใบสำคัญรับเงิน{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" style="background: linear-gradient(135deg, #002F6C 0%, #001a3d 100%);">
+            <div class="card-body text-white p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4 class="mb-2 fw-bold">
+                            <i class="fas fa-user-plus me-2" style="color: #CFAE43;"></i>
+                            {{ title }}
+                        </h4>
+                        <p class="mb-0 opacity-90">
+                            <i class="fas fa-info-circle me-2"></i>
+                            สร้าง{% if user_type == 'staff' %}เจ้าหน้าที่{% else %}นักศึกษา{% endif %}แบบ Manual พร้อมตั้งรหัสผ่านเริ่มต้น
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <i class="fas fa-user-{{ user_type }}" style="font-size: 3.5rem; opacity: 0.3; color: #CFAE43;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Form Card -->
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-edit me-2" style="color: #002F6C;"></i>
+                    กรอกข้อมูล{% if user_type == 'staff' %}เจ้าหน้าที่{% else %}นักศึกษา{% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-info">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong>หมายเหตุ:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>ผู้ใช้ที่สร้างแบบ Manual จะได้รับการอนุมัติอัตโนมัติ</li>
+                        <li>ผู้ใช้ต้องใช้รหัสผ่านที่ Admin ตั้งให้ในการเข้าระบบ (ไม่ใช้ NPU API)</li>
+                        <li>กรุณาบันทึกรหัสผ่านและแจ้งให้ผู้ใช้ทราบ</li>
+                        <li>แนะนำให้ผู้ใช้เปลี่ยนรหัสผ่านหลังจากเข้าระบบครั้งแรก</li>
+                    </ul>
+                </div>
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <!-- Basic Information Section -->
+                        <div class="col-12 mb-4">
+                            <h6 class="border-bottom pb-2 mb-3" style="color: #002F6C;">
+                                <i class="fas fa-user me-2"></i>ข้อมูลพื้นฐาน
+                            </h6>
+                        </div>
+
+                        {% if user_type == 'staff' %}
+                            <!-- LDAP UID (Optional for staff) -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.ldap_uid.id_for_label }}" class="form-label">
+                                    {{ form.ldap_uid.label }}
+                                </label>
+                                {{ form.ldap_uid }}
+                                {% if form.ldap_uid.errors %}
+                                    <div class="text-danger small">{{ form.ldap_uid.errors }}</div>
+                                {% endif %}
+                                {% if form.ldap_uid.help_text %}
+                                    <small class="text-muted d-block">{{ form.ldap_uid.help_text }}</small>
+                                {% endif %}
+                            </div>
+
+                            <!-- Username (for staff without LDAP UID) -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.username.id_for_label }}" class="form-label">
+                                    {{ form.username.label }}
+                                </label>
+                                {{ form.username }}
+                                {% if form.username.errors %}
+                                    <div class="text-danger small">{{ form.username.errors }}</div>
+                                {% endif %}
+                                {% if form.username.help_text %}
+                                    <small class="text-muted d-block">{{ form.username.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <!-- Student Code (Required for student) -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.student_code.id_for_label }}" class="form-label">
+                                    {{ form.student_code.label }}
+                                </label>
+                                {{ form.student_code }}
+                                {% if form.student_code.errors %}
+                                    <div class="text-danger small">{{ form.student_code.errors }}</div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <!-- Prefix Name -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.prefix_name.id_for_label }}" class="form-label">
+                                {{ form.prefix_name.label }}
+                            </label>
+                            {{ form.prefix_name }}
+                            {% if form.prefix_name.errors %}
+                                <div class="text-danger small">{{ form.prefix_name.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- First Name -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.first_name_th.id_for_label }}" class="form-label">
+                                {{ form.first_name_th.label }}
+                            </label>
+                            {{ form.first_name_th }}
+                            {% if form.first_name_th.errors %}
+                                <div class="text-danger small">{{ form.first_name_th.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Last Name -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.last_name_th.id_for_label }}" class="form-label">
+                                {{ form.last_name_th.label }}
+                            </label>
+                            {{ form.last_name_th }}
+                            {% if form.last_name_th.errors %}
+                                <div class="text-danger small">{{ form.last_name_th.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Full Name -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.full_name.id_for_label }}" class="form-label">
+                                {{ form.full_name.label }}
+                            </label>
+                            {{ form.full_name }}
+                            {% if form.full_name.errors %}
+                                <div class="text-danger small">{{ form.full_name.errors }}</div>
+                            {% endif %}
+                            <small class="text-muted d-block">หากไม่ระบุ ระบบจะสร้างอัตโนมัติจากคำนำหน้า ชื่อ นามสกุล</small>
+                        </div>
+
+                        {% if user_type == 'staff' %}
+                            <!-- Birth Date (Staff) -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.birth_date.id_for_label }}" class="form-label">
+                                    {{ form.birth_date.label }}
+                                </label>
+                                {{ form.birth_date }}
+                                {% if form.birth_date.errors %}
+                                    <div class="text-danger small">{{ form.birth_date.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Gender (Staff) -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.gender.id_for_label }}" class="form-label">
+                                    {{ form.gender.label }}
+                                </label>
+                                {{ form.gender }}
+                                {% if form.gender.errors %}
+                                    <div class="text-danger small">{{ form.gender.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Department (Staff) -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.department_select.id_for_label }}" class="form-label">
+                                    {{ form.department_select.label }}
+                                </label>
+                                {{ form.department_select }}
+                                {% if form.department_select.errors %}
+                                    <div class="text-danger small">{{ form.department_select.errors }}</div>
+                                {% endif %}
+                                {% if form.department_select.help_text %}
+                                    <small class="text-muted d-block">{{ form.department_select.help_text }}</small>
+                                {% endif %}
+                            </div>
+
+                            <!-- Position (Staff) -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.position_title.id_for_label }}" class="form-label">
+                                    {{ form.position_title.label }}
+                                </label>
+                                {{ form.position_title }}
+                                {% if form.position_title.errors %}
+                                    <div class="text-danger small">{{ form.position_title.errors }}</div>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <!-- Student Fields -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.student_faculty_select.id_for_label }}" class="form-label">
+                                    {{ form.student_faculty_select.label }}
+                                </label>
+                                {{ form.student_faculty_select }}
+                                {% if form.student_faculty_select.errors %}
+                                    <div class="text-danger small">{{ form.student_faculty_select.errors }}</div>
+                                {% endif %}
+                                {% if form.student_faculty_select.help_text %}
+                                    <small class="text-muted d-block">{{ form.student_faculty_select.help_text }}</small>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.student_level.id_for_label }}" class="form-label">
+                                    {{ form.student_level.label }}
+                                </label>
+                                {{ form.student_level }}
+                                {% if form.student_level.errors %}
+                                    <div class="text-danger small">{{ form.student_level.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.student_program.id_for_label }}" class="form-label">
+                                    {{ form.student_program.label }}
+                                </label>
+                                {{ form.student_program }}
+                                {% if form.student_program.errors %}
+                                    <div class="text-danger small">{{ form.student_program.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.student_degree.id_for_label }}" class="form-label">
+                                    {{ form.student_degree.label }}
+                                </label>
+                                {{ form.student_degree }}
+                                {% if form.student_degree.errors %}
+                                    <div class="text-danger small">{{ form.student_degree.errors }}</div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <!-- Contact Email -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.contact_email.id_for_label }}" class="form-label">
+                                {{ form.contact_email.label }}
+                            </label>
+                            {{ form.contact_email }}
+                            {% if form.contact_email.errors %}
+                                <div class="text-danger small">{{ form.contact_email.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Password Section -->
+                        <div class="col-12 mb-4 mt-4">
+                            <h6 class="border-bottom pb-2 mb-3" style="color: #002F6C;">
+                                <i class="fas fa-key me-2"></i>ตั้งรหัสผ่านเริ่มต้น
+                            </h6>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.password1.id_for_label }}" class="form-label">
+                                {{ form.password1.label }}
+                            </label>
+                            {{ form.password1 }}
+                            {% if form.password1.errors %}
+                                <div class="text-danger small">{{ form.password1.errors }}</div>
+                            {% endif %}
+                            {% if form.password1.help_text %}
+                                <small class="text-muted d-block">{{ form.password1.help_text }}</small>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.password2.id_for_label }}" class="form-label">
+                                {{ form.password2.label }}
+                            </label>
+                            {{ form.password2 }}
+                            {% if form.password2.errors %}
+                                <div class="text-danger small">{{ form.password2.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Roles Section -->
+                        <div class="col-12 mb-4 mt-4">
+                            <h6 class="border-bottom pb-2 mb-3" style="color: #002F6C;">
+                                <i class="fas fa-user-tag me-2"></i>กำหนดบทบาท (Roles)
+                            </h6>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label class="form-label">{{ form.roles.label }}</label>
+                            {{ form.roles }}
+                            {% if form.roles.errors %}
+                                <div class="text-danger small">{{ form.roles.errors }}</div>
+                            {% endif %}
+                            {% if form.roles.help_text %}
+                                <small class="text-muted d-block">{{ form.roles.help_text }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <hr>
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'user_management' %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>ย้อนกลับ
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>สร้างผู้ใช้
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

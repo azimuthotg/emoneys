@@ -37,7 +37,7 @@ class HybridAuthBackend(BaseBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
         if not username or not password:
             return None
-            
+
         # Special handling for superuser accounts (admin, etc.)
         admin_usernames = ['admin', 'superuser', 'admin_e', 'administrator']
         if username in admin_usernames or username.startswith('admin'):
@@ -48,8 +48,13 @@ class HybridAuthBackend(BaseBackend):
             except User.DoesNotExist:
                 pass
             return None
-        
-        # Main smart authentication flow with fallback
+
+        # NEW: Check for manual users first (before NPU API)
+        manual_user = self._check_manual_user(username, password)
+        if manual_user:
+            return manual_user
+
+        # Main smart authentication flow with fallback (NPU API)
         return self._smart_authenticate(username, password)
 
     def _smart_authenticate(self, username, password):
@@ -174,7 +179,77 @@ class HybridAuthBackend(BaseBackend):
         print(f"   Length: {len(username)} digits")
 
         # TODO: Save to database for analysis (future enhancement)
-    
+
+    def _check_manual_user(self, username, password):
+        """
+        Check if user is a manual user and authenticate with local password
+
+        Manual users have:
+        - source = 'manual'
+        - usable password (set by admin)
+        - Can be staff or student type
+
+        Returns User object if authentication successful, None otherwise
+        """
+        try:
+            # Try to find manual user by username, ldap_uid (staff), or student_code (student)
+            manual_user = None
+
+            # Try username first (most common for manual users)
+            try:
+                manual_user = User.objects.get(
+                    username=username,
+                    source='manual'
+                )
+            except User.DoesNotExist:
+                pass
+
+            # Try staff ldap_uid if not found by username
+            if not manual_user:
+                try:
+                    manual_user = User.objects.get(
+                        ldap_uid=username,
+                        source='manual',
+                        user_type='staff'
+                    )
+                except User.DoesNotExist:
+                    pass
+
+            # Try student_code if still not found
+            if not manual_user:
+                try:
+                    manual_user = User.objects.get(
+                        student_code=username,
+                        source='manual',
+                        user_type='student'
+                    )
+                except User.DoesNotExist:
+                    pass
+
+            # If found, verify password
+            if manual_user:
+                # Check approval status
+                if manual_user.approval_status != 'approved' or not manual_user.is_active:
+                    print(f"Manual user {username} is not approved or inactive")
+                    return None
+
+                # Verify password
+                if manual_user.has_usable_password() and manual_user.check_password(password):
+                    # Update last login
+                    manual_user.last_login = timezone.now()
+                    manual_user.save(update_fields=['last_login'])
+                    print(f"✓ Manual user login successful: {username} ({manual_user.user_type})")
+                    return manual_user
+                else:
+                    print(f"Invalid password for manual user: {username}")
+                    return None
+
+            return None
+
+        except Exception as e:
+            print(f"Error checking manual user {username}: {e}")
+            return None
+
     # === STAFF AUTHENTICATION METHODS ===
 
     def _check_database_staff(self, ldap_uid, password):
