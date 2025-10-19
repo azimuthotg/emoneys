@@ -5216,8 +5216,16 @@ def manual_student_create_view(request):
                 if faculty_obj:
                     user.student_faculty = faculty_obj.name
 
-                # Generate username from student_code
-                user.username = user.student_code
+                # Set username (priority: custom username > student_code)
+                custom_username = form.cleaned_data.get('username', '')
+                if custom_username:
+                    custom_username = custom_username.strip()
+
+                if custom_username:
+                    user.username = custom_username
+                else:
+                    # Default: use student_code as username
+                    user.username = user.student_code
 
                 # Set password
                 password = form.cleaned_data['password1']

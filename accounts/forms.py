@@ -483,6 +483,16 @@ class ManualStaffCreateForm(forms.ModelForm):
 class ManualStudentCreateForm(forms.ModelForm):
     """ฟอร์มสร้างนักศึกษาแบบ Manual (สำหรับ superuser เท่านั้น)"""
 
+    username = forms.CharField(
+        label='Username (ชื่อผู้ใช้)',
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'เช่น student_somchai (ถ้าต้องการกำหนดเอง)',
+        }),
+        help_text='ระบุ Username ถ้าต้องการกำหนดเอง (ถ้าไม่ระบุจะใช้รหัสนักศึกษาเป็น Username)'
+    )
+
     password1 = forms.CharField(
         label='รหัสผ่าน',
         widget=forms.PasswordInput(attrs={
@@ -599,6 +609,31 @@ class ManualStudentCreateForm(forms.ModelForm):
             raise forms.ValidationError('รหัสนักศึกษานี้มีอยู่ในระบบแล้ว')
 
         return student_code
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+
+        # Handle None or empty string
+        if username:
+            username = username.strip()
+        else:
+            return ''  # Return empty string if None
+
+        if username:
+            # Validate format (alphanumeric + underscore only)
+            import re
+            if not re.match(r'^[a-zA-Z0-9_]+$', username):
+                raise forms.ValidationError('Username ต้องเป็นตัวอักษร ตัวเลข และ _ (underscore) เท่านั้น')
+
+            # Check uniqueness
+            if User.objects.filter(username=username).exists():
+                raise forms.ValidationError('Username นี้มีอยู่ในระบบแล้ว')
+
+            # Minimum length
+            if len(username) < 4:
+                raise forms.ValidationError('Username ต้องมีอย่างน้อย 4 ตัวอักษร')
+
+        return username
 
     def clean_password2(self):
         password1 = self.cleaned_data.get('password1')
