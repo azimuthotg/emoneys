@@ -13,10 +13,10 @@ class LoginForm(AuthenticationForm):
         widget=forms.TextInput(attrs={
             'class': 'form-control form-control-lg',
             'id': 'ldap_uid',
-            'placeholder': 'รหัสบัตรประชาชน 13 หลัก / รหัสนักศึกษา 12 หลัก',
+            'placeholder': 'รหัสบัตรประชาชน / รหัสนักศึกษา / Username',
             'required': True,
         }),
-        label='รหัสบัตรประชาชน / รหัสนักศึกษา'
+        label='รหัสบัตรประชาชน / รหัสนักศึกษา / Username'
     )
     
     password = forms.CharField(
@@ -32,19 +32,12 @@ class LoginForm(AuthenticationForm):
     def clean_username(self):
         username = self.cleaned_data.get('username', '').strip()
 
-        # Skip validation for admin users (allow alphanumeric)
-        admin_usernames = ['admin', 'superuser', 'admin_e', 'administrator']
-        if username in admin_usernames or username.startswith('admin'):
-            return username
+        # Allow any non-empty username (support for manual users with custom usernames)
+        if not username:
+            raise forms.ValidationError('กรุณากรอกรหัสหรือ Username')
 
-        # Validate format (must be digits)
-        if not username.isdigit():
-            raise forms.ValidationError('รหัสต้องเป็นตัวเลขเท่านั้น (12 หลักสำหรับนักศึกษา หรือ 13 หลักสำหรับเจ้าหน้าที่)')
-
-        # Accept both 12 digits (student) and 13 digits (staff)
-        if len(username) not in [12, 13]:
-            raise forms.ValidationError('รหัสต้องเป็น 12 หลัก (นักศึกษา) หรือ 13 หลัก (เจ้าหน้าที่)')
-
+        # No strict validation - let backend authenticate handle it
+        # Backend will check if it's NPU API user or manual user
         return username
 
 
@@ -328,12 +321,33 @@ class ManualStaffCreateForm(forms.ModelForm):
         help_text='เลือกหน่วยงาน/คณะที่ผู้ใช้สังกัด'
     )
 
-    roles = forms.ModelMultipleChoiceField(
+    role = forms.ModelChoiceField(
+
+
         queryset=Role.objects.filter(is_active=True),
-        widget=forms.CheckboxSelectMultiple,
+
+
         required=False,
+
+
+        empty_label='-- ไม่กำหนดบทบาท --',
+
+
+        widget=forms.Select(attrs={
+
+
+            'class': 'form-control',
+
+
+        }),
+
+
         label='บทบาท',
-        help_text='เลือกบทบาทที่ต้องการกำหนดให้ผู้ใช้'
+
+
+        help_text='เลือกบทบาทที่ต้องการกำหนดให้ผู้ใช้ (1 บทบาทเท่านั้น)'
+
+
     )
 
     class Meta:
@@ -523,12 +537,33 @@ class ManualStudentCreateForm(forms.ModelForm):
         help_text='เลือกคณะที่นักศึกษาสังกัด'
     )
 
-    roles = forms.ModelMultipleChoiceField(
+    role = forms.ModelChoiceField(
+
+
         queryset=Role.objects.filter(is_active=True),
-        widget=forms.CheckboxSelectMultiple,
+
+
         required=False,
+
+
+        empty_label='-- ไม่กำหนดบทบาท --',
+
+
+        widget=forms.Select(attrs={
+
+
+            'class': 'form-control',
+
+
+        }),
+
+
         label='บทบาท',
-        help_text='เลือกบทบาทที่ต้องการกำหนดให้นักศึกษา'
+
+
+        help_text='เลือกบทบาทที่ต้องการกำหนดให้ผู้ใช้ (1 บทบาทเท่านั้น)'
+
+
     )
 
     class Meta:
@@ -541,9 +576,8 @@ class ManualStudentCreateForm(forms.ModelForm):
         widgets = {
             'student_code': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'รหัสนักศึกษา 12 หลัก',
-                'maxlength': '12',
-                'required': True
+                'placeholder': 'รหัสนักศึกษา 12 หลัก (ไม่บังคับ)',
+                'maxlength': '12'
             }),
             'prefix_name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -581,7 +615,7 @@ class ManualStudentCreateForm(forms.ModelForm):
             })
         }
         labels = {
-            'student_code': 'รหัสนักศึกษา *',
+            'student_code': 'รหัสนักศึกษา (ไม่บังคับ)',
             'prefix_name': 'คำนำหน้า',
             'first_name_th': 'ชื่อ (ภาษาไทย) *',
             'last_name_th': 'นามสกุล (ภาษาไทย) *',
@@ -593,20 +627,25 @@ class ManualStudentCreateForm(forms.ModelForm):
         }
 
     def clean_student_code(self):
-        student_code = self.cleaned_data.get('student_code', '').strip()
+        student_code = self.cleaned_data.get('student_code')
 
-        if not student_code:
-            raise forms.ValidationError('กรุณาระบุรหัสนักศึกษา')
+        # Handle None or empty string
+        if student_code:
+            student_code = student_code.strip()
+        else:
+            return ''  # Return empty string if None
 
-        if not student_code.isdigit():
-            raise forms.ValidationError('รหัสนักศึกษาต้องเป็นตัวเลขเท่านั้น')
+        # If provided, validate format
+        if student_code:
+            if not student_code.isdigit():
+                raise forms.ValidationError('รหัสนักศึกษาต้องเป็นตัวเลขเท่านั้น')
 
-        if len(student_code) != 12:
-            raise forms.ValidationError('รหัสนักศึกษาต้องเป็น 12 หลัก')
+            if len(student_code) != 12:
+                raise forms.ValidationError('รหัสนักศึกษาต้องเป็น 12 หลัก')
 
-        # Check uniqueness
-        if User.objects.filter(student_code=student_code).exists():
-            raise forms.ValidationError('รหัสนักศึกษานี้มีอยู่ในระบบแล้ว')
+            # Check uniqueness
+            if User.objects.filter(student_code=student_code).exists():
+                raise forms.ValidationError('รหัสนักศึกษานี้มีอยู่ในระบบแล้ว')
 
         return student_code
 
@@ -650,6 +689,12 @@ class ManualStudentCreateForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        student_code = cleaned_data.get('student_code', '').strip() if cleaned_data.get('student_code') else ''
+        username = cleaned_data.get('username', '').strip() if cleaned_data.get('username') else ''
+
+        # ต้องมี student_code หรือ username อย่างน้อย 1 อย่าง
+        if not student_code and not username:
+            raise forms.ValidationError('กรุณาระบุ รหัสนักศึกษา หรือ Username อย่างน้อย 1 อย่าง')
 
         # Auto-generate full_name if not provided
         if not cleaned_data.get('full_name'):
@@ -663,3 +708,218 @@ class ManualStudentCreateForm(forms.ModelForm):
                 cleaned_data['full_name'] = f"{first_name} {last_name}"
 
         return cleaned_data
+
+
+# ===== MANUAL USER EDIT FORMS =====
+
+class ManualStaffEditForm(forms.ModelForm):
+    """ฟอร์มแก้ไขเจ้าหน้าที่ที่สร้างแบบ Manual (สำหรับ superuser เท่านั้น)"""
+
+    department_select = forms.ModelChoiceField(
+        queryset=Department.objects.filter(is_active=True).order_by("name"),
+        required=False,
+        empty_label="-- เลือกหน่วยงาน/คณะ --",
+        widget=forms.Select(attrs={
+            "class": "form-control",
+        }),
+        label="หน่วยงาน/คณะ",
+        help_text="เลือกหน่วยงาน/คณะที่ผู้ใช้สังกัด"
+    )
+
+    role = forms.ModelChoiceField(
+
+
+        queryset=Role.objects.filter(is_active=True),
+
+
+        required=False,
+
+
+        empty_label='-- ไม่กำหนดบทบาท --',
+
+
+        widget=forms.Select(attrs={
+
+
+            'class': 'form-control',
+
+
+        }),
+
+
+        label='บทบาท',
+
+
+        help_text='เลือกบทบาทที่ต้องการกำหนดให้ผู้ใช้ (1 บทบาทเท่านั้น)'
+
+
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            "username", "ldap_uid", "prefix_name", "first_name_th", "last_name_th",
+            "full_name", "birth_date", "gender",
+            "position_title", "contact_email"
+        ]
+        widgets = {
+            "username": forms.TextInput(attrs={
+                "class": "form-control",
+                "readonly": True
+            }),
+            "ldap_uid": forms.TextInput(attrs={
+                "class": "form-control",
+                "readonly": True
+            }),
+            "prefix_name": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "นาย/นาง/นางสาว"
+            }),
+            "first_name_th": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "ชื่อ (ภาษาไทย)",
+            }),
+            "last_name_th": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "นามสกุล (ภาษาไทย)",
+            }),
+            "full_name": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "ชื่อ-นามสกุลเต็ม"
+            }),
+            "birth_date": forms.DateInput(attrs={
+                "class": "form-control",
+                "type": "date"
+            }),
+            "gender": forms.Select(
+                choices=[("", "เลือกเพศ"), ("ชาย", "ชาย"), ("หญิง", "หญิง")],
+                attrs={"class": "form-control"}
+            ),
+            "position_title": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "ตำแหน่ง"
+            }),
+            "contact_email": forms.EmailInput(attrs={
+                "class": "form-control",
+                "placeholder": "อีเมล"
+            })
+        }
+        labels = {
+            "username": "Username",
+            "ldap_uid": "รหัสบัตรประชาชน",
+            "prefix_name": "คำนำหน้า",
+            "first_name_th": "ชื่อ (ภาษาไทย)",
+            "last_name_th": "นามสกุล (ภาษาไทย)",
+            "full_name": "ชื่อ-นามสกุลเต็ม",
+            "birth_date": "วันเกิด",
+            "gender": "เพศ",
+            "position_title": "ตำแหน่ง",
+            "contact_email": "อีเมล"
+        }
+
+
+class ManualStudentEditForm(forms.ModelForm):
+    """ฟอร์มแก้ไขนักศึกษาที่สร้างแบบ Manual (สำหรับ superuser เท่านั้น)"""
+
+    student_faculty_select = forms.ModelChoiceField(
+        queryset=Department.objects.filter(is_active=True).order_by("name"),
+        required=False,
+        empty_label="-- เลือกคณะ --",
+        widget=forms.Select(attrs={
+            "class": "form-control",
+        }),
+        label="คณะ",
+        help_text="เลือกคณะที่นักศึกษาสังกัด"
+    )
+
+    role = forms.ModelChoiceField(
+
+
+        queryset=Role.objects.filter(is_active=True),
+
+
+        required=False,
+
+
+        empty_label='-- ไม่กำหนดบทบาท --',
+
+
+        widget=forms.Select(attrs={
+
+
+            'class': 'form-control',
+
+
+        }),
+
+
+        label='บทบาท',
+
+
+        help_text='เลือกบทบาทที่ต้องการกำหนดให้ผู้ใช้ (1 บทบาทเท่านั้น)'
+
+
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            "username", "student_code", "prefix_name", "first_name_th", "last_name_th",
+            "full_name", "student_level", "student_program",
+            "student_degree", "contact_email"
+        ]
+        widgets = {
+            "username": forms.TextInput(attrs={
+                "class": "form-control",
+                "readonly": True
+            }),
+            "student_code": forms.TextInput(attrs={
+                "class": "form-control",
+                "readonly": True
+            }),
+            "prefix_name": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "นาย/นาง/นางสาว"
+            }),
+            "first_name_th": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "ชื่อ (ภาษาไทย)",
+            }),
+            "last_name_th": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "นามสกุล (ภาษาไทย)",
+            }),
+            "full_name": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "ชื่อ-นามสกุลเต็ม"
+            }),
+            "student_level": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "ระดับการศึกษา"
+            }),
+            "student_program": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "สาขาวิชา"
+            }),
+            "student_degree": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "ระดับปริญญา"
+            }),
+            "contact_email": forms.EmailInput(attrs={
+                "class": "form-control",
+                "placeholder": "อีเมล"
+            })
+        }
+        labels = {
+            "username": "Username",
+            "student_code": "รหัสนักศึกษา",
+            "prefix_name": "คำนำหน้า",
+            "first_name_th": "ชื่อ (ภาษาไทย)",
+            "last_name_th": "นามสกุล (ภาษาไทย)",
+            "full_name": "ชื่อ-นามสกุลเต็ม",
+            "student_level": "ระดับการศึกษา",
+            "student_program": "สาขาวิชา",
+            "student_degree": "ระดับปริญญา",
+            "contact_email": "อีเมล"
+        }
+

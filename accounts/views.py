@@ -5139,10 +5139,10 @@ def manual_staff_create_view(request):
                 # Save user
                 user.save()
 
-                # Assign roles
-                selected_roles = form.cleaned_data.get('roles', [])
-                for role in selected_roles:
-                    user.assign_role(role)
+                # Assign role (single role only)
+                selected_role = form.cleaned_data.get('role')
+                if selected_role:
+                    user.assign_role(selected_role)
 
                 # Log activity
                 print(f"✓ Manual staff created: {user.username} by {request.user.username}")
@@ -5216,16 +5216,20 @@ def manual_student_create_view(request):
                 if faculty_obj:
                     user.student_faculty = faculty_obj.name
 
-                # Set username (priority: custom username > student_code)
+                # Set username (priority: custom username > student_code > auto-generate)
                 custom_username = form.cleaned_data.get('username', '')
                 if custom_username:
                     custom_username = custom_username.strip()
 
                 if custom_username:
                     user.username = custom_username
-                else:
-                    # Default: use student_code as username
+                elif user.student_code:
+                    # Use student_code as username if available
                     user.username = user.student_code
+                else:
+                    # Fallback: auto-generate (ไม่ควรเกิด เพราะ form validation)
+                    import time
+                    user.username = f"student_{user.first_name_th[:4]}_{int(time.time())}"
 
                 # Set password
                 password = form.cleaned_data['password1']
@@ -5234,10 +5238,10 @@ def manual_student_create_view(request):
                 # Save user
                 user.save()
 
-                # Assign roles
-                selected_roles = form.cleaned_data.get('roles', [])
-                for role in selected_roles:
-                    user.assign_role(role)
+                # Assign role (single role only)
+                selected_role = form.cleaned_data.get('role')
+                if selected_role:
+                    user.assign_role(selected_role)
 
                 # Log activity
                 print(f"✓ Manual student created: {user.username} by {request.user.username}")
@@ -5266,3 +5270,110 @@ def manual_student_create_view(request):
     }
 
     return render(request, 'accounts/manual_user_create.html', context)
+
+@login_required
+def manual_user_edit_view(request, user_id):
+    """
+    แก้ไขผู้ใช้ที่สร้างแบบ Manual (superuser only)
+    
+    Features:
+    - Edit manual users only (NPU API users cannot be edited)
+    - Update user info and roles
+    - Audit logging
+    """
+    # Superuser only
+    if not request.user.is_superuser:
+        messages.error(request, 'เฉพาะ Superuser เท่านั้นที่สามารถแก้ไขผู้ใช้ได้')
+        return redirect('user_management')
+    
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        messages.error(request, 'ไม่พบผู้ใช้ที่ต้องการแก้ไข')
+        return redirect('user_management')
+    
+    # Check if manual user
+    if user.source != 'manual':
+        messages.error(request, 'ไม่สามารถแก้ไขผู้ใช้จาก NPU API ได้ (แก้ไขได้เฉพาะผู้ใช้ Manual เท่านั้น)')
+        return redirect('user_management')
+    
+    from .forms import ManualStaffEditForm, ManualStudentEditForm
+    
+    # Determine form based on user type
+    if user.user_type == 'staff':
+        FormClass = ManualStaffEditForm
+        template_user_type = 'staff'
+        title = f'แก้ไขข้อมูลเจ้าหน้าที่: {user.get_display_name()}'
+    else:  # student
+        FormClass = ManualStudentEditForm
+        template_user_type = 'student'
+        title = f'แก้ไขข้อมูลนักศึกษา: {user.get_display_name()}'
+    
+    if request.method == 'POST':
+        form = FormClass(request.POST, instance=user)
+        
+        if form.is_valid():
+            try:
+                # Save user data
+                updated_user = form.save(commit=False)
+                
+                # Update department/faculty from dropdown
+                if user.user_type == 'staff':
+                    department_obj = form.cleaned_data.get('department_select')
+                    if department_obj:
+                        updated_user.department = department_obj.name
+                else:  # student
+                    faculty_obj = form.cleaned_data.get('student_faculty_select')
+                    if faculty_obj:
+                        updated_user.student_faculty = faculty_obj.name
+                
+                updated_user.save()
+                
+                # Update role (single role only)
+                # Clear existing roles
+                user.userrole_set.all().delete()
+                # Assign new role
+                selected_role = form.cleaned_data.get('role')
+                if selected_role:
+                    user.assign_role(selected_role)
+                
+                # Log activity
+                print(f"✓ Manual user updated: {user.username} by {request.user.username}")
+                
+                messages.success(request, f'แก้ไขข้อมูล {user.get_display_name()} สำเร็จ')
+                return redirect('user_management')
+                
+            except Exception as e:
+                messages.error(request, f'เกิดข้อผิดพลาด: {str(e)}')
+    else:
+        # Pre-fill form with existing data
+        form = FormClass(instance=user)
+        
+        # Set initial department/faculty dropdown
+        if user.user_type == 'staff' and user.department:
+            try:
+                dept = Department.objects.get(name=user.department, is_active=True)
+                form.fields['department_select'].initial = dept
+            except Department.DoesNotExist:
+                pass
+        elif user.user_type == 'student' and user.student_faculty:
+            try:
+                faculty = Department.objects.get(name=user.student_faculty, is_active=True)
+                form.fields['student_faculty_select'].initial = faculty
+            except Department.DoesNotExist:
+                pass
+        
+        # Set initial role
+        current_role = user.userrole_set.first()
+        if current_role:
+            form.fields['role'].initial = current_role.role_id
+    
+    context = {
+        'title': title,
+        'form': form,
+        'user_type': template_user_type,
+        'edit_user': user,
+        'is_edit': True
+    }
+    
+    return render(request, 'accounts/manual_user_edit.html', context)

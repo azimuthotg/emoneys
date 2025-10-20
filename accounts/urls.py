@@ -18,6 +18,7 @@ urlpatterns = [
     path('management/users/', views.user_management_view, name='user_management'),
     path('management/users/create/staff/', views.manual_staff_create_view, name='manual_staff_create'),
     path('management/users/create/student/', views.manual_student_create_view, name='manual_student_create'),
+    path('management/users/edit/<int:user_id>/', views.manual_user_edit_view, name='manual_user_edit'),
     
     # Admin AJAX endpoints
     path('management/approve-user/<int:user_id>/', views.approve_user_ajax, name='approve_user_ajax'),

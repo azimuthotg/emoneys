@@ -11,12 +11,12 @@
                 <div class="row align-items-center">
                     <div class="col-md-8">
                         <h4 class="mb-2 fw-bold">
-                            <i class="fas fa-user-plus me-2" style="color: #CFAE43;"></i>
+                            <i class="fas fa-edit me-2" style="color: #CFAE43;"></i>
                             {{ title }}
                         </h4>
                         <p class="mb-0 opacity-90">
                             <i class="fas fa-info-circle me-2"></i>
-                            สร้าง{% if user_type == 'staff' %}เจ้าหน้าที่{% else %}นักศึกษา{% endif %}แบบ Manual พร้อมตั้งรหัสผ่านเริ่มต้น
+                            แก้ไขข้อมูล{% if user_type == 'staff' %}เจ้าหน้าที่{% else %}นักศึกษา{% endif %}ที่สร้างแบบ Manual
                         </p>
                     </div>
                     <div class="col-md-4 text-md-end">
@@ -35,18 +35,17 @@
             <div class="card-header bg-white py-3">
                 <h5 class="mb-0">
                     <i class="fas fa-edit me-2" style="color: #002F6C;"></i>
-                    กรอกข้อมูล{% if user_type == 'staff' %}เจ้าหน้าที่{% else %}นักศึกษา{% endif %}
+                    แก้ไขข้อมูล{% if user_type == 'staff' %}เจ้าหน้าที่{% else %}นักศึกษา{% endif %}
                 </h5>
             </div>
             <div class="card-body p-4">
-                <div class="alert alert-info">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    <strong>หมายเหตุ:</strong>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>คำเตือน:</strong>
                     <ul class="mb-0 mt-2">
-                        <li>ผู้ใช้ที่สร้างแบบ Manual จะได้รับการอนุมัติอัตโนมัติ</li>
-                        <li>ผู้ใช้ต้องใช้รหัสผ่านที่ Admin ตั้งให้ในการเข้าระบบ (ไม่ใช้ NPU API)</li>
-                        <li>กรุณาบันทึกรหัสผ่านและแจ้งให้ผู้ใช้ทราบ</li>
-                        <li>แนะนำให้ผู้ใช้เปลี่ยนรหัสผ่านหลังจากเข้าระบบครั้งแรก</li>
+                        <li>แก้ไขได้เฉพาะผู้ใช้ที่สร้างแบบ Manual เท่านั้น</li>
+                        <li>Username ไม่สามารถแก้ไขได้</li>
+                        <li>การเปลี่ยนแปลงจะมีผลทันที</li>
                     </ul>
                 </div>
 
@@ -67,6 +66,18 @@
                             </h6>
                         </div>
 
+                        <!-- Username (Read-only) -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.username.id_for_label }}" class="form-label">
+                                {{ form.username.label }}
+                            </label>
+                            {{ form.username }}
+                            {% if form.username.errors %}
+                                <div class="text-danger small">{{ form.username.errors }}</div>
+                            {% endif %}
+                            <small class="text-muted d-block">Username ไม่สามารถแก้ไขได้</small>
+                        </div>
+
                         {% if user_type == 'staff' %}
                             <!-- LDAP UID (Optional for staff) -->
                             <div class="col-md-6 mb-3">
@@ -77,26 +88,9 @@
                                 {% if form.ldap_uid.errors %}
                                     <div class="text-danger small">{{ form.ldap_uid.errors }}</div>
                                 {% endif %}
-                                {% if form.ldap_uid.help_text %}
-                                    <small class="text-muted d-block">{{ form.ldap_uid.help_text }}</small>
-                                {% endif %}
-                            </div>
-
-                            <!-- Username (for staff without LDAP UID) -->
-                            <div class="col-md-6 mb-3">
-                                <label for="{{ form.username.id_for_label }}" class="form-label">
-                                    {{ form.username.label }}
-                                </label>
-                                {{ form.username }}
-                                {% if form.username.errors %}
-                                    <div class="text-danger small">{{ form.username.errors }}</div>
-                                {% endif %}
-                                {% if form.username.help_text %}
-                                    <small class="text-muted d-block">{{ form.username.help_text }}</small>
-                                {% endif %}
                             </div>
                         {% else %}
-                            <!-- Student Code (Required for student) -->
+                            <!-- Student Code -->
                             <div class="col-md-6 mb-3">
                                 <label for="{{ form.student_code.id_for_label }}" class="form-label">
                                     {{ form.student_code.label }}
@@ -104,20 +98,7 @@
                                 {{ form.student_code }}
                                 {% if form.student_code.errors %}
                                     <div class="text-danger small">{{ form.student_code.errors }}</div>
-                                {% endif %}
-                            </div>
-
-                            <!-- Username (Optional for student) -->
-                            <div class="col-md-6 mb-3">
-                                <label for="{{ form.username.id_for_label }}" class="form-label">
-                                    {{ form.username.label }}
-                                </label>
-                                {{ form.username }}
-                                {% if form.username.errors %}
-                                    <div class="text-danger small">{{ form.username.errors }}</div>
-                                {% endif %}
-                                {% if form.username.help_text %}
-                                    <small class="text-muted d-block">{{ form.username.help_text }}</small>
+                                <small class="text-muted d-block">รหัสบัตรประชาชนไม่สามารถแก้ไขได้</small>
                                 {% endif %}
                             </div>
                         {% endif %}
@@ -129,6 +110,7 @@
                             </label>
                             {{ form.prefix_name }}
                             {% if form.prefix_name.errors %}
+                                <small class="text-muted d-block">รหัสนักศึกษาไม่สามารถแก้ไขได้</small>
                                 <div class="text-danger small">{{ form.prefix_name.errors }}</div>
                             {% endif %}
                         </div>
@@ -271,36 +253,6 @@
                             {% endif %}
                         </div>
 
-                        <!-- Password Section -->
-                        <div class="col-12 mb-4 mt-4">
-                            <h6 class="border-bottom pb-2 mb-3" style="color: #002F6C;">
-                                <i class="fas fa-key me-2"></i>ตั้งรหัสผ่านเริ่มต้น
-                            </h6>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.password1.id_for_label }}" class="form-label">
-                                {{ form.password1.label }}
-                            </label>
-                            {{ form.password1 }}
-                            {% if form.password1.errors %}
-                                <div class="text-danger small">{{ form.password1.errors }}</div>
-                            {% endif %}
-                            {% if form.password1.help_text %}
-                                <small class="text-muted d-block">{{ form.password1.help_text }}</small>
-                            {% endif %}
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.password2.id_for_label }}" class="form-label">
-                                {{ form.password2.label }}
-                            </label>
-                            {{ form.password2 }}
-                            {% if form.password2.errors %}
-                                <div class="text-danger small">{{ form.password2.errors }}</div>
-                            {% endif %}
-                        </div>
-
                         <!-- Roles Section -->
                         <div class="col-12 mb-4 mt-4">
                             <h6 class="border-bottom pb-2 mb-3" style="color: #002F6C;">
@@ -331,7 +283,7 @@
                                     <i class="fas fa-arrow-left me-2"></i>ย้อนกลับ
                                 </a>
                                 <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save me-2"></i>สร้างผู้ใช้
+                                    <i class="fas fa-save me-2"></i>บันทึกการแก้ไข
                                 </button>
                             </div>
                         </div>

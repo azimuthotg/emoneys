@@ -256,6 +256,11 @@
                                         <td><small>{{ user.approved_at|date:"d/m/Y"|default:"-" }}</small></td>
                                         <td class="text-center">
                                             <div class="btn-group btn-group-sm">
+                                                {% if user.source == 'manual' %}
+                                                    <a href="{% url 'manual_user_edit' user.id %}" class="btn btn-primary" title="แก้ไขข้อมูล">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                {% endif %}
                                                 <button class="btn btn-warning" onclick="editUserRoles({{ user.id }})" title="แก้ไขสิทธิ์" style="color: white;">
                                                     <i class="fas fa-user-tag"></i>
                                                 </button>
@@ -506,9 +511,16 @@
                                         </td>
                                         <td><small>{{ user.date_joined|date:"d/m/Y" }}</small></td>
                                         <td class="text-center">
-                                            <button class="btn btn-sm btn-outline-info" onclick="viewUserDetails({{ user.id }})" title="ดูรายละเอียด">
-                                                <i class="fas fa-eye"></i>
-                                            </button>
+                                            <div class="btn-group btn-group-sm">
+                                                {% if user.source == 'manual' %}
+                                                    <a href="{% url 'manual_user_edit' user.id %}" class="btn btn-outline-primary" title="แก้ไขข้อมูล">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                {% endif %}
+                                                <button class="btn btn-outline-info" onclick="viewUserDetails({{ user.id }})" title="ดูรายละเอียด">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                     {% empty %}
