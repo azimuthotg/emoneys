@@ -5075,8 +5075,8 @@ def manual_staff_create_view(request):
     - Audit logging
     """
     # Superuser only
-    if not request.user.is_superuser:
-        messages.error(request, 'เฉพาะ Superuser เท่านั้นที่สามารถสร้างผู้ใช้แบบ Manual ได้')
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
+        messages.error(request, 'ไม่มีสิทธิ์สร้างผู้ใช้แบบ Manual')
         return redirect('user_management')
 
     from .forms import ManualStaffCreateForm
@@ -5173,8 +5173,8 @@ def manual_student_create_view(request):
     - Audit logging
     """
     # Superuser only
-    if not request.user.is_superuser:
-        messages.error(request, 'เฉพาะ Superuser เท่านั้นที่สามารถสร้างผู้ใช้แบบ Manual ได้')
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
+        messages.error(request, 'ไม่มีสิทธิ์สร้างผู้ใช้แบบ Manual')
         return redirect('user_management')
 
     from .forms import ManualStudentCreateForm
@@ -5263,15 +5263,15 @@ def manual_student_create_view(request):
 def manual_user_edit_view(request, user_id):
     """
     แก้ไขผู้ใช้ที่สร้างแบบ Manual (superuser only)
-    
+
     Features:
     - Edit manual users only (NPU API users cannot be edited)
     - Update user info and roles
     - Audit logging
     """
     # Superuser only
-    if not request.user.is_superuser:
-        messages.error(request, 'เฉพาะ Superuser เท่านั้นที่สามารถแก้ไขผู้ใช้ได้')
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
+        messages.error(request, 'ไม่มีสิทธิ์แก้ไขผู้ใช้')
         return redirect('user_management')
     
     try:
