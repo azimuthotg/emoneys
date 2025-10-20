@@ -15,6 +15,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.charts.barcharts import HorizontalBarChart
 from reportlab.graphics import renderPDF
+from reportlab.pdfgen import canvas as pdfgen_canvas
 import qrcode
 from io import BytesIO
 import os
@@ -24,6 +25,114 @@ from django.http import HttpResponse
 from bs4 import BeautifulSoup
 import re
 from accounts.utils import convert_to_thai_date
+
+
+class WatermarkCanvas(pdfgen_canvas.Canvas):
+    """
+    Custom Canvas ที่วาด watermark หลังจาก render เนื้อหาเสร็จแล้ว
+    เพื่อให้ watermark ทับบนเนื้อหา
+    """
+    def __init__(self, *args, **kwargs):
+        # เก็บข้อมูลที่จำเป็นสำหรับ watermark
+        self.receipt = kwargs.pop('receipt', None)
+        self.page_width = kwargs.pop('page_width', A4[0])
+        self.page_height = kwargs.pop('page_height', A4[1])
+        self.thai_font_bold = kwargs.pop('thai_font_bold', 'Helvetica-Bold')
+        self.qr_callback = kwargs.pop('qr_callback', None)
+        pdfgen_canvas.Canvas.__init__(self, *args, **kwargs)
+
+    def showPage(self):
+        """
+        Override showPage เพื่อวาด watermark ก่อน flush page
+        Method นี้ถูกเรียกหลังจาก content ถูก render เสร็จแล้ว
+        """
+        # วาด QR Code ก่อน (ด้านล่าง)
+        if self.qr_callback and self.receipt:
+            self.qr_callback(self, None, self.receipt)
+
+        # วาด watermark ทับบนสุด
+        if self.receipt and self.receipt.status == 'cancelled':
+            self._draw_watermark()
+
+        # เรียก parent's showPage เพื่อ flush page
+        pdfgen_canvas.Canvas.showPage(self)
+
+    def _draw_watermark(self):
+        """วาดตราประทับ 'ยกเลิก' สีแดงทับบนเนื้อหา พร้อมเงาและวันที่ยกเลิก"""
+        try:
+            self.saveState()
+
+            # ตำแหน่งกึ่งกลางหน้ากระดาษ
+            center_x = self.page_width / 2
+            center_y = self.page_height / 2
+
+            # ย้ายจุดกึ่งกลาง (origin) ของ canvas ไปที่กึ่งกลางหน้ากระดาษ
+            self.translate(center_x, center_y)
+
+            # หมุน canvas -20 องศา (เอียงเฉียงเล็กน้อย)
+            self.rotate(-20)
+
+            # คำนวณขนาดกรอบ
+            font_size = 140  # เพิ่มจาก 120 เป็น 140
+            text = "ยกเลิก"
+            text_width = self.stringWidth(text, self.thai_font_bold, font_size)
+            rect_padding = 20
+
+            # วาดเงาด้านหลัง (offset เล็กน้อย)
+            shadow_offset = 5
+            self.setFillColorRGB(0, 0, 0)  # สีดำ
+            self.setStrokeColorRGB(0, 0, 0)  # เส้นขอบสีดำ
+            self.setFillAlpha(0.1)  # โปร่งแสง 10%
+            self.setStrokeAlpha(0.1)  # เส้นขอบโปร่งแสง 10%
+            self.setLineWidth(4)
+            self.rect(
+                -text_width/2 - rect_padding + shadow_offset,
+                -70 - rect_padding - shadow_offset,
+                text_width + rect_padding * 2,
+                font_size + rect_padding * 2,
+                stroke=1,
+                fill=1
+            )
+
+            # วาดกรอบสี่เหลี่ยมสีแดง (ด้านบน)
+            self.setFillColorRGB(1, 0, 0)  # สีแดง
+            self.setStrokeColorRGB(1, 0, 0)  # เส้นขอบสีแดง
+            self.setFillAlpha(0.3)  # โปร่งแสง 30%
+            self.setStrokeAlpha(0.5)  # เส้นขอบโปร่งแสง 50%
+            self.setLineWidth(4)
+            self.rect(
+                -text_width/2 - rect_padding,
+                -70 - rect_padding,
+                text_width + rect_padding * 2,
+                font_size + rect_padding * 2,
+                stroke=1,
+                fill=0
+            )
+
+            # วาดข้อความ "ยกเลิก" ขนาด 140 pt
+            self.setFont(self.thai_font_bold, font_size)
+            self.drawCentredString(0, -50, text)
+
+            # เพิ่มวันที่ยกเลิกด้านล่างกรอบ (ตัวเล็ก)
+            if self.receipt and self.receipt.updated_at:
+                from django.utils import timezone
+                local_time = timezone.localtime(self.receipt.updated_at)
+                cancelled_date = convert_to_thai_date(local_time, 'full')
+
+                # ตั้งค่าฟอนต์เล็ก
+                date_font_size = 14
+                self.setFont(self.thai_font_bold, date_font_size)
+                self.setFillAlpha(0.5)  # โปร่งแสงมากขึ้น
+
+                # วาดวันที่ชิดขอบล่างของกรอบ กึ่งกลางซ้ายขวา
+                date_y = -70 - rect_padding + 8  # ชิดขอบล่างของกรอบ
+                self.drawCentredString(0, date_y, f"วันที่ยกเลิก: {cancelled_date}")
+
+            self.restoreState()
+
+        except Exception as e:
+            # ถ้าวาด watermark ไม่ได้ ไม่ต้องทำอะไร
+            pass
 
 
 class DottedUnderline(Flowable):
@@ -204,8 +313,21 @@ class ReceiptPDFGenerator:
             else:
                 response['Content-Disposition'] = f'attachment; filename="receipt_{filename_number}.pdf"'
         
-        # สร้าง PDF
+        # สร้าง PDF ด้วย Custom Canvas
         buffer = BytesIO()
+
+        # สร้าง custom canvas factory
+        def canvas_factory(filename, **kwargs):
+            return WatermarkCanvas(
+                filename,
+                receipt=receipt,
+                page_width=self.page_width,
+                page_height=self.page_height,
+                thai_font_bold=self.thai_font_bold,
+                qr_callback=self._draw_floating_qr,
+                **kwargs  # ส่ง parameters อื่นๆ ต่อไปยัง Canvas
+            )
+
         doc = SimpleDocTemplate(
             buffer,
             pagesize=A4,
@@ -237,8 +359,8 @@ class ReceiptPDFGenerator:
         # ลายเซ็นและ QR Code
         story.extend(self._create_signature_section(receipt))
 
-        # สร้าง PDF พร้อม callback สำหรับ QR Code มุมซ้ายล่าง
-        doc.build(story, onFirstPage=lambda canvas, doc: self._draw_floating_qr(canvas, doc, receipt))
+        # สร้าง PDF ด้วย custom canvas (watermark จะถูกวาดโดย WatermarkCanvas.showPage())
+        doc.build(story, canvasmaker=canvas_factory)
         pdf = buffer.getvalue()
         buffer.close()
         
