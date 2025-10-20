@@ -366,26 +366,33 @@
             </div>
             {% endif %}
 
-            <!-- ผู้ดูแลระบบ (Admin Only - เจ้าหน้าที่เท่านั้น) -->
-            {% if user.is_staff or user.is_superuser %}
+            <!-- ผู้ดูแลระบบ (Admin Only - ตามสิทธิ์) -->
+            {% if user.is_staff or user.is_superuser or user.has_permission('จัดการผู้ใช้งาน') %}
             <div class="menu-item">
                 <div class="menu-link" style="cursor: default;">
                     <i class="fas fa-user-cog"></i>
                     <span class="menu-text">ผู้ดูแลระบบ</span>
                 </div>
                 <div class="submenu show" id="admin-submenu">
+                    {% if user.is_staff or user.is_superuser or user.has_permission('จัดการผู้ใช้งาน') %}
                     <a href="{% url 'user_management' %}" class="menu-link">
                         <i class="fas fa-users"></i>
                         <span class="menu-text">จัดการผู้ใช้งาน</span>
                     </a>
+                    {% endif %}
+                    {% if user.is_staff or user.is_superuser or user.has_permission('จัดการบทบาทและสิทธิ์') %}
                     <a href="/accounts/admin/roles-permissions/" class="menu-link">
                         <i class="fas fa-user-tag"></i>
                         <span class="menu-text">บทบาทและสิทธิ์</span>
                     </a>
+                    {% endif %}
+                    {% if user.is_staff or user.is_superuser or user.has_permission('ดูสำระบบ') %}
                     <a href="{% url 'user_activity_log' %}" class="menu-link {% if request.resolver_match.url_name == 'user_activity_log' %}active{% endif %}">
                         <i class="fas fa-user-shield"></i>
                         <span class="menu-text">ประวัติการใช้งานระบบ</span>
                     </a>
+                    {% endif %}
+                    {% if user.is_staff or user.is_superuser or user.has_permission('ตั้งค่าระบบ') %}
                     <a href="{% url 'receipt_templates_list' %}" class="menu-link {% if request.resolver_match.url_name|slice:':17' == 'receipt_template' %}active{% endif %}">
                         <i class="fas fa-clipboard-list"></i>
                         <span class="menu-text">จัดการรายการสำเร็จรูป</span>
@@ -398,6 +405,7 @@
                         <i class="fas fa-building"></i>
                         <span class="menu-text">จัดการหน่วยงาน</span>
                     </a>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
