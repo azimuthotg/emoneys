@@ -352,7 +352,7 @@ def admin_dashboard(request):
 @login_required
 def approve_user_ajax(request, user_id):
     """AJAX endpoint to approve user"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์ในการดำเนินการ'}, status=403)
     
     if request.method == 'POST':
@@ -384,7 +384,7 @@ def approve_user_ajax(request, user_id):
 @login_required
 def reject_user_ajax(request, user_id):
     """AJAX endpoint to reject user"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์ในการดำเนินการ'}, status=403)
     
     if request.method == 'POST':
@@ -416,7 +416,7 @@ def reject_user_ajax(request, user_id):
 @login_required
 def user_details_ajax(request, user_id):
     """AJAX endpoint to get user details"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์ในการดำเนินการ'}, status=403)
     
     try:
@@ -495,78 +495,66 @@ def user_details_ajax(request, user_id):
 @login_required
 def department_management_view(request):
     """หน้าจัดการหน่วยงาน"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         messages.error(request, 'ไม่มีสิทธิ์เข้าถึงหน้านี้')
         return redirect('dashboard')
-    
+
     from .models import Department
     from django.contrib.auth import get_user_model
-    from django.db.models import Count
-    
+    from django.db.models import Count, Q
+
     User = get_user_model()
-    
-    # Get unique departments from users (from NPU AD)
-    npu_departments = User.objects.exclude(
-        department__isnull=True
-    ).exclude(
-        department__exact=''
-    ).values('department').annotate(
-        user_count=Count('id')
-    ).order_by('department')
-    
-    # Get existing department codes
-    existing_departments = Department.objects.all().select_related()
-    dept_codes = {dept.name: dept for dept in existing_departments}
-    
-    # Combine NPU departments with existing codes
-    departments_data = []
-    for npu_dept in npu_departments:
-        dept_name = npu_dept['department']
-        user_count = npu_dept['user_count']
-        
-        # Check if we have a code for this department
-        if dept_name in dept_codes:
-            dept_obj = dept_codes[dept_name]
+
+    try:
+        # Get all departments from MySQL database
+        departments = Department.objects.all().order_by('name')
+
+        departments_data = []
+        for dept in departments:
+            # Count users associated with this department (from User.department text field)
+            user_count = User.objects.filter(
+                Q(department=dept.name) | Q(department__icontains=dept.code)
+            ).count()
+
             departments_data.append({
-                'id': dept_obj.id,
-                'name': dept_name,
-                'code': dept_obj.code,
-                'is_active': dept_obj.is_active,
+                'id': dept.id,
+                'name': dept.name,
+                'code': dept.code,
+                'is_active': dept.is_active,
                 'user_count': user_count,
                 'has_code': True,
-                'created_at': dept_obj.created_at.isoformat() if dept_obj.created_at else None,
-                'address': dept_obj.address,
-                'postal_code': dept_obj.postal_code,
-                'phone': dept_obj.phone,
+                'created_at': dept.created_at.isoformat() if dept.created_at else None,
+                'address': dept.address or '',
+                'postal_code': dept.postal_code or '',
+                'phone': dept.phone or '',
             })
-        else:
-            # NPU department without code yet
-            departments_data.append({
-                'id': None,
-                'name': dept_name,
-                'code': None,
-                'is_active': True,
-                'user_count': user_count,
-                'has_code': False,
-                'created_at': None,
-                'address': '',
-                'postal_code': '',
-                'phone': '',
-            })
-    
-    context = {
-        'title': 'จัดการหน่วยงาน',
-        'departments': departments_data,
-        'departments_json': json.dumps(departments_data),
-    }
-    
-    return render(request, 'accounts/department_management.html', context)
+
+        context = {
+            'title': 'จัดการหน่วยงาน',
+            'departments': departments_data,
+            'departments_json': json.dumps(departments_data),
+        }
+
+        return render(request, 'accounts/department_management.html', context)
+
+    except Exception as e:
+        import logging
+        logging.error(f"Error loading departments: {str(e)}")
+        messages.error(request, f'เกิดข้อผิดพลาดในการโหลดข้อมูลหน่วยงาน: {str(e)}')
+
+        # Return empty data
+        context = {
+            'title': 'จัดการหน่วยงาน',
+            'departments': [],
+            'departments_json': '[]',
+        }
+        return render(request, 'accounts/department_management.html', context)
 
 
 @login_required
 def department_create_view(request):
     """กำหนดชื่อย่อให้หน่วยงาน NPU (AJAX)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์'}, status=403)
     
     if request.method == 'POST':
@@ -628,7 +616,7 @@ def department_create_view(request):
 @login_required
 def department_edit_view(request, department_id):
     """แก้ไขชื่อย่อหน่วยงาน (AJAX)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์'}, status=403)
     
     try:
@@ -693,7 +681,7 @@ def department_edit_view(request, department_id):
 @login_required
 def department_delete_view(request, department_id):
     """ลบหน่วยงาน (AJAX)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์'}, status=403)
     
     if request.method == 'POST':
@@ -730,7 +718,7 @@ def department_delete_view(request, department_id):
 @login_required
 def department_activate_view(request, department_id):
     """เปิดใช้งานหน่วยงาน (AJAX)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์'}, status=403)
     
     if request.method == 'POST':
@@ -757,7 +745,7 @@ def department_activate_view(request, department_id):
 @login_required
 def department_deactivate_view(request, department_id):
     """ปิดใช้งานหน่วยงาน (AJAX)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์'}, status=403)
     
     if request.method == 'POST':
@@ -784,7 +772,7 @@ def department_deactivate_view(request, department_id):
 @login_required
 def available_npu_departments_ajax(request):
     """ดึงหน่วยงาน NPU ที่ยังไม่มีชื่อย่อ (AJAX)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์'}, status=403)
     
     try:
@@ -827,7 +815,7 @@ def available_npu_departments_ajax(request):
 @login_required
 def document_numbering_view(request):
     """หน้าตั้งค่าเลขที่เอกสาร"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         messages.error(request, 'ไม่มีสิทธิ์เข้าถึงหน้านี้')
         return redirect('dashboard')
     
@@ -921,7 +909,7 @@ def document_numbering_view(request):
 @login_required
 def close_volume_ajax(request, volume_id):
     """ปิดเล่มเอกสาร (AJAX)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์'}, status=403)
     
     if request.method == 'POST':
@@ -973,7 +961,7 @@ def close_volume_ajax(request, volume_id):
 @login_required
 def roles_permissions_view(request):
     """แสดงหน้าจัดการบทบาทและสิทธิ์"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('role_manage')):
         messages.error(request, 'ไม่มีสิทธิ์เข้าถึงหน้านี้')
         return redirect('dashboard')
     
@@ -992,7 +980,7 @@ def roles_permissions_view(request):
 @login_required
 def role_create_view(request):
     """สร้างบทบาทใหม่ (AJAX)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('role_manage')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์'}, status=403)
     
     if request.method == 'POST':
@@ -1040,7 +1028,7 @@ def role_create_view(request):
 @login_required
 def role_edit_view(request, role_id):
     """แก้ไขบทบาท (AJAX)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('role_manage')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์'}, status=403)
     
     try:
@@ -1098,7 +1086,7 @@ def role_edit_view(request, role_id):
 @login_required
 def role_delete_view(request, role_id):
     """ลบบทบาท (AJAX)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('role_manage')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์'}, status=403)
     
     if request.method == 'POST':
@@ -1133,7 +1121,7 @@ def role_delete_view(request, role_id):
 @login_required
 def user_role_assign_view(request, user_id):
     """กำหนดบทบาทให้ผู้ใช้ (AJAX)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์'}, status=403)
     
     try:
@@ -1190,7 +1178,7 @@ def user_management_view(request):
     - Role assignment
     - Search and filter functionality
     """
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
         messages.error(request, 'ไม่มีสิทธิ์เข้าถึงหน้านี้')
         return redirect('dashboard')
     
@@ -1230,7 +1218,7 @@ def user_management_view(request):
 @login_required
 def suspend_user_ajax(request, user_id):
     """AJAX endpoint to suspend user"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์ในการดำเนินการ'}, status=403)
     
     if request.method == 'POST':
@@ -1263,7 +1251,7 @@ def suspend_user_ajax(request, user_id):
 @login_required
 def activate_user_ajax(request, user_id):
     """AJAX endpoint to activate user"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์ในการดำเนินการ'}, status=403)
     
     if request.method == 'POST':
@@ -1296,7 +1284,7 @@ def activate_user_ajax(request, user_id):
 @login_required
 def get_available_roles_ajax(request):
     """AJAX endpoint to get available roles"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์ในการดำเนินการ'}, status=403)
     
     if request.method == 'GET':
@@ -1309,7 +1297,7 @@ def get_available_roles_ajax(request):
 @login_required
 def user_roles_ajax(request, user_id):
     """AJAX endpoint to get/set user roles"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
         return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์ในการดำเนินการ'}, status=403)
     
     try:
@@ -4277,7 +4265,7 @@ def receipt_report_excel_export(request):
 @login_required
 def receipt_templates_list(request):
     """แสดงรายการ Template ทั้งหมด (Admin เท่านั้น)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         messages.error(request, 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้')
         return redirect('dashboard')
     
@@ -4294,7 +4282,7 @@ def receipt_templates_list(request):
 @login_required
 def receipt_template_create(request):
     """สร้าง Template ใหม่ (Admin เท่านั้น)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         messages.error(request, 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้')
         return redirect('dashboard')
     
@@ -4334,7 +4322,7 @@ def receipt_template_create(request):
 @login_required
 def receipt_template_edit(request, template_id):
     """แก้ไข Template (Admin เท่านั้น)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         messages.error(request, 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้')
         return redirect('dashboard')
     
@@ -4376,7 +4364,7 @@ def receipt_template_edit(request, template_id):
 @login_required
 def receipt_template_delete(request, template_id):
     """ลบ Template (Admin เท่านั้น)"""
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('system_config')):
         messages.error(request, 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้')
         return redirect('dashboard')
     
@@ -4912,7 +4900,7 @@ def user_activity_log_view(request):
     สำหรับผู้ดูแลระบบเท่านั้น
     """
     # Permission check - Admin only
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('report_view')):
         messages.error(request, 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (เฉพาะผู้ดูแลระบบ)')
         return redirect('dashboard')
 
@@ -4983,7 +4971,7 @@ def user_activity_log_view(request):
 def user_activity_log_excel_export(request):
     """Export User Activity Log เป็น Excel"""
     # Permission check - Admin only
-    if not (request.user.is_staff or request.user.is_superuser):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('report_view')):
         messages.error(request, 'คุณไม่มีสิทธิ์ใช้งานฟังก์ชันนี้')
         return redirect('dashboard')
 
