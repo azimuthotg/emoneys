@@ -3192,8 +3192,9 @@ def revenue_summary_excel_export(request):
     from django.http import HttpResponse
     from django.db.models import Sum, Count
     from django.utils import timezone
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, date
     from utils.fiscal_year import get_current_fiscal_year, get_fiscal_year_dates
+    from accounts.utils import convert_to_thai_date
     
     # ใช้ logic เดียวกันกับ revenue_summary_report_view
     if request.user.has_permission('receipt_view_all'):
@@ -3373,8 +3374,8 @@ def revenue_summary_excel_export(request):
     ws = wb.active
     ws.title = "รายงานสรุปรายรับ"
     
-    # กำหนดสี
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    # กำหนดสี - เทาอ่อนเหมือน PDF
+    header_fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
     summary_fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
     border = Border(
         left=Side(style='thin'),
@@ -3389,18 +3390,22 @@ def revenue_summary_excel_export(request):
     ws['A2'] = f"ประจำปีงบประมาณ {current_fiscal}"
     ws['A3'] = f"ขอบเขต: {view_scope}"
     
-    # ช่วงวันที่
+    # ช่วงวันที่ (แปลงเป็นภาษาไทย)
     date_range = ""
     if is_custom_mode:
         if date_from and date_to:
-            date_range = f"โหมดกำหนดเอง: {date_from} ถึง {date_to}"
+            start_thai = convert_to_thai_date(datetime.strptime(date_from, '%Y-%m-%d').date(), 'short')
+            end_thai = convert_to_thai_date(datetime.strptime(date_to, '%Y-%m-%d').date(), 'short')
+            date_range = f"ระหว่างวันที่ {start_thai} ถึง {end_thai}"
         elif date_from:
-            date_range = f"โหมดกำหนดเอง: ตั้งแต่วันที่ {date_from}"
+            start_thai = convert_to_thai_date(datetime.strptime(date_from, '%Y-%m-%d').date(), 'short')
+            date_range = f"ตั้งแต่วันที่ {start_thai}"
         elif date_to:
-            date_range = f"โหมดกำหนดเอง: จนถึงวันที่ {date_to}"
+            end_thai = convert_to_thai_date(datetime.strptime(date_to, '%Y-%m-%d').date(), 'short')
+            date_range = f"จนถึงวันที่ {end_thai}"
     else:
         date_range = f"โหมด: {period_type}"
-    
+
     ws['A4'] = date_range
     
     # ปรับ style สำหรับ header
@@ -3409,79 +3414,139 @@ def revenue_summary_excel_export(request):
         ws[f'A{row}'].alignment = Alignment(horizontal='center' if row == 1 else 'left')
     
     ws.merge_cells('A1:E1')
-    
-    # สรุปยอดรวม
+
+    # สรุปยอดรวม - รูปแบบตารางเหมือน PDF
     ws['A6'] = "สรุปยอดรวม"
     ws['A6'].font = Font(bold=True, size=12)
-    
-    ws['A7'] = "ยอดเงินรวม:"
-    ws['B7'] = f"{total_summary['total_amount']:,.2f} บาท"
-    ws['A8'] = "จำนวนใบสำคัญ:"
-    ws['B8'] = f"{total_summary['total_count']:,} ใบ"
-    ws['A9'] = "หน่วยงานที่มีข้อมูล:"
-    ws['B9'] = f"{total_summary['total_departments']} หน่วยงาน"
-    
-    # สรุปตามช่วงเวลา
-    start_row = 11
-    if is_custom_mode:
-        ws[f'A{start_row}'] = "สรุปตามช่วงเวลา (รายวัน - กำหนดเอง)"
-    else:
-        ws[f'A{start_row}'] = f"สรุปตามช่วงเวลา ({period_type})"
-    ws[f'A{start_row}'].font = Font(bold=True, size=12)
-    
-    # Headers สำหรับตารางช่วงเวลา
-    headers = ['ช่วงเวลา', 'จำนวน (ใบ)', 'ยอดเงิน (บาท)']
-    start_row += 1
-    
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=start_row, column=col)
-        cell.value = header
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal='center')
-        cell.border = border
-    
-    # ข้อมูลช่วงเวลา
-    for i, period in enumerate(period_summary, 1):
-        row = start_row + i
-        ws.cell(row=row, column=1, value=period['period']).border = border
-        ws.cell(row=row, column=2, value=period['count']).border = border
-        ws.cell(row=row, column=3, value=period['amount']).border = border
-        
-        # จัดรูปแบบตัวเลข
-        ws.cell(row=row, column=2).alignment = Alignment(horizontal='center')
-        ws.cell(row=row, column=3).alignment = Alignment(horizontal='right')
-    
-    # สรุปตามหน่วยงาน
-    dept_start_row = start_row + len(period_summary) + 3
+
+    # Headers ตารางสรุปยอดรวม
+    summary_headers_row = 7
+    ws.cell(row=summary_headers_row, column=1, value="รายการ").font = Font(bold=True)
+    ws.cell(row=summary_headers_row, column=1).fill = header_fill
+    ws.cell(row=summary_headers_row, column=1).border = border
+    ws.cell(row=summary_headers_row, column=1).alignment = Alignment(horizontal='center')
+
+    ws.cell(row=summary_headers_row, column=2, value="จำนวน").font = Font(bold=True)
+    ws.cell(row=summary_headers_row, column=2).fill = header_fill
+    ws.cell(row=summary_headers_row, column=2).border = border
+    ws.cell(row=summary_headers_row, column=2).alignment = Alignment(horizontal='center')
+
+    # ข้อมูลสรุปยอดรวม
+    ws.cell(row=8, column=1, value="ยอดเงินรวม").border = border
+    ws.cell(row=8, column=2, value=f"{total_summary['total_amount']:,.2f} บาท").border = border
+    ws.cell(row=8, column=2).alignment = Alignment(horizontal='right')
+
+    ws.cell(row=9, column=1, value="จำนวนใบสำคัญ").border = border
+    ws.cell(row=9, column=2, value=f"{total_summary['total_count']:,} ใบ").border = border
+    ws.cell(row=9, column=2).alignment = Alignment(horizontal='right')
+
+    ws.cell(row=10, column=1, value="หน่วยงานที่มีข้อมูล").border = border
+    ws.cell(row=10, column=2, value=f"{total_summary['total_departments']} หน่วยงาน").border = border
+    ws.cell(row=10, column=2).alignment = Alignment(horizontal='right')
+
+    # สรุปตามหน่วยงาน (ย้ายขึ้นมาก่อน)
+    dept_start_row = 12
     ws[f'A{dept_start_row}'] = "สรุปตามหน่วยงาน"
     ws[f'A{dept_start_row}'].font = Font(bold=True, size=12)
-    
+
     # Headers สำหรับตารางหน่วยงาน
     dept_headers = ['หน่วยงาน', 'รหัส', 'จำนวน (ใบ)', 'ยอดเงิน (บาท)', 'เปอร์เซ็นต์']
-    dept_start_row += 1
-    
+    dept_header_row = dept_start_row + 1
+
     for col, header in enumerate(dept_headers, 1):
-        cell = ws.cell(row=dept_start_row, column=col)
+        cell = ws.cell(row=dept_header_row, column=col)
         cell.value = header
-        cell.font = Font(bold=True, color="FFFFFF")
+        cell.font = Font(bold=True)
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal='center')
         cell.border = border
-    
+
     # ข้อมูลหน่วยงาน
     for i, dept in enumerate(department_summary, 1):
-        row = dept_start_row + i
+        row = dept_header_row + i
         ws.cell(row=row, column=1, value=dept['department']).border = border
         ws.cell(row=row, column=2, value=dept['department_code']).border = border
         ws.cell(row=row, column=3, value=dept['count']).border = border
         ws.cell(row=row, column=4, value=dept['amount']).border = border
         ws.cell(row=row, column=5, value=f"{dept['percentage']}%").border = border
-        
+
         # จัดรูปแบบ
         ws.cell(row=row, column=3).alignment = Alignment(horizontal='center')
         ws.cell(row=row, column=4).alignment = Alignment(horizontal='right')
         ws.cell(row=row, column=5).alignment = Alignment(horizontal='center')
+
+    # ตารางรายรับ (เปลี่ยนชื่อจาก "สรุปตามช่วงเวลา")
+    period_start_row = dept_header_row + len(department_summary) + 2
+
+    # ชื่อตาราง
+    if is_custom_mode:
+        period_title = "ตารางรายรับ (รายวัน - กำหนดเอง)"
+    elif period_type == 'daily':
+        period_title = "ตารางรายรับ (รายวัน)"
+    elif period_type == 'monthly':
+        period_title = "ตารางรายรับ (รายเดือน)"
+    elif period_type == 'fiscal_year':
+        period_title = "ตารางรายรับ (รายปีงบประมาณ)"
+    else:
+        period_title = "ตารางรายรับ"
+
+    ws[f'A{period_start_row}'] = period_title
+    ws[f'A{period_start_row}'].font = Font(bold=True, size=12)
+
+    # Headers สำหรับตารางรายรับ
+    headers = ['ช่วงเวลา', 'จำนวน (ใบ)', 'ยอดเงิน (บาท)']
+    period_header_row = period_start_row + 1
+
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=period_header_row, column=col)
+        cell.value = header
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+
+    # คำนวณยอดรวม
+    total_count = 0
+    total_amount = 0
+
+    # ข้อมูลตารางรายรับ
+    for i, period in enumerate(period_summary, 1):
+        row = period_header_row + i
+
+        # แปลงวันที่เป็นภาษาไทยถ้าเป็น date object
+        if isinstance(period['period'], date):
+            period_display = convert_to_thai_date(period['period'], 'short')
+        else:
+            period_display = str(period['period'])
+
+        ws.cell(row=row, column=1, value=period_display).border = border
+        ws.cell(row=row, column=2, value=period['count']).border = border
+        ws.cell(row=row, column=3, value=period['amount']).border = border
+
+        # จัดรูปแบบตัวเลข
+        ws.cell(row=row, column=2).alignment = Alignment(horizontal='center')
+        ws.cell(row=row, column=3).alignment = Alignment(horizontal='right')
+
+        # เก็บยอดรวม
+        total_count += period['count']
+        total_amount += period['amount']
+
+    # เพิ่มแถวรวม
+    summary_row = period_header_row + len(period_summary) + 1
+    ws.cell(row=summary_row, column=1, value="รวม").border = border
+    ws.cell(row=summary_row, column=1).font = Font(bold=True)
+    ws.cell(row=summary_row, column=1).fill = header_fill
+    ws.cell(row=summary_row, column=1).alignment = Alignment(horizontal='center')
+
+    ws.cell(row=summary_row, column=2, value=total_count).border = border
+    ws.cell(row=summary_row, column=2).font = Font(bold=True)
+    ws.cell(row=summary_row, column=2).fill = header_fill
+    ws.cell(row=summary_row, column=2).alignment = Alignment(horizontal='center')
+
+    ws.cell(row=summary_row, column=3, value=total_amount).border = border
+    ws.cell(row=summary_row, column=3).font = Font(bold=True)
+    ws.cell(row=summary_row, column=3).fill = header_fill
+    ws.cell(row=summary_row, column=3).alignment = Alignment(horizontal='right')
     
     # ปรับความกว้างคอลัมน์
     ws.column_dimensions['A'].width = 20
@@ -3507,15 +3572,17 @@ def revenue_summary_pdf_export(request):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.lib.units import inch, cm
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from django.http import HttpResponse
     from django.db.models import Sum, Count
     from django.utils import timezone
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, date
     from utils.fiscal_year import get_current_fiscal_year, get_fiscal_year_dates
+    from accounts.utils import convert_to_thai_date
+    from django.conf import settings
     import os
     
     # ลงทะเบียนฟอนต์ไทย
@@ -3729,135 +3796,269 @@ def revenue_summary_pdf_export(request):
     
     # สร้างเนื้อหา PDF
     story = []
-    
-    # Header information
+
+    # เพิ่ม Logo มหาวิทยาลัยที่มุมซ้ายบน
     current_fiscal = get_current_fiscal_year()
-    story.append(Paragraph('รายงานสรุปรายรับ', title_style))
-    story.append(Paragraph(f'ประจำปีงบประมาณ {current_fiscal}', header_style))
-    story.append(Paragraph(f'ขอบเขต: {view_scope}', header_style))
-    
-    # ช่วงวันที่
+
+    # ช่วงวันที่ (แปลงเป็นวันที่ไทย)
     date_range = ""
     if date_from and date_to:
-        date_range = f"ระหว่างวันที่ {date_from} ถึง {date_to}"
+        start_thai = convert_to_thai_date(datetime.strptime(date_from, '%Y-%m-%d').date(), 'short')
+        end_thai = convert_to_thai_date(datetime.strptime(date_to, '%Y-%m-%d').date(), 'short')
+        date_range = f"ระหว่างวันที่ {start_thai} ถึง {end_thai}"
     elif date_from:
-        date_range = f"ตั้งแต่วันที่ {date_from}"
+        start_thai = convert_to_thai_date(datetime.strptime(date_from, '%Y-%m-%d').date(), 'short')
+        date_range = f"ตั้งแต่วันที่ {start_thai}"
     elif date_to:
-        date_range = f"จนถึงวันที่ {date_to}"
+        end_thai = convert_to_thai_date(datetime.strptime(date_to, '%Y-%m-%d').date(), 'short')
+        date_range = f"จนถึงวันที่ {end_thai}"
     else:
         date_range = "ทุกช่วงเวลา"
-    
-    story.append(Paragraph(date_range, header_style))
-    story.append(Spacer(1, 20))
-    
-    # สรุปยอดรวม
-    summary_data = [
-        ['สรุปยอดรวม', ''],
-        ['ยอดเงินรวม:', f'{total_summary["total_amount"]:,.2f} บาท'],
-        ['จำนวนใบสำคัญ:', f'{total_summary["total_count"]:,} ใบ'],
-        ['หน่วยงานที่มีข้อมูล:', f'{total_summary["total_departments"]} หน่วยงาน']
-    ]
-    
-    summary_table = Table(summary_data, colWidths=[3*inch, 3*inch])
+
+    # สร้าง Header พร้อม Logo
+    try:
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png')
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.jpg')
+
+        if os.path.exists(logo_path):
+            # สร้างตารางแบบ 2 คอลัมน์: Logo (ซ้าย) | ข้อมูลรายงาน (ขวา)
+            logo_img = Image(logo_path, width=3*cm, height=3*cm)
+
+            # ข้อความด้านขวา - ใช้ thai_font
+            header_text = f'''<para align=center>
+                <font name="{thai_font}" size=18><b>รายงานสรุปรายรับ</b></font><br/>
+                <font name="{thai_font}" size=12>ประจำปีงบประมาณ {current_fiscal}</font><br/>
+                <font name="{thai_font}" size=12>ขอบเขต: {view_scope}</font><br/>
+                <font name="{thai_font}" size=12>{date_range}</font>
+            </para>'''
+
+            header_para_style = ParagraphStyle(
+                'HeaderPara',
+                parent=styles['Normal'],
+                fontName=thai_font,
+                fontSize=12,
+                alignment=1
+            )
+
+            header_data = [[logo_img, Paragraph(header_text, header_para_style)]]
+            header_table = Table(header_data, colWidths=[3.5*cm, 7.5*inch])
+            header_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, 0), 'TOP'),
+            ]))
+
+            story.append(header_table)
+        else:
+            # ถ้าไม่มี logo ให้แสดงแบบเดิม
+            story.append(Paragraph('รายงานสรุปรายรับ', title_style))
+            story.append(Paragraph(f'ประจำปีงบประมาณ {current_fiscal}', header_style))
+            story.append(Paragraph(f'ขอบเขต: {view_scope}', header_style))
+            story.append(Paragraph(date_range, header_style))
+
+    except Exception as e:
+        # ถ้า error ให้แสดงแบบเดิม
+        story.append(Paragraph('รายงานสรุปรายรับ', title_style))
+        story.append(Paragraph(f'ประจำปีงบประมาณ {current_fiscal}', header_style))
+        story.append(Paragraph(f'ขอบเขต: {view_scope}', header_style))
+        story.append(Paragraph(date_range, header_style))
+
+    story.append(Spacer(1, 4))
+
+    # สรุปยอดรวม - รูปแบบเดียวกับตารางอื่น
+    # ใช้ฟอนต์ Bold
+    bold_font_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'fonts', 'THSarabunNew Bold.ttf')
+    if os.path.exists(bold_font_path):
+        try:
+            pdfmetrics.registerFont(TTFont('THSarabunBold', bold_font_path))
+            thai_font_bold = 'THSarabunBold'
+        except:
+            thai_font_bold = thai_font
+    else:
+        thai_font_bold = thai_font
+
+    story.append(Paragraph('สรุปยอดรวม', ParagraphStyle(
+        'SubHeader',
+        parent=styles['Heading2'],
+        fontName=thai_font_bold,
+        fontSize=14,
+        spaceAfter=4
+    )))
+
+    summary_headers = ['รายการ', 'จำนวน']
+    summary_data = [summary_headers]
+    summary_data.append(['ยอดเงินรวม', f'{total_summary["total_amount"]:,.2f} บาท'])
+    summary_data.append(['จำนวนใบสำคัญ', f'{total_summary["total_count"]:,} ใบ'])
+    summary_data.append(['หน่วยงานที่มีข้อมูล', f'{total_summary["total_departments"]} หน่วยงาน'])
+
+    summary_table = Table(summary_data, colWidths=[5*inch, 5*inch])
     summary_table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (-1, -1), thai_font),
-        ('FONTSIZE', (0, 0), (-1, -1), 12),
-        ('BACKGROUND', (0, 0), (1, 0), colors.lightblue),
-        ('FONTNAME', (0, 0), (1, 0), thai_font),
-        ('FONTSIZE', (0, 0), (1, 0), 14),
-        ('SPAN', (0, 0), (1, 0)),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('GRID', (0, 1), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
-    
+
     story.append(summary_table)
-    story.append(Spacer(1, 20))
-    
-    # สรุปตามช่วงเวลา
-    if period_summary:
-        period_title = "แนวโน้มรายรับ"
-        if period_type == 'daily':
-            period_title = "แนวโน้มรายรับ (รายวัน)"
-        elif period_type == 'monthly':
-            period_title = "แนวโน้มรายรับ (รายเดือน)"
-        elif period_type == 'fiscal_year':
-            period_title = "แนวโน้มรายรับ (รายปีงบประมาณ)"
-        
-        story.append(Paragraph(period_title, ParagraphStyle(
-            'SubHeader',
-            parent=styles['Heading2'],
-            fontName=thai_font,
-            fontSize=14,
-            spaceAfter=10
-        )))
-        
-        period_headers = ['ช่วงเวลา', 'จำนวน (ใบ)', 'ยอดเงิน (บาท)']
-        period_data = [period_headers]
-        
-        # แสดงข้อมูลครบถ้วนตามที่ผู้ใช้เลือก period (สำหรับการตรวจสอบ)
-        for period in period_summary:
-            period_data.append([
-                period['period'],
-                str(period['count']),
-                f"{period['amount']:,.0f}"
-            ])
-        
-        period_table = Table(period_data, colWidths=[3*inch, 2*inch, 3*inch])
-        period_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), thai_font),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
-            ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
-        ]))
-        
-        story.append(period_table)
-        story.append(Spacer(1, 20))
-    
-    # สรุปตามหน่วยงาน
+    story.append(Spacer(1, 4))
+
+    # สรุปตามหน่วยงาน (ย้ายขึ้นมาก่อน)
     if department_summary:
         story.append(Paragraph('สรุปตามหน่วยงาน', ParagraphStyle(
             'SubHeader',
             parent=styles['Heading2'],
-            fontName=thai_font,
+            fontName=thai_font_bold,
             fontSize=14,
-            spaceAfter=10
+            spaceAfter=4
         )))
-        
+
         dept_headers = ['หน่วยงาน', 'รหัส', 'จำนวน (ใบ)', 'ยอดเงิน (บาท)', 'เปอร์เซ็นต์']
         dept_data = [dept_headers]
-        
+
         for dept in department_summary[:10]:  # จำกัด 10 อันดับแรก
             dept_data.append([
-                dept['department'][:20],
+                dept['department'][:30],
                 dept['department_code'],
                 str(dept['count']),
                 f"{dept['amount']:,.0f}",
                 f"{dept['percentage']}%"
             ])
-        
-        dept_table = Table(dept_data, colWidths=[2*inch, 1*inch, 1*inch, 1.5*inch, 1*inch])
+
+        # ตารางเต็มกระดาษ landscape A4
+        dept_table = Table(dept_data, colWidths=[3*inch, 1.5*inch, 1.5*inch, 2.5*inch, 1.5*inch])
         dept_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), thai_font),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('ALIGN', (0, 1), (0, -1), 'LEFT'),
             ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
         ]))
-        
+
         story.append(dept_table)
-    
+        story.append(Spacer(1, 4))
+
+    # ตารางรายรับ (เปลี่ยนชื่อจาก "แนวโน้มรายรับ")
+    if period_summary:
+        period_title = "ตารางรายรับ"
+        if period_type == 'daily':
+            period_title = "ตารางรายรับ (รายวัน)"
+        elif period_type == 'monthly':
+            period_title = "ตารางรายรับ (รายเดือน)"
+        elif period_type == 'fiscal_year':
+            period_title = "ตารางรายรับ (รายปีงบประมาณ)"
+
+        story.append(Paragraph(period_title, ParagraphStyle(
+            'SubHeader',
+            parent=styles['Heading2'],
+            fontName=thai_font_bold,
+            fontSize=14,
+            spaceAfter=4
+        )))
+
+        period_headers = ['ช่วงเวลา', 'จำนวน (ใบ)', 'ยอดเงิน (บาท)']
+        period_data = [period_headers]
+
+        # คำนวณยอดรวม
+        total_count = 0
+        total_amount = 0
+
+        # แสดงข้อมูลครบถ้วนตามที่ผู้ใช้เลือก period
+        for period in period_summary:
+            # แปลงวันที่เป็นรูปแบบไทยถ้าเป็น date object
+            if isinstance(period['period'], date):
+                period_display = convert_to_thai_date(period['period'], 'short')
+            else:
+                period_display = str(period['period'])
+
+            period_data.append([
+                period_display,
+                str(period['count']),
+                f"{period['amount']:,.0f}"
+            ])
+
+            # เก็บยอดรวม
+            total_count += period['count']
+            total_amount += period['amount']
+
+        # เพิ่มแถวรวมท้ายตาราง
+        period_data.append([
+            'รวม',
+            str(total_count),
+            f"{total_amount:,.0f}"
+        ])
+
+        # ตารางเต็มกระดาษ landscape A4
+        period_table = Table(period_data, colWidths=[4*inch, 2*inch, 4*inch])
+
+        # คำนวณแถวสุดท้าย (แถวรวม)
+        last_row = len(period_data) - 1
+
+        period_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), thai_font),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+            ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            # แถวรวม - ตัวหนา และพื้นหลังเทาอ่อน
+            ('BACKGROUND', (0, last_row), (-1, last_row), colors.lightgrey),
+            ('FONTSIZE', (0, last_row), (-1, last_row), 12),
+            ('TEXTCOLOR', (0, last_row), (-1, last_row), colors.black),
+        ]))
+
+        story.append(period_table)
+
+    # เพิ่มลายเซ็นต์และชื่อท้ายรายงาน
+    story.append(Spacer(1, 20))
+
+    # สร้างตารางลายเซ็นต์ (เยื้องขวา)
+    signature_style = ParagraphStyle(
+        'SignatureStyle',
+        parent=styles['Normal'],
+        fontName=thai_font,
+        fontSize=12,
+        alignment=1  # center
+    )
+
+    signature_data = [
+        ['ลงชื่อ ............................................................................'],
+        ['( ............................................................................ )'],
+        ['ตำแหน่ง ..........................................................................']
+    ]
+
+    signature_table = Table(signature_data, colWidths=[4*inch])
+    signature_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), thai_font),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
+
+    # สร้างตารางเพื่อจัดให้ลายเซ็นต์อยู่ทางขวา
+    align_right_data = [['', signature_table]]
+    align_right_table = Table(align_right_data, colWidths=[5.5*inch, 4.5*inch])
+    align_right_table.setStyle(TableStyle([
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, 0), 'TOP'),
+    ]))
+
+    story.append(align_right_table)
+
     # สร้าง PDF
     doc.build(story)
     
