@@ -1,5 +1,5 @@
 {% extends 'base_sidebar.html' %}
-{% load humanize %}
+{% load humanize number_filters %}
 {% block title %}{{ title }} - ระบบออกใบสำคัญรับเงิน{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
@@ -146,7 +146,7 @@
                             <tr>
                                 <td>
                                     <span class="badge bg-{{ daily.day_color }} bg-opacity-75 me-2">{{ daily.day_short }}</span>
-                                    {{ daily.date }}
+                                    {{ daily.date|thai_date:"short" }}
                                 </td>
                                 <td class="text-center">
                                     <span class="badge bg-info">{{ daily.count }}</span>

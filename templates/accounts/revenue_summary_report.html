@@ -1,5 +1,5 @@
 {% extends 'base_sidebar.html' %}
-{% load humanize %}
+{% load humanize number_filters %}
 {% block title %}{{ title }} - ระบบออกใบสำคัญรับเงิน{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
@@ -151,7 +151,7 @@
                                 <tbody>
                                     {% for period in period_summary %}
                                     <tr>
-                                        <td>{{ period.period }}</td>
+                                        <td>{{ period.period|thai_date:"short" }}</td>
                                         <td class="text-center">
                                             <span class="badge bg-info">{{ period.count }}</span>
                                         </td>
@@ -191,7 +191,7 @@
                             <tbody>
                                 {% for period in period_summary %}
                                 <tr>
-                                    <td>{{ period.period }}</td>
+                                    <td>{{ period.period|thai_date:"short" }}</td>
                                     <td class="text-center">
                                         <span class="badge bg-info">{{ period.count }}</span>
                                     </td>

@@ -2805,7 +2805,7 @@ def reports_dashboard_view(request):
         daily_stats.append({
             'day_short': day_name_short,
             'day_color': day_color,
-            'date': day.strftime('%d/%m/%y'),  # กลับเป็นตัวเลขเหมือนเดิม
+            'date': day.date(),  # ส่งเป็น date object เพื่อใช้ thai_date filter ในเทมเพลต
             'count': day_receipts.count(),
             'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
         })
@@ -3080,11 +3080,11 @@ def revenue_summary_report_view(request):
             )
             
             period_summary.append({
-                'period': current_date.strftime('%d/%m/%y'),
+                'period': current_date,  # ส่งเป็น date object เพื่อใช้ thai_date filter
                 'count': day_receipts.count(),
                 'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
             })
-            
+
             current_date += timedelta(days=1)
     elif period_type == 'daily':
         # รายวัน (30 วันล่าสุด)
@@ -3099,7 +3099,7 @@ def revenue_summary_report_view(request):
             )
             
             period_summary.append({
-                'period': day.strftime('%d/%m/%y'),
+                'period': day.date(),  # ส่งเป็น date object เพื่อใช้ thai_date filter
                 'count': day_receipts.count(),
                 'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
             })
@@ -3290,11 +3290,11 @@ def revenue_summary_excel_export(request):
             )
             
             period_summary.append({
-                'period': current_date.strftime('%d/%m/%y'),
+                'period': current_date,  # ส่งเป็น date object เพื่อใช้ thai_date filter
                 'count': day_receipts.count(),
                 'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
             })
-            
+
             current_date += timedelta(days=1)
     elif period_type == 'daily':
         for i in range(29, -1, -1):
@@ -3308,7 +3308,7 @@ def revenue_summary_excel_export(request):
             )
             
             period_summary.append({
-                'period': day.strftime('%d/%m/%y'),
+                'period': day.date(),  # ส่งเป็น date object เพื่อใช้ thai_date filter
                 'count': day_receipts.count(),
                 'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
             })
@@ -3621,11 +3621,11 @@ def revenue_summary_pdf_export(request):
             )
             
             period_summary.append({
-                'period': current_date.strftime('%d/%m/%y'),
+                'period': current_date,  # ส่งเป็น date object เพื่อใช้ thai_date filter
                 'count': day_receipts.count(),
                 'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
             })
-            
+
             current_date += timedelta(days=1)
     elif period_type == 'daily':
         for i in range(29, -1, -1):
@@ -3639,7 +3639,7 @@ def revenue_summary_pdf_export(request):
             )
             
             period_summary.append({
-                'period': day.strftime('%d/%m/%y'),
+                'period': day.date(),  # ส่งเป็น date object เพื่อใช้ thai_date filter
                 'count': day_receipts.count(),
                 'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
             })
