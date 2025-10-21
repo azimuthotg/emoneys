@@ -2862,13 +2862,13 @@ def receipt_report_view(request):
 
     # กำหนด scope การดู (ไม่ต้องเช็ค report_view permission)
     if request.user.has_permission('receipt_view_all'):
-        # กรองเฉพาะเอกสารที่ผ่านกระบวนการทางบัญชีแล้ว (ไม่รวม draft)
-        receipts = Receipt.objects.exclude(status='draft')
+        # กรองเฉพาะเอกสารที่ผ่านกระบวนการทางบัญชีแล้ว (มีเลขที่เอกสาร)
+        receipts = Receipt.objects.exclude(receipt_number__isnull=True).exclude(receipt_number='')
         departments = Department.objects.filter(is_active=True)
         view_scope = "ทุกหน่วยงาน"
     else:
         # Basic User และ Department Manager - ดูระดับหน่วยงาน
-        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(status='draft')
+        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(receipt_number__isnull=True).exclude(receipt_number='')
         departments = Department.objects.filter(name=request.user.get_department(), is_active=True)
         view_scope = f"หน่วยงาน: {request.user.get_department()}"
 
@@ -4086,14 +4086,16 @@ def receipt_report_pdf_export(request):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.lib.units import inch, cm
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from django.http import HttpResponse
     from django.db.models import Sum, Q
     from datetime import datetime
     from utils.fiscal_year import get_current_fiscal_year
+    from accounts.utils import convert_to_thai_date
+    from django.conf import settings
     import os
 
     # ลงทะเบียนฟอนต์ไทย
@@ -4104,13 +4106,24 @@ def receipt_report_pdf_export(request):
     else:
         thai_font = 'Helvetica'  # fallback
 
+    # ลงทะเบียนฟอนต์ Bold
+    bold_font_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'fonts', 'THSarabunNew Bold.ttf')
+    if os.path.exists(bold_font_path):
+        try:
+            pdfmetrics.registerFont(TTFont('THSarabunBold', bold_font_path))
+            thai_font_bold = 'THSarabunBold'
+        except:
+            thai_font_bold = thai_font
+    else:
+        thai_font_bold = thai_font
+
     # ใช้ logic เดียวกันกับ receipt_report_view สำหรับ filter
-    # กรองเฉพาะเอกสารที่ผ่านกระบวนการทางบัญชีแล้ว (ไม่รวม draft)
+    # กรองเฉพาะเอกสารที่ผ่านกระบวนการทางบัญชีแล้ว (มีเลขที่เอกสาร)
     if request.user.has_permission('receipt_view_all'):
-        receipts = Receipt.objects.exclude(status='draft')
+        receipts = Receipt.objects.exclude(receipt_number__isnull=True).exclude(receipt_number='')
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(status='draft')
+        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(receipt_number__isnull=True).exclude(receipt_number='')
         view_scope = f"หน่วยงาน: {request.user.get_department()}"
 
     # รับค่า filter
@@ -4119,146 +4132,288 @@ def receipt_report_pdf_export(request):
     department_filter = request.GET.get('department')
     status_filter = request.GET.get('status')
     search_query = request.GET.get('q', '').strip()
-    
+
     # Apply filters
     if date_from:
         try:
             receipts = receipts.filter(receipt_date__gte=datetime.strptime(date_from, '%Y-%m-%d').date())
         except ValueError:
             pass
-    
+
     if date_to:
         try:
             receipts = receipts.filter(receipt_date__lte=datetime.strptime(date_to, '%Y-%m-%d').date())
         except ValueError:
             pass
-    
+
     if department_filter and request.user.has_permission('receipt_view_all'):
         receipts = receipts.filter(department__name=department_filter)
-    
+
     if status_filter:
         receipts = receipts.filter(status=status_filter)
-    
+
     if search_query:
         receipts = receipts.filter(
             Q(receipt_number__icontains=search_query) |
             Q(recipient_name__icontains=search_query)
         )
-    
-    receipts = receipts.select_related('department', 'created_by').prefetch_related('items').order_by('-created_at')
-    
+
+    receipts = receipts.select_related('department', 'created_by').order_by('-created_at')
+
     # สร้าง PDF response (inline - เปิดในแท็บใหม่)
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="receipt_report.pdf"'
-    
+
     # สร้าง PDF document
     doc = SimpleDocTemplate(response, pagesize=landscape(A4), topMargin=0.5*inch)
-    
+
     # เตรียม styles
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         'TitleStyle',
         parent=styles['Title'],
-        fontName=thai_font,
-        fontSize=16,
-        alignment=1,  # center
-        spaceAfter=20
+        fontName=thai_font_bold,
+        fontSize=18,
+        alignment=1,
+        spaceAfter=4
     )
-    
+
     header_style = ParagraphStyle(
         'HeaderStyle',
         parent=styles['Normal'],
         fontName=thai_font,
         fontSize=12,
         alignment=1,
-        spaceAfter=10
+        spaceAfter=4
     )
-    
+
     # สร้างเนื้อหา PDF
     story = []
-    
+
     # Header information
     current_fiscal = get_current_fiscal_year()
-    story.append(Paragraph('รายงานใบสำคัญรับเงิน', title_style))
-    story.append(Paragraph(f'ประจำปีงบประมาณ {current_fiscal}', header_style))
-    
-    # ขอบเขต
-    if department_filter:
-        story.append(Paragraph(f'ชื่อหน่วยงาน: {department_filter}', header_style))
-    else:
-        story.append(Paragraph(f'ขอบเขต: {view_scope}', header_style))
-    
-    # ช่วงวันที่
+
+    # ช่วงวันที่ (แปลงเป็นวันที่ไทย)
     date_range = ""
     if date_from and date_to:
-        date_range = f"ระหว่างวันที่ {date_from} ถึง {date_to}"
+        start_thai = convert_to_thai_date(datetime.strptime(date_from, '%Y-%m-%d').date(), 'short')
+        end_thai = convert_to_thai_date(datetime.strptime(date_to, '%Y-%m-%d').date(), 'short')
+        date_range = f"ระหว่างวันที่ {start_thai} ถึง {end_thai}"
     elif date_from:
-        date_range = f"ตั้งแต่วันที่ {date_from}"
+        start_thai = convert_to_thai_date(datetime.strptime(date_from, '%Y-%m-%d').date(), 'short')
+        date_range = f"ตั้งแต่วันที่ {start_thai}"
     elif date_to:
-        date_range = f"จนถึงวันที่ {date_to}"
+        end_thai = convert_to_thai_date(datetime.strptime(date_to, '%Y-%m-%d').date(), 'short')
+        date_range = f"จนถึงวันที่ {end_thai}"
     else:
         date_range = "ทุกช่วงเวลา"
-    
-    story.append(Paragraph(date_range, header_style))
-    story.append(Spacer(1, 20))
-    
-    # สร้างตาราง
-    headers = [
-        'ลำดับ', 'ใบสำคัญเลขที่', 'วันที่ขอ', 'รายการ',
-        'จำนวนเงิน', 'ผู้รับเงิน', 'ผู้จ่ายเงิน', 'หมายเหตุ'
-    ]
-    
+
+    # สร้าง Header พร้อม Logo
+    try:
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png')
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.jpg')
+
+        if os.path.exists(logo_path):
+            # สร้างตารางแบบ 2 คอลัมน์: Logo (ซ้าย) | ข้อมูลรายงาน (ขวา)
+            logo_img = Image(logo_path, width=3*cm, height=3*cm)
+
+            # ข้อความด้านขวา - ใช้ thai_font
+            scope_text = f'ขอบเขต: {view_scope}' if not department_filter else f'ชื่อหน่วยงาน: {department_filter}'
+            header_text = f'''<para align=center>
+                <font name="{thai_font_bold}" size=18><b>รายงานใบสำคัญรับเงิน</b></font><br/>
+                <font name="{thai_font}" size=12>ประจำปีงบประมาณ {current_fiscal}</font><br/>
+                <font name="{thai_font}" size=12>{scope_text}</font><br/>
+                <font name="{thai_font}" size=12>{date_range}</font>
+            </para>'''
+
+            header_para_style = ParagraphStyle(
+                'HeaderPara',
+                parent=styles['Normal'],
+                fontName=thai_font,
+                fontSize=12,
+                alignment=1
+            )
+
+            header_data = [[logo_img, Paragraph(header_text, header_para_style)]]
+            header_table = Table(header_data, colWidths=[3.5*cm, 7.5*inch])
+            header_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, 0), 'TOP'),
+            ]))
+
+            story.append(header_table)
+        else:
+            # ถ้าไม่มี logo ให้แสดงแบบเดิม
+            story.append(Paragraph('รายงานใบสำคัญรับเงิน', title_style))
+            story.append(Paragraph(f'ประจำปีงบประมาณ {current_fiscal}', header_style))
+            if department_filter:
+                story.append(Paragraph(f'ชื่อหน่วยงาน: {department_filter}', header_style))
+            else:
+                story.append(Paragraph(f'ขอบเขต: {view_scope}', header_style))
+            story.append(Paragraph(date_range, header_style))
+
+    except Exception as e:
+        # ถ้า error ให้แสดงแบบเดิม
+        story.append(Paragraph('รายงานใบสำคัญรับเงิน', title_style))
+        story.append(Paragraph(f'ประจำปีงบประมาณ {current_fiscal}', header_style))
+        if department_filter:
+            story.append(Paragraph(f'ชื่อหน่วยงาน: {department_filter}', header_style))
+        else:
+            story.append(Paragraph(f'ขอบเขต: {view_scope}', header_style))
+        story.append(Paragraph(date_range, header_style))
+
+    story.append(Spacer(1, 4))
+
+    # เพิ่มหัวข้อตาราง
+    story.append(Paragraph('รายการใบสำคัญรับเงิน', ParagraphStyle(
+        'SubHeader',
+        parent=styles['Heading2'],
+        fontName=thai_font_bold,
+        fontSize=14,
+        spaceAfter=4
+    )))
+
+    # สร้างตาราง - ตามฟอร์มที่หน่วยงานกำหนด
+    headers = ['ลำดับ', 'ใบสำคัญเลขที่', 'วันที่ขอ', 'รายการ', 'จำนวนเงิน', 'ผู้รับเงิน', 'ผู้จ่ายเงิน', 'หมายเหตุ']
     table_data = [headers]
-    
-    for index, receipt in enumerate(receipts[:100], 1):  # จำกัด 100 รายการเพื่อป้องกัน PDF ใหญ่เกินไป
-        # รวมรายการ
+
+    # คำนวณยอดรวม (เฉพาะเสร็จสิ้น ไม่นับยกเลิก)
+    total_amount = 0
+    total_count = 0
+    status_map = {'draft': 'ร่าง', 'completed': 'เสร็จสิ้น', 'cancelled': 'ยกเลิก'}
+    cancelled_rows = []  # เก็บ index ของแถวที่ยกเลิก
+
+    for index, receipt in enumerate(receipts[:200], 1):  # จำกัด 200 รายการ
+        # แปลงวันที่เป็นรูปแบบไทย
+        if receipt.receipt_date:
+            thai_date = convert_to_thai_date(receipt.receipt_date, 'short')
+        else:
+            thai_date = "-"
+
+        # รวมรายการ (items) - แสดงเต็มไม่ย่อ และขึ้นบรรทัดใหม่ทุกรายการ
         items_text = []
         for item in receipt.items.all():
             items_text.append(f"{item.description}")
-        items_display = "; ".join(items_text) if items_text else "-"
-        
-        # ข้อมูลแถว
+        items_display = "\n".join(items_text) if items_text else "-"  # ใช้ \n แทน ; เพื่อขึ้นบรรทัดใหม่
+
+        # ผู้จ่ายเงิน
         payer = receipt.created_by.get_display_name() if receipt.created_by else "-"
-        status_map = {'draft': 'ร่าง', 'completed': 'เสร็จสิ้น', 'cancelled': 'ยกเลิก'}
-        
+
         row_data = [
             str(index),
             receipt.receipt_number or "-",
-            receipt.receipt_date.strftime('%d/%m/%Y') if receipt.receipt_date else "-",
-            items_display[:30] + "..." if len(items_display) > 30 else items_display,
+            thai_date,
+            items_display,  # แสดงเต็ม ไม่ตัด
             f"{receipt.total_amount:,.2f}",
-            receipt.recipient_name[:20] + "..." if len(receipt.recipient_name) > 20 else receipt.recipient_name,
-            payer[:15] + "..." if len(payer) > 15 else payer,
+            receipt.recipient_name,  # แสดงเต็ม ไม่ตัด
+            payer,  # แสดงเต็ม ไม่ตัด
             status_map.get(receipt.status, receipt.status)
         ]
         table_data.append(row_data)
-    
-    # สร้างตาราง
-    table = Table(table_data, colWidths=[0.8*inch, 1.2*inch, 1*inch, 2*inch, 1*inch, 1.5*inch, 1*inch, 0.8*inch])
-    table.setStyle(TableStyle([
+
+        # เก็บ index ของแถวที่ยกเลิก (สำหรับใส่สีพื้นหลัง)
+        if receipt.status == 'cancelled':
+            cancelled_rows.append(len(table_data) - 1)  # index ของแถวที่เพิ่งใส่
+
+        # เก็บยอดรวม (เฉพาะเสร็จสิ้น ไม่นับยกเลิก)
+        if receipt.status == 'completed':
+            total_amount += receipt.total_amount
+            total_count += 1
+
+    # เพิ่มแถวรวม
+    table_data.append([
+        'รวม',
+        f'{total_count} ใบ',
+        '',
+        '',
+        f'{total_amount:,.2f}',
+        '',
+        '',
+        ''
+    ])
+
+    # สร้างตาราง - เต็มหน้า landscape A4 (ขยายคอลัมภ์รายการ)
+    table = Table(table_data, colWidths=[0.4*inch, 1*inch, 0.9*inch, 3.5*inch, 1*inch, 1.5*inch, 1.2*inch, 1*inch])
+
+    # คำนวณแถวสุดท้าย (แถวรวม)
+    last_row = len(table_data) - 1
+
+    # สร้าง style สำหรับตาราง
+    table_style = [
         # Header style
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
+        ('FONTNAME', (0, 0), (-1, -1), thai_font),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), thai_font),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        
-        # Data style
-        ('FONTNAME', (0, 1), (-1, -1), thai_font),
-        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('ALIGN', (3, 1), (3, -2), 'LEFT'),  # รายการ ชิดซ้าย
+        ('ALIGN', (4, 1), (4, -1), 'RIGHT'),  # จำนวนเงิน ชิดขวา
+        ('ALIGN', (5, 1), (5, -2), 'LEFT'),  # ผู้รับเงิน ชิดซ้าย
+        ('ALIGN', (6, 1), (6, -2), 'LEFT'),  # ผู้จ่ายเงิน ชิดซ้าย
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        
-        # Alternate row colors
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
-    ]))
-    
+        ('WORDWRAP', (0, 0), (-1, -1), True),  # ให้ข้อความขึ้นบรรทัดใหม่ได้
+
+        # แถวรวม - ตัวหนา และพื้นหลังเทาอ่อน
+        ('BACKGROUND', (0, last_row), (-1, last_row), colors.lightgrey),
+        ('FONTSIZE', (0, last_row), (-1, last_row), 12),
+        ('TEXTCOLOR', (0, last_row), (-1, last_row), colors.black),
+    ]
+
+    # เพิ่มสีพื้นหลังสำหรับแถวที่ยกเลิก (สีเทาอ่อนกว่าหัวตาราง)
+    from reportlab.lib.colors import HexColor
+    cancelled_bg_color = HexColor('#E8E8E8')  # สีเทาอ่อนกว่า lightgrey (D3D3D3)
+
+    for row_index in cancelled_rows:
+        table_style.append(('BACKGROUND', (0, row_index), (-1, row_index), cancelled_bg_color))
+
+    table.setStyle(TableStyle(table_style))
+
     story.append(table)
-    
+
+    # เพิ่มลายเซ็นต์ท้ายรายงาน
+    story.append(Spacer(1, 20))
+
+    # สร้างตารางลายเซ็นต์
+    signature_style = ParagraphStyle(
+        'SignatureStyle',
+        parent=styles['Normal'],
+        fontName=thai_font,
+        fontSize=12,
+        alignment=1  # center
+    )
+
+    signature_data = [
+        ['ลงชื่อ ............................................................................'],
+        ['( ............................................................................ )'],
+        ['ตำแหน่ง ..........................................................................']
+    ]
+
+    signature_table = Table(signature_data, colWidths=[4*inch])
+    signature_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), thai_font),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
+
+    # สร้างตารางเพื่อจัดให้ลายเซ็นต์อยู่ทางขวา
+    align_right_data = [['', signature_table]]
+    align_right_table = Table(align_right_data, colWidths=[5.5*inch, 4.5*inch])
+    align_right_table.setStyle(TableStyle([
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, 0), 'TOP'),
+    ]))
+
+    story.append(align_right_table)
+
     # สร้าง PDF
     doc.build(story)
-    
+
     return response
 
 
@@ -4275,14 +4430,15 @@ def receipt_report_excel_export(request):
     from django.db.models import Sum, Q
     from datetime import datetime
     from utils.fiscal_year import get_current_fiscal_year
+    from accounts.utils import convert_to_thai_date
 
     # ใช้ logic เดียวกันกับ receipt_report_view สำหรับ filter
-    # กรองเฉพาะเอกสารที่ผ่านกระบวนการทางบัญชีแล้ว (ไม่รวม draft)
+    # กรองเฉพาะเอกสารที่ผ่านกระบวนการทางบัญชีแล้ว (มีเลขที่เอกสาร)
     if request.user.has_permission('receipt_view_all'):
-        receipts = Receipt.objects.exclude(status='draft')
+        receipts = Receipt.objects.exclude(receipt_number__isnull=True).exclude(receipt_number='')
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(status='draft')
+        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(receipt_number__isnull=True).exclude(receipt_number='')
         view_scope = f"หน่วยงาน: {request.user.get_department()}"
 
     # รับค่า filter
@@ -4291,85 +4447,94 @@ def receipt_report_excel_export(request):
     department_filter = request.GET.get('department')
     status_filter = request.GET.get('status')
     search_query = request.GET.get('q', '').strip()
-    
+
     # Apply filters (copy logic from receipt_report_view)
     if date_from:
         try:
             receipts = receipts.filter(receipt_date__gte=datetime.strptime(date_from, '%Y-%m-%d').date())
         except ValueError:
             pass
-    
+
     if date_to:
         try:
             receipts = receipts.filter(receipt_date__lte=datetime.strptime(date_to, '%Y-%m-%d').date())
         except ValueError:
             pass
-    
+
     if department_filter and request.user.has_permission('receipt_view_all'):
         receipts = receipts.filter(department__name=department_filter)
-    
+
     if status_filter:
         receipts = receipts.filter(status=status_filter)
-    
+
     if search_query:
         receipts = receipts.filter(
             Q(receipt_number__icontains=search_query) |
             Q(recipient_name__icontains=search_query)
         )
-    
-    # เรียงลำดับและ prefetch
-    receipts = receipts.select_related('department', 'created_by').prefetch_related('items').order_by('-created_at')
+
+    # เรียงลำดับ
+    receipts = receipts.select_related('department', 'created_by').order_by('-created_at')
     
     # สร้าง Excel workbook
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "รายงานใบสำคัญรับเงิน"
-    
-    # กำหนดสี
-    header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+
+    # กำหนดสี - ใช้เหมือน PDF
+    header_fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")  # lightgrey
+    cancelled_fill = PatternFill(start_color="E8E8E8", end_color="E8E8E8", fill_type="solid")  # อ่อนกว่า
     border = Border(
         left=Side(style='thin'),
         right=Side(style='thin'),
         top=Side(style='thin'),
         bottom=Side(style='thin')
     )
-    
+
     # Header information
     current_fiscal = get_current_fiscal_year()
     ws['A1'] = "รายงานใบสำคัญรับเงิน"
     ws['A2'] = f"ประจำปีงบประมาณ {current_fiscal}"
-    
+
     # แสดงหน่วยงาน
     if department_filter:
         ws['A3'] = f"ชื่อหน่วยงาน: {department_filter}"
     else:
         ws['A3'] = f"ขอบเขต: {view_scope}"
-    
-    # แสดงช่วงวันที่
-    date_range = ""
+
+    # แสดงช่วงวันที่ - แปลงเป็นวันที่ไทย
     if date_from and date_to:
-        date_range = f"ระหว่างวันที่ {date_from} ถึง {date_to}"
+        start_thai = convert_to_thai_date(datetime.strptime(date_from, '%Y-%m-%d').date(), 'short')
+        end_thai = convert_to_thai_date(datetime.strptime(date_to, '%Y-%m-%d').date(), 'short')
+        date_range = f"ระหว่างวันที่ {start_thai} ถึง {end_thai}"
     elif date_from:
-        date_range = f"ตั้งแต่วันที่ {date_from}"
+        start_thai = convert_to_thai_date(datetime.strptime(date_from, '%Y-%m-%d').date(), 'short')
+        date_range = f"ตั้งแต่วันที่ {start_thai}"
     elif date_to:
-        date_range = f"จนถึงวันที่ {date_to}"
+        end_thai = convert_to_thai_date(datetime.strptime(date_to, '%Y-%m-%d').date(), 'short')
+        date_range = f"จนถึงวันที่ {end_thai}"
     else:
         date_range = "ทุกช่วงเวลา"
-    
+
     ws['A4'] = date_range
-    
+
     # ปรับ style สำหรับ header
     for row in range(1, 5):
         ws[f'A{row}'].font = Font(bold=True, size=14 if row == 1 else 12)
         ws[f'A{row}'].alignment = Alignment(horizontal='center' if row == 1 else 'left')
-    
+
     # Merge cells สำหรับ title
     ws.merge_cells('A1:H1')
-    
-    # Table headers (row 6)
+
+    # หัวข้อตาราง
+    ws['A5'] = "รายการใบสำคัญรับเงิน"
+    ws['A5'].font = Font(bold=True, size=12)
+    ws.merge_cells('A5:H5')
+
+    # Table headers (row 6) - ตามฟอร์ม
     headers = [
         'ลำดับ',
-        'ใบสำคัญเลขที่', 
+        'ใบสำคัญเลขที่',
         'วันที่ขอ',
         'รายการ',
         'จำนวนเงิน',
@@ -4377,7 +4542,7 @@ def receipt_report_excel_export(request):
         'ผู้จ่ายเงิน',
         'หมายเหตุ'
     ]
-    
+
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=6, column=col)
         cell.value = header
@@ -4385,93 +4550,104 @@ def receipt_report_excel_export(request):
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal='center', vertical='center')
         cell.border = border
-    
+
     # Data rows
     row_num = 7
     total_amount = 0
-    
-    for index, receipt in enumerate(receipts, 1):
-        # รวมรายการสินค้า
+    total_count = 0
+    status_map = {'draft': 'ร่าง', 'completed': 'เสร็จสิ้น', 'cancelled': 'ยกเลิก'}
+
+    for index, receipt in enumerate(receipts[:200], 1):  # จำกัด 200 รายการ
+        # รวมรายการ - แสดงเต็ม และขึ้นบรรทัดใหม่
         items_text = []
         for item in receipt.items.all():
-            items_text.append(f"{item.description} ({item.amount:,.2f} บาท)")
-        items_display = "; ".join(items_text) if items_text else "-"
-        
-        # ผู้จ่ายเงิน (created_by)
+            items_text.append(f"{item.description}")
+        items_display = "\n".join(items_text) if items_text else "-"
+
+        # ผู้จ่ายเงิน
         payer = receipt.created_by.get_display_name() if receipt.created_by else "-"
-        
-        # สถานะเป็นหมายเหตุ
-        status_map = {
-            'draft': 'ร่าง',
-            'completed': 'เสร็จสิ้น', 
-            'cancelled': 'ยกเลิก'
-        }
-        notes = status_map.get(receipt.status, receipt.status)
-        
+
+        # แปลงวันที่เป็นรูปแบบไทย
+        if receipt.receipt_date:
+            thai_date = convert_to_thai_date(receipt.receipt_date, 'short')
+        else:
+            thai_date = "-"
+
         # เพิ่มข้อมูลลงในแถว
         row_data = [
             index,  # ลำดับ
-            receipt.receipt_number,  # ใบสำคัญเลขที่
-            receipt.receipt_date.strftime('%d/%m/%Y') if receipt.receipt_date else '-',  # วันที่ขอ
-            items_display,  # รายการ
+            receipt.receipt_number or "-",  # ใบสำคัญเลขที่
+            thai_date,  # วันที่ขอ (แบบไทย)
+            items_display,  # รายการ (แสดงเต็ม)
             receipt.total_amount,  # จำนวนเงิน
-            receipt.recipient_name,  # ผู้รับเงิน
-            payer,  # ผู้จ่ายเงิน
-            notes  # หมายเหตุ
+            receipt.recipient_name,  # ผู้รับเงิน (แสดงเต็ม)
+            payer,  # ผู้จ่ายเงิน (แสดงเต็ม)
+            status_map.get(receipt.status, receipt.status)  # หมายเหตุ
         ]
-        
+
         for col, value in enumerate(row_data, 1):
             cell = ws.cell(row=row_num, column=col)
             cell.value = value
             cell.border = border
-            
+
             # จัดตำแหน่ง
-            if col in [1, 5]:  # ลำดับ, จำนวนเงิน
-                cell.alignment = Alignment(horizontal='right')
-            elif col == 3:  # วันที่
-                cell.alignment = Alignment(horizontal='center')
-            else:
-                cell.alignment = Alignment(horizontal='left')
-            
-            # Format ตัวเลข
-            if col == 5:  # จำนวนเงิน
+            if col == 1:  # ลำดับ
+                cell.alignment = Alignment(horizontal='center', vertical='top', wrap_text=True)
+            elif col == 5:  # จำนวนเงิน
+                cell.alignment = Alignment(horizontal='right', vertical='top', wrap_text=True)
                 cell.number_format = '#,##0.00'
-        
+            elif col in [2, 3, 8]:  # เลขที่, วันที่, หมายเหตุ
+                cell.alignment = Alignment(horizontal='center', vertical='top', wrap_text=True)
+            else:  # รายการ, ผู้รับเงิน, ผู้จ่ายเงิน
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+
+            # ใส่สีพื้นหลังสำหรับรายการที่ยกเลิก
+            if receipt.status == 'cancelled':
+                cell.fill = cancelled_fill
+
+        # นับยอดรวม (เฉพาะเสร็จสิ้น)
         if receipt.status == 'completed':
             total_amount += receipt.total_amount
-        
+            total_count += 1
+
         row_num += 1
-    
-    # แถวสรุปยอดรวม
-    summary_row = row_num + 1
-    ws[f'D{summary_row}'] = "รวมทั้งสิ้น"
-    ws[f'E{summary_row}'] = total_amount
-    
-    # Style สำหรับแถวสรุป
-    for col in ['D', 'E']:
-        cell = ws[f'{col}{summary_row}']
-        cell.font = Font(bold=True)
-        cell.border = border
-        if col == 'E':
-            cell.number_format = '#,##0.00'
-            cell.alignment = Alignment(horizontal='right')
-        else:
-            cell.alignment = Alignment(horizontal='center')
-    
+
+    # แถวรวม
+    summary_row = row_num
+    ws.cell(row=summary_row, column=1, value="รวม").font = Font(bold=True)
+    ws.cell(row=summary_row, column=1).alignment = Alignment(horizontal='center')
+    ws.cell(row=summary_row, column=1).fill = header_fill
+    ws.cell(row=summary_row, column=1).border = border
+
+    ws.cell(row=summary_row, column=2, value=f"{total_count} ใบ").font = Font(bold=True)
+    ws.cell(row=summary_row, column=2).alignment = Alignment(horizontal='center')
+    ws.cell(row=summary_row, column=2).fill = header_fill
+    ws.cell(row=summary_row, column=2).border = border
+
+    for col in [3, 4, 6, 7, 8]:
+        ws.cell(row=summary_row, column=col).border = border
+        ws.cell(row=summary_row, column=col).fill = header_fill
+
+    ws.cell(row=summary_row, column=5, value=total_amount).font = Font(bold=True)
+    ws.cell(row=summary_row, column=5).alignment = Alignment(horizontal='right')
+    ws.cell(row=summary_row, column=5).number_format = '#,##0.00'
+    ws.cell(row=summary_row, column=5).fill = header_fill
+    ws.cell(row=summary_row, column=5).border = border
+
     # ปรับขนาดคอลัมน์
-    column_widths = [8, 18, 12, 40, 15, 25, 20, 15]
+    column_widths = [8, 18, 15, 50, 15, 25, 20, 15]
     for col, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
-    
+
     # สร้าง response
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    
+
     # สร้างชื่อไฟล์
     filename = f"รายงานใบสำคัญรับเงิน_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    
+
     # บันทึก workbook
     wb.save(response)
     
