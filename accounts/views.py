@@ -2850,31 +2850,35 @@ def receipt_report_view(request):
     Features:
     - Filter ตามวันที่
     - Filter ตามหน่วยงาน
-    - Filter ตามสถานะ
+    - Filter ตามสถานะ (เฉพาะเสร็จสิ้นและยกเลิก - ไม่รวมร่าง)
     - แสดงเป็นตาราง
     - Export PDF/Excel
+
+    หมายเหตุ: รายงานนี้แสดงเฉพาะใบสำคัญที่ผ่านกระบวนการทางบัญชีแล้ว
+    ไม่รวมสถานะ "ร่าง" เพราะยังไม่มีผลทางบัญชี
     """
     from django.db.models import Sum, Q
     from datetime import datetime
-    
+
     # กำหนด scope การดู (ไม่ต้องเช็ค report_view permission)
     if request.user.has_permission('receipt_view_all'):
-        receipts = Receipt.objects.all()
+        # กรองเฉพาะเอกสารที่ผ่านกระบวนการทางบัญชีแล้ว (ไม่รวม draft)
+        receipts = Receipt.objects.exclude(status='draft')
         departments = Department.objects.filter(is_active=True)
         view_scope = "ทุกหน่วยงาน"
     else:
         # Basic User และ Department Manager - ดูระดับหน่วยงาน
-        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(status='draft')
         departments = Department.objects.filter(name=request.user.get_department(), is_active=True)
         view_scope = f"หน่วยงาน: {request.user.get_department()}"
-    
+
     # รับค่า filter จาก form
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
     department_filter = request.GET.get('department')
     status_filter = request.GET.get('status')
     search_query = request.GET.get('q', '').strip()
-    
+
     # กรอง filter
     filter_applied = False
     
@@ -2927,31 +2931,38 @@ def receipt_report_view(request):
     page = request.GET.get('page')
     receipts_page = paginator.get_page(page)
     
-    # สรุปตามสถานะ
+    # สรุปตามสถานะ (เฉพาะ completed และ cancelled)
     status_summary = {}
     for status_code, status_name in Receipt.STATUS_CHOICES:
-        count = receipts.filter(status=status_code).count()
-        amount = receipts.filter(status=status_code).aggregate(
-            total=Sum('total_amount')
-        )['total'] or 0
-        status_summary[status_code] = {
-            'name': status_name,
-            'count': count,
-            'amount': amount
-        }
-    
+        if status_code != 'draft':  # ข้าม draft ในรายงาน
+            count = receipts.filter(status=status_code).count()
+            amount = receipts.filter(status=status_code).aggregate(
+                total=Sum('total_amount')
+            )['total'] or 0
+            status_summary[status_code] = {
+                'name': status_name,
+                'count': count,
+                'amount': amount
+            }
+
+    # กรอง STATUS_CHOICES เฉพาะเสร็จสิ้นและยกเลิก (ไม่รวมร่าง)
+    report_status_choices = [
+        (code, name) for code, name in Receipt.STATUS_CHOICES
+        if code != 'draft'
+    ]
+
     context = {
         'title': 'รายงานใบสำคัญรับเงิน',
         'receipts': receipts_page,
         'departments': departments,
-        'status_choices': Receipt.STATUS_CHOICES,
+        'status_choices': report_status_choices,  # ใช้ตัวเลือกที่กรองแล้ว
         'view_scope': view_scope,
         'total_amount': total_amount,
         'total_count': total_count,
         'completed_count': completed_count,
         'status_summary': status_summary,
         'filter_applied': filter_applied,
-        
+
         # Filter values for form
         'date_from': date_from,
         'date_to': date_to,
@@ -2959,7 +2970,7 @@ def receipt_report_view(request):
         'status_filter': status_filter,
         'search_query': search_query,
     }
-    
+
     return render(request, 'accounts/receipt_report.html', context)
 
 
@@ -4069,6 +4080,7 @@ def revenue_summary_pdf_export(request):
 def receipt_report_pdf_export(request):
     """
     Export รายงานใบสำคัญรับเงินเป็น PDF
+    หมายเหตุ: รายงานนี้แสดงเฉพาะใบสำคัญที่ผ่านกระบวนการทางบัญชีแล้ว (ไม่รวมร่าง)
     """
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import A4, landscape
@@ -4083,7 +4095,7 @@ def receipt_report_pdf_export(request):
     from datetime import datetime
     from utils.fiscal_year import get_current_fiscal_year
     import os
-    
+
     # ลงทะเบียนฟอนต์ไทย
     font_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'fonts', 'THSarabunNew.ttf')
     if os.path.exists(font_path):
@@ -4091,15 +4103,16 @@ def receipt_report_pdf_export(request):
         thai_font = 'THSarabunNew'
     else:
         thai_font = 'Helvetica'  # fallback
-    
+
     # ใช้ logic เดียวกันกับ receipt_report_view สำหรับ filter
+    # กรองเฉพาะเอกสารที่ผ่านกระบวนการทางบัญชีแล้ว (ไม่รวม draft)
     if request.user.has_permission('receipt_view_all'):
-        receipts = Receipt.objects.all()
+        receipts = Receipt.objects.exclude(status='draft')
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(status='draft')
         view_scope = f"หน่วยงาน: {request.user.get_department()}"
-    
+
     # รับค่า filter
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
@@ -4253,6 +4266,7 @@ def receipt_report_pdf_export(request):
 def receipt_report_excel_export(request):
     """
     Export รายงานใบสำคัญรับเงินเป็น Excel ตามฟอร์มที่กำหนด
+    หมายเหตุ: รายงานนี้แสดงเฉพาะใบสำคัญที่ผ่านกระบวนการทางบัญชีแล้ว (ไม่รวมร่าง)
     """
     import openpyxl
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
@@ -4261,15 +4275,16 @@ def receipt_report_excel_export(request):
     from django.db.models import Sum, Q
     from datetime import datetime
     from utils.fiscal_year import get_current_fiscal_year
-    
+
     # ใช้ logic เดียวกันกับ receipt_report_view สำหรับ filter
+    # กรองเฉพาะเอกสารที่ผ่านกระบวนการทางบัญชีแล้ว (ไม่รวม draft)
     if request.user.has_permission('receipt_view_all'):
-        receipts = Receipt.objects.all()
+        receipts = Receipt.objects.exclude(status='draft')
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(status='draft')
         view_scope = f"หน่วยงาน: {request.user.get_department()}"
-    
+
     # รับค่า filter
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
