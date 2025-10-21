@@ -116,6 +116,8 @@
                                         <div class="text-muted">จำนวนเงิน: <span class="item-amount-display fw-bold">{{ item.amount|floatformat:2|intcomma }}</span> บาท</div>
                                         <input type="hidden" class="item-description-hidden" name="form-{{ forloop.counter0 }}-description" value="{{ item.description }}">
                                         <input type="hidden" class="item-amount-hidden" name="form-{{ forloop.counter0 }}-amount" value="{{ item.amount }}">
+                                        <input type="hidden" class="item-quantity-hidden" name="form-{{ forloop.counter0 }}-quantity" value="1">
+                                        <input type="hidden" class="item-unit-price-hidden" name="form-{{ forloop.counter0 }}-unit_price" value="{{ item.amount }}">
                                         <input type="hidden" name="form-{{ forloop.counter0 }}-id" value="{{ item.id }}">
                                     </div>
                                     <div class="btn-group">
@@ -352,6 +354,10 @@ function saveItem(itemId) {
     item.querySelector('.item-description-hidden').value = newDescriptionText;
     item.querySelector('.item-amount-hidden').value = newAmount;
 
+    // Update quantity and unit_price for formset (quantity=1, unit_price=amount)
+    item.querySelector('.item-quantity-hidden').value = 1;
+    item.querySelector('.item-unit-price-hidden').value = newAmount;
+
     // Update display (convert line breaks to <br> for display)
     const displayDescription = newDescriptionText.replace(/\n/g, '<br>');
 
@@ -471,12 +477,16 @@ function convertToThaiText(number) {
             if (digit === 0) continue;
 
             if (i === 1 && digit === 2) {
+                // ตำแหน่งสิบ เลข 2 = "ยี่สิบ"
                 text = 'ยี่' + positions[i] + text;
             } else if (i === 1 && digit === 1) {
+                // ตำแหน่งสิบ เลข 1 = "สิบ"
                 text = positions[i] + text;
-            } else if (i > 0 && digit === 1 && i !== 6) {
+            } else if (i === 0 && digit === 1 && digits.length > 1) {
+                // ตำแหน่งหน่วย เลข 1 และมีหลักอื่น = "เอ็ด"
                 text = 'เอ็ด' + text;
             } else {
+                // กรณีปกติ
                 text = ones[digit] + positions[i] + text;
             }
         }

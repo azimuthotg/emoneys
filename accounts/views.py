@@ -2181,25 +2181,34 @@ def edit_request_list_view(request):
     # กรองข้อมูลตามสิทธิ์
     if request.user.has_permission('receipt_view_all'):
         # Admin: ดูทั้งหมด
-        edit_requests = ReceiptEditRequest.objects.all()
+        edit_requests_base = ReceiptEditRequest.objects.all()
     elif request.user.has_permission('receipt_edit_approve'):
         # Department Manager: ดูเฉพาะหน่วยงานตัวเอง
-        edit_requests = ReceiptEditRequest.objects.filter(
+        edit_requests_base = ReceiptEditRequest.objects.filter(
             receipt__department__name=request.user.get_department()
         )
     else:
         # Basic User: ดูเฉพาะของตัวเอง
-        edit_requests = ReceiptEditRequest.objects.filter(
+        edit_requests_base = ReceiptEditRequest.objects.filter(
             requested_by=request.user
         )
-    
-    # Filter และ Search
+
+    # คำนวณสถิติจาก queryset ที่ยังไม่ถูก filter (ใช้ base queryset)
+    stats = {
+        'total': edit_requests_base.count(),
+        'pending': edit_requests_base.filter(status='pending').count(),
+        'approved': edit_requests_base.filter(status__in=['approved', 'applied']).count(),  # รวม approved + applied
+        'rejected': edit_requests_base.filter(status='rejected').count(),
+    }
+
+    # Filter และ Search (ใช้สำหรับแสดงในตาราง)
+    edit_requests = edit_requests_base
     status_filter = request.GET.get('status', '')
     search_query = request.GET.get('q', '')
-    
+
     if status_filter:
         edit_requests = edit_requests.filter(status=status_filter)
-    
+
     if search_query:
         edit_requests = edit_requests.filter(
             Q(request_number__icontains=search_query) |
@@ -2207,19 +2216,11 @@ def edit_request_list_view(request):
             Q(receipt__recipient_name__icontains=search_query) |
             Q(reason__icontains=search_query)
         )
-    
+
     # Pagination
     paginator = Paginator(edit_requests.order_by('-created_at'), 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
-    # สถิติสำหรับ cards
-    stats = {
-        'total': edit_requests.count(),
-        'pending': edit_requests.filter(status='pending').count(),
-        'approved': edit_requests.filter(status='approved').count(),
-        'rejected': edit_requests.filter(status='rejected').count(),
-    }
     
     context = {
         'page_obj': page_obj,
