@@ -348,7 +348,7 @@
                         <i class="fas fa-table"></i>
                         <span class="menu-text">รายงานใบสำคัญรับเงิน</span>
                     </a>
-                    {% if user.has_permission('receipt_view_all') or user.is_staff %}
+                    {% if user|has_perm:"receipt_view_all" or user.is_staff %}
                     <a href="{% url 'audit_log' %}" class="menu-link {% if request.resolver_match.url_name == 'audit_log' %}active{% endif %}">
                         <i class="fas fa-history"></i>
                         <span class="menu-text">ประวัติการเปลี่ยนแปลง</span>
