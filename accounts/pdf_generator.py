@@ -528,13 +528,13 @@ class ReceiptPDFGenerator:
             leftIndent=6  # ให้ตรงกับ LEFTPADDING ของตารางรายการ
         )
 
-        # Style แยกสำหรับ line1 ที่มีข้อความยาว 2 บรรทัด
+        # Style แยกสำหรับ line1 ที่มีข้อความยาว 2 บรรทัด (จำกัดไว้ 2 บรรทัดเท่านั้น)
         line1_style = ParagraphStyle(
             'Line1Style',
             parent=styles['Normal'],
             fontName=self.thai_font,
             fontSize=16,
-            leading=18,  # เพิ่ม leading สำหรับข้อความ 2 บรรทัด
+            leading=20,  # เพิ่ม leading สำหรับข้อความ 2 บรรทัด
             textColor=colors.black,
             alignment=TA_LEFT,
             leftIndent=6
@@ -554,8 +554,8 @@ class ReceiptPDFGenerator:
         # รวม 2 บรรทัดด้วย <br/> เพื่อให้แสดงแยกบรรทัด
         full_text = f"{recipient_line1}<br/>{recipient_line2}"
 
-        # ใช้ Table เพื่อกำหนดความสูงคงที่สำหรับ 2 บรรทัด
-        line1_table = Table([[Paragraph(full_text, line1_style)]], colWidths=[17*cm], rowHeights=[1.2*cm])
+        # ใช้ Table เพื่อกำหนดความสูงคงที่สำหรับ 2 บรรทัด (จำกัดไว้ 2 บรรทัดเท่านั้น)
+        line1_table = Table([[Paragraph(full_text, line1_style)]], colWidths=[17*cm], rowHeights=[1.3*cm])
         line1_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (0, 0), 'TOP'),
             ('LEFTPADDING', (0, 0), (0, 0), 6),  # ให้ตรงกับ LEFTPADDING ของตารางรายการ
@@ -565,12 +565,17 @@ class ReceiptPDFGenerator:
         ]))
         content.append(line1_table)
 
-        # เส้นจุดประใต้บรรทัด (2 เส้นสำหรับ 2 บรรทัด)
+        # เส้นจุดประใต้บรรทัด (3 เส้นสำหรับ 3 บรรทัด - รวมบรรทัดว่าง)
         # เส้นที่ 1 - ใต้บรรทัดแรก (ข้าพเจ้า...)
-        content.append(DottedUnderline(15*cm, gap=1, y_offset=19, x_offset=42, gray_level=0.3))
+        content.append(DottedUnderline(15*cm, gap=1, y_offset=20, x_offset=42, gray_level=0.3))
         # เส้นที่ 2 - ใต้บรรทัดที่สอง (ที่อยู่...)
         content.append(DottedUnderline(15.6*cm, gap=1, y_offset=4, x_offset=27, gray_level=0.3))
-        # content.append(Spacer(1, 0.1 * cm))
+
+        # เว้นบรรทัดว่าง 1 บรรทัดหลังที่อยู่ (เพื่อให้เป็น 2 บรรทัดเต็ม)
+        content.append(Spacer(1, 0.5 * cm))
+
+        # เส้นที่ 3 - ใต้บรรทัดว่าง (บรรทัดที่ 3)
+        content.append(DottedUnderline(16.3*cm, gap=1, y_offset=2, x_offset=6, gray_level=0.3))
 
         # บรรทัดถัดไป: เลขบัตรประชาชน + ได้รับเงินจาก (ใช้ &nbsp; เพื่อเว้นช่องว่างจริงๆ)
         id_card_line = f"เลขบัตรประชาชน&nbsp;&nbsp;&nbsp;{receipt.recipient_id_card}&nbsp;&nbsp;&nbsp;ได้รับเงินจาก&nbsp;&nbsp;&nbsp;มหาวิทยาลัยนครพนม"
