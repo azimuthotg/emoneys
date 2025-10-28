@@ -2658,14 +2658,14 @@ def reports_dashboard_view(request):
     from datetime import datetime, timedelta
     from utils.fiscal_year import get_current_fiscal_year, get_fiscal_year_dates
     
-    # กำหนด scope การดู (ไม่ต้องเช็ค report_view permission)
+    # กำหนด scope การดู - กรองเฉพาะใบที่ผ่านกระบวนการทางบัญชี (มีเลขที่)
     if request.user.has_permission('receipt_view_all'):
-        receipts = Receipt.objects.all()
+        receipts = Receipt.objects.exclude(receipt_number__isnull=True).exclude(receipt_number='')
         edit_requests = ReceiptEditRequest.objects.all()
         view_scope = "ทุกหน่วยงาน"
     else:
         # Basic User และ Department Manager - ดูระดับหน่วยงาน
-        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(receipt_number__isnull=True).exclude(receipt_number='')
         edit_requests = ReceiptEditRequest.objects.filter(receipt__department__name=request.user.get_department())
         view_scope = f"หน่วยงาน: {request.user.get_department()}"
     
@@ -2678,8 +2678,9 @@ def reports_dashboard_view(request):
     fiscal_start, fiscal_end = get_fiscal_year_dates(current_fiscal_year)
     fiscal_receipts = receipts.filter(receipt_date__gte=fiscal_start, receipt_date__lte=fiscal_end)
     
-    # สถิติเดือนปัจจุบัน
-    monthly_receipts = receipts.filter(created_at__gte=current_month_start)
+    # สถิติเดือนปัจจุบัน - ใช้ receipt_date แทน created_at
+    current_month_end = (current_month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    monthly_receipts = receipts.filter(receipt_date__gte=current_month_start.date(), receipt_date__lte=current_month_end.date())
     
     # 1. ยอดรวมทั้งปีงบประมาณ
     fiscal_year_amount = fiscal_receipts.filter(status='completed').aggregate(
@@ -2705,22 +2706,23 @@ def reports_dashboard_view(request):
     
     # สถิติสถานะรวม (ใบสำคัญ + คำขอแก้ไข)
     status_summary = []
-    
-    # สถานะใบสำคัญรับเงิน
+
+    # สถานะใบสำคัญรับเงิน (ไม่รวม draft เพราะกรองออกไปแล้ว)
     for status_code, status_name in Receipt.STATUS_CHOICES:
+        if status_code == 'draft':
+            continue  # ข้าม draft เพราะกรองออกแล้ว
+
         count = receipts.filter(status=status_code).count()
         amount = receipts.filter(status=status_code).aggregate(
             total=Sum('total_amount')
         )['total'] or 0
-        
+
         # กำหนดสี badge
         if status_code == 'completed':
             badge_color = 'success'
-        elif status_code == 'draft':
-            badge_color = 'warning'
         else:  # cancelled
             badge_color = 'danger'
-            
+
         status_summary.append({
             'name': status_name,
             'count': count,
@@ -2750,9 +2752,12 @@ def reports_dashboard_view(request):
             'type': 'edit_request'
         })
     
-    # สถิติตามสถานะ (สำหรับส่วนแสดงผล)
+    # สถิติตามสถานะ (สำหรับส่วนแสดงผล - ไม่รวม draft)
     status_stats = {}
     for status_code, status_name in Receipt.STATUS_CHOICES:
+        if status_code == 'draft':
+            continue  # ข้าม draft เพราะกรองออกแล้ว
+
         count = receipts.filter(status=status_code).count()
         amount = receipts.filter(status=status_code).aggregate(
             total=Sum('total_amount')
@@ -2789,12 +2794,10 @@ def reports_dashboard_view(request):
     
     for i in range(6, -1, -1):  # เรียงจาก วันปัจจุบัน ย้อนกลับ 7 วัน
         day = now - timedelta(days=i)
-        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end = day_start + timedelta(days=1)
-        
+        day_date = day.date()
+
         day_receipts = receipts.filter(
-            created_at__gte=day_start,
-            created_at__lt=day_end,
+            receipt_date=day_date,
             status='completed'
         )
         
@@ -2914,10 +2917,10 @@ def receipt_report_view(request):
             Q(recipient_name__icontains=search_query)
         )
         filter_applied = True
-    
-    # เรียงลำดับ
-    receipts = receipts.select_related('department', 'created_by').order_by('-created_at')
-    
+
+    # เรียงลำดับ - ล่าสุดก่อน (เพื่อให้ผู้ใช้เห็นข้อมูลใหม่ที่หน้าแรก)
+    receipts = receipts.select_related('department', 'created_by').order_by('-receipt_date', '-receipt_number')
+
     # สรุปยอดรวม
     total_amount = receipts.filter(status='completed').aggregate(
         total=Sum('total_amount')
@@ -2989,25 +2992,25 @@ def revenue_summary_report_view(request):
     from datetime import datetime, timedelta
     from utils.fiscal_year import get_current_fiscal_year, get_fiscal_year_dates
     
-    # กำหนด scope การดู
+    # กำหนด scope การดู - กรองเฉพาะใบที่ผ่านกระบวนการทางบัญชี (มีเลขที่)
     if request.user.has_permission('receipt_view_all'):
-        receipts = Receipt.objects.all()
+        receipts = Receipt.objects.exclude(receipt_number__isnull=True).exclude(receipt_number='')
         departments = Department.objects.filter(is_active=True)
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(receipt_number__isnull=True).exclude(receipt_number='')
         departments = Department.objects.filter(name=request.user.get_department(), is_active=True)
         view_scope = f"หน่วยงาน: {request.user.get_department()}"
-    
+
     # รับค่า filter
     period_type = request.GET.get('period', 'monthly')  # daily, monthly, fiscal_year
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
     department_filter = request.GET.get('department')
-    
+
     # ตรวจสอบ Custom Date Range Mode
     is_custom_mode = bool(date_from or date_to)
-    
+
     # Filter หน่วยงาน
     if department_filter and request.user.has_permission('receipt_view_all'):
         receipts = receipts.filter(department__name=department_filter)
@@ -3026,32 +3029,45 @@ def revenue_summary_report_view(request):
             except ValueError:
                 pass
     
-    # เฉพาะใบสำคัญที่เสร็จสิ้น
+    # เฉพาะใบสำคัญที่เสร็จสิ้น (สำหรับยอดเงิน)
     completed_receipts = receipts.filter(status='completed')
-    
-    # สรุปรวมทั้งหมด
+
+    # สรุปรวมทั้งหมด - รวมทุกสถานะ
     total_summary = {
         'total_amount': completed_receipts.aggregate(total=Sum('total_amount'))['total'] or 0,
-        'total_count': completed_receipts.count(),
-        'total_departments': completed_receipts.values('department').distinct().count(),
+        'total_count': receipts.count(),  # นับรวมทุกสถานะ
+        'completed_count': completed_receipts.count(),  # นับเฉพาะเสร็จสิ้น
+        'cancelled_count': receipts.filter(status='cancelled').count(),  # นับยกเลิก
+        'draft_count': receipts.filter(status='draft').count(),  # นับร่าง
+        'total_departments': receipts.values('department').distinct().count(),
     }
     
     # สรุปตามหน่วยงาน
     department_summary = []
     for dept in departments:
-        dept_receipts = completed_receipts.filter(department=dept)
-        count = dept_receipts.count()
-        amount = dept_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
-        
-        if count > 0:  # แสดงเฉพาะหน่วยงานที่มีข้อมูล
+        dept_receipts_all = receipts.filter(department=dept)
+        dept_receipts_completed = dept_receipts_all.filter(status='completed')
+        dept_receipts_cancelled = dept_receipts_all.filter(status='cancelled')
+        dept_receipts_draft = dept_receipts_all.filter(status='draft')
+
+        total_count = dept_receipts_all.count()
+        completed_count = dept_receipts_completed.count()
+        cancelled_count = dept_receipts_cancelled.count()
+        draft_count = dept_receipts_draft.count()
+        amount = dept_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0
+
+        if total_count > 0:  # แสดงเฉพาะหน่วยงานที่มีข้อมูล
             department_summary.append({
                 'department': dept.name,
                 'department_code': dept.code,
-                'count': count,
+                'count': total_count,  # รวมทุกสถานะ
+                'completed_count': completed_count,
+                'cancelled_count': cancelled_count,
+                'draft_count': draft_count,
                 'amount': amount,
                 'percentage': round((amount / total_summary['total_amount'] * 100) if total_summary['total_amount'] > 0 else 0, 1)
             })
-    
+
     # เรียงตามยอดเงิน
     department_summary.sort(key=lambda x: x['amount'], reverse=True)
     
@@ -3081,19 +3097,19 @@ def revenue_summary_report_view(request):
         # สร้างรายการวันที่ในช่วงที่กำหนด
         current_date = start_date
         while current_date <= end_date:
-            day_start = datetime.combine(current_date, datetime.min.time())
-            day_start = timezone.make_aware(day_start)
-            day_end = day_start + timedelta(days=1)
-            
-            day_receipts = completed_receipts.filter(
-                created_at__gte=day_start,
-                created_at__lt=day_end
-            )
-            
+            # ใช้ receipt_date แทน created_at เพื่อความถูกต้อง
+            day_receipts_all = receipts.filter(receipt_date=current_date)
+            day_receipts_completed = day_receipts_all.filter(status='completed')
+            day_receipts_cancelled = day_receipts_all.filter(status='cancelled')
+            day_receipts_draft = day_receipts_all.filter(status='draft')
+
             period_summary.append({
                 'period': current_date,  # ส่งเป็น date object เพื่อใช้ thai_date filter
-                'count': day_receipts.count(),
-                'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'count': day_receipts_all.count(),  # รวมทุกสถานะ
+                'completed_count': day_receipts_completed.count(),
+                'cancelled_count': day_receipts_cancelled.count(),
+                'draft_count': day_receipts_draft.count(),
+                'amount': day_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0  # เฉพาะเสร็จสิ้น
             })
 
             current_date += timedelta(days=1)
@@ -3101,18 +3117,21 @@ def revenue_summary_report_view(request):
         # รายวัน (30 วันล่าสุด)
         for i in range(29, -1, -1):
             day = now - timedelta(days=i)
-            day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-            day_end = day_start + timedelta(days=1)
-            
-            day_receipts = completed_receipts.filter(
-                created_at__gte=day_start,
-                created_at__lt=day_end
-            )
-            
+            current_date = day.date()
+
+            # ใช้ receipt_date แทน created_at เพื่อความถูกต้อง
+            day_receipts_all = receipts.filter(receipt_date=current_date)
+            day_receipts_completed = day_receipts_all.filter(status='completed')
+            day_receipts_cancelled = day_receipts_all.filter(status='cancelled')
+            day_receipts_draft = day_receipts_all.filter(status='draft')
+
             period_summary.append({
-                'period': day.date(),  # ส่งเป็น date object เพื่อใช้ thai_date filter
-                'count': day_receipts.count(),
-                'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'period': current_date,  # ส่งเป็น date object เพื่อใช้ thai_date filter
+                'count': day_receipts_all.count(),  # รวมทุกสถานะ
+                'completed_count': day_receipts_completed.count(),
+                'cancelled_count': day_receipts_cancelled.count(),
+                'draft_count': day_receipts_draft.count(),
+                'amount': day_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0  # เฉพาะเสร็จสิ้น
             })
     
     elif period_type == 'monthly':
@@ -3138,21 +3157,39 @@ def revenue_summary_report_view(request):
                 next_month_start = now.replace(year=target_year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
             else:
                 next_month_start = now.replace(year=target_year, month=target_month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
-            
-            month_receipts = completed_receipts.filter(
-                created_at__gte=month_start,
-                created_at__lt=next_month_start
+
+            # ใช้ receipt_date แทน created_at
+            from datetime import date as date_type
+            month_start_date = date_type(year=target_year, month=target_month, day=1)
+            if target_month == 12:
+                month_end_date = date_type(year=target_year + 1, month=1, day=1)
+            else:
+                month_end_date = date_type(year=target_year, month=target_month + 1, day=1)
+
+            # วันสุดท้ายของเดือน
+            from datetime import timedelta as td
+            month_last_date = month_end_date - td(days=1)
+
+            month_receipts_all = receipts.filter(
+                receipt_date__gte=month_start_date,
+                receipt_date__lte=month_last_date
             )
-            
+            month_receipts_completed = month_receipts_all.filter(status='completed')
+            month_receipts_cancelled = month_receipts_all.filter(status='cancelled')
+            month_receipts_draft = month_receipts_all.filter(status='draft')
+
             # เดือนไทย
             thai_months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
                           'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
             thai_month = thai_months[target_month - 1]
-            
+
             period_summary.append({
                 'period': f"{thai_month} {target_year + 543}",
-                'count': month_receipts.count(),
-                'amount': month_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'count': month_receipts_all.count(),
+                'completed_count': month_receipts_completed.count(),
+                'cancelled_count': month_receipts_cancelled.count(),
+                'draft_count': month_receipts_draft.count(),
+                'amount': month_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0
             })
     
     elif period_type == 'fiscal_year':
@@ -3161,16 +3198,22 @@ def revenue_summary_report_view(request):
         for i in range(4, -1, -1):
             fiscal_year = current_fiscal - i
             fiscal_start, fiscal_end = get_fiscal_year_dates(fiscal_year)
-            
-            fiscal_receipts = completed_receipts.filter(
+
+            fiscal_receipts_all = receipts.filter(
                 receipt_date__gte=fiscal_start,
                 receipt_date__lte=fiscal_end
             )
-            
+            fiscal_receipts_completed = fiscal_receipts_all.filter(status='completed')
+            fiscal_receipts_cancelled = fiscal_receipts_all.filter(status='cancelled')
+            fiscal_receipts_draft = fiscal_receipts_all.filter(status='draft')
+
             period_summary.append({
                 'period': f"ปีงบ {fiscal_year}",
-                'count': fiscal_receipts.count(),
-                'amount': fiscal_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'count': fiscal_receipts_all.count(),
+                'completed_count': fiscal_receipts_completed.count(),
+                'cancelled_count': fiscal_receipts_cancelled.count(),
+                'draft_count': fiscal_receipts_draft.count(),
+                'amount': fiscal_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0
             })
     
     context = {
@@ -3207,13 +3250,13 @@ def revenue_summary_excel_export(request):
     from utils.fiscal_year import get_current_fiscal_year, get_fiscal_year_dates
     from accounts.utils import convert_to_thai_date
     
-    # ใช้ logic เดียวกันกับ revenue_summary_report_view
+    # ใช้ logic เดียวกันกับ revenue_summary_report_view - กรองเฉพาะใบที่ผ่านกระบวนการทางบัญชี
     if request.user.has_permission('receipt_view_all'):
-        receipts = Receipt.objects.all()
+        receipts = Receipt.objects.exclude(receipt_number__isnull=True).exclude(receipt_number='')
         departments = Department.objects.filter(is_active=True)
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(receipt_number__isnull=True).exclude(receipt_number='')
         departments = Department.objects.filter(name=request.user.get_department(), is_active=True)
         view_scope = f"หน่วยงาน: {request.user.get_department()}"
     
@@ -3245,30 +3288,43 @@ def revenue_summary_excel_export(request):
                 pass
     
     completed_receipts = receipts.filter(status='completed')
-    
-    # สรุปรวม
+
+    # สรุปรวม - รวมทุกสถานะ
     total_summary = {
         'total_amount': completed_receipts.aggregate(total=Sum('total_amount'))['total'] or 0,
-        'total_count': completed_receipts.count(),
-        'total_departments': completed_receipts.values('department').distinct().count(),
+        'total_count': receipts.count(),  # นับรวมทุกสถานะ
+        'completed_count': completed_receipts.count(),  # นับเฉพาะเสร็จสิ้น
+        'cancelled_count': receipts.filter(status='cancelled').count(),  # นับยกเลิก
+        'draft_count': receipts.filter(status='draft').count(),  # นับร่าง
+        'total_departments': receipts.values('department').distinct().count(),
     }
-    
+
     # สรุปตามหน่วยงาน
     department_summary = []
     for dept in departments:
-        dept_receipts = completed_receipts.filter(department=dept)
-        count = dept_receipts.count()
-        amount = dept_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
-        
-        if count > 0:
+        dept_receipts_all = receipts.filter(department=dept)
+        dept_receipts_completed = dept_receipts_all.filter(status='completed')
+        dept_receipts_cancelled = dept_receipts_all.filter(status='cancelled')
+        dept_receipts_draft = dept_receipts_all.filter(status='draft')
+
+        total_count = dept_receipts_all.count()
+        completed_count = dept_receipts_completed.count()
+        cancelled_count = dept_receipts_cancelled.count()
+        draft_count = dept_receipts_draft.count()
+        amount = dept_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0
+
+        if total_count > 0:  # แสดงเฉพาะหน่วยงานที่มีข้อมูล
             department_summary.append({
                 'department': dept.name,
                 'department_code': dept.code,
-                'count': count,
+                'count': total_count,  # รวมทุกสถานะ
+                'completed_count': completed_count,
+                'cancelled_count': cancelled_count,
+                'draft_count': draft_count,
                 'amount': amount,
                 'percentage': round((amount / total_summary['total_amount'] * 100) if total_summary['total_amount'] > 0 else 0, 1)
             })
-    
+
     department_summary.sort(key=lambda x: x['amount'], reverse=True)
     
     # สรุปตามช่วงเวลา
@@ -3292,37 +3348,40 @@ def revenue_summary_excel_export(request):
         
         current_date = start_date
         while current_date <= end_date:
-            day_start = datetime.combine(current_date, datetime.min.time())
-            day_start = timezone.make_aware(day_start)
-            day_end = day_start + timedelta(days=1)
-            
-            day_receipts = completed_receipts.filter(
-                created_at__gte=day_start,
-                created_at__lt=day_end
-            )
-            
+            # ใช้ receipt_date แทน created_at เพื่อความถูกต้อง
+            day_receipts_all = receipts.filter(receipt_date=current_date)
+            day_receipts_completed = day_receipts_all.filter(status='completed')
+            day_receipts_cancelled = day_receipts_all.filter(status='cancelled')
+            day_receipts_draft = day_receipts_all.filter(status='draft')
+
             period_summary.append({
                 'period': current_date,  # ส่งเป็น date object เพื่อใช้ thai_date filter
-                'count': day_receipts.count(),
-                'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'count': day_receipts_all.count(),  # รวมทุกสถานะ
+                'completed_count': day_receipts_completed.count(),
+                'cancelled_count': day_receipts_cancelled.count(),
+                'draft_count': day_receipts_draft.count(),
+                'amount': day_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0  # เฉพาะเสร็จสิ้น
             })
 
             current_date += timedelta(days=1)
     elif period_type == 'daily':
         for i in range(29, -1, -1):
             day = now - timedelta(days=i)
-            day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-            day_end = day_start + timedelta(days=1)
-            
-            day_receipts = completed_receipts.filter(
-                created_at__gte=day_start,
-                created_at__lt=day_end
-            )
-            
+            current_date = day.date()
+
+            # ใช้ receipt_date แทน created_at เพื่อความถูกต้อง
+            day_receipts_all = receipts.filter(receipt_date=current_date)
+            day_receipts_completed = day_receipts_all.filter(status='completed')
+            day_receipts_cancelled = day_receipts_all.filter(status='cancelled')
+            day_receipts_draft = day_receipts_all.filter(status='draft')
+
             period_summary.append({
-                'period': day.date(),  # ส่งเป็น date object เพื่อใช้ thai_date filter
-                'count': day_receipts.count(),
-                'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'period': current_date,  # ส่งเป็น date object เพื่อใช้ thai_date filter
+                'count': day_receipts_all.count(),  # รวมทุกสถานะ
+                'completed_count': day_receipts_completed.count(),
+                'cancelled_count': day_receipts_cancelled.count(),
+                'draft_count': day_receipts_draft.count(),
+                'amount': day_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0  # เฉพาะเสร็จสิ้น
             })
     
     elif period_type == 'monthly':
@@ -3347,20 +3406,38 @@ def revenue_summary_excel_export(request):
                 next_month_start = now.replace(year=target_year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
             else:
                 next_month_start = now.replace(year=target_year, month=target_month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
-            
-            month_receipts = completed_receipts.filter(
-                created_at__gte=month_start,
-                created_at__lt=next_month_start
+
+            # ใช้ receipt_date แทน created_at
+            from datetime import date as date_type
+            month_start_date = date_type(year=target_year, month=target_month, day=1)
+            if target_month == 12:
+                month_end_date = date_type(year=target_year + 1, month=1, day=1)
+            else:
+                month_end_date = date_type(year=target_year, month=target_month + 1, day=1)
+
+            # วันสุดท้ายของเดือน
+            from datetime import timedelta as td
+            month_last_date = month_end_date - td(days=1)
+
+            month_receipts_all = receipts.filter(
+                receipt_date__gte=month_start_date,
+                receipt_date__lte=month_last_date
             )
-            
+            month_receipts_completed = month_receipts_all.filter(status='completed')
+            month_receipts_cancelled = month_receipts_all.filter(status='cancelled')
+            month_receipts_draft = month_receipts_all.filter(status='draft')
+
             thai_months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
                           'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
             thai_month = thai_months[target_month - 1]
-            
+
             period_summary.append({
                 'period': f"{thai_month} {target_year + 543}",
-                'count': month_receipts.count(),
-                'amount': month_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'count': month_receipts_all.count(),
+                'completed_count': month_receipts_completed.count(),
+                'cancelled_count': month_receipts_cancelled.count(),
+                'draft_count': month_receipts_draft.count(),
+                'amount': month_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0
             })
     
     elif period_type == 'fiscal_year':
@@ -3368,16 +3445,22 @@ def revenue_summary_excel_export(request):
         for i in range(4, -1, -1):
             fiscal_year = current_fiscal - i
             fiscal_start, fiscal_end = get_fiscal_year_dates(fiscal_year)
-            
-            fiscal_receipts = completed_receipts.filter(
+
+            fiscal_receipts_all = receipts.filter(
                 receipt_date__gte=fiscal_start,
                 receipt_date__lte=fiscal_end
             )
-            
+            fiscal_receipts_completed = fiscal_receipts_all.filter(status='completed')
+            fiscal_receipts_cancelled = fiscal_receipts_all.filter(status='cancelled')
+            fiscal_receipts_draft = fiscal_receipts_all.filter(status='draft')
+
             period_summary.append({
                 'period': f"ปีงบ {fiscal_year}",
-                'count': fiscal_receipts.count(),
-                'amount': fiscal_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'count': fiscal_receipts_all.count(),
+                'completed_count': fiscal_receipts_completed.count(),
+                'cancelled_count': fiscal_receipts_cancelled.count(),
+                'draft_count': fiscal_receipts_draft.count(),
+                'amount': fiscal_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0
             })
     
     # สร้าง Excel workbook
@@ -3447,21 +3530,31 @@ def revenue_summary_excel_export(request):
     ws.cell(row=8, column=2, value=f"{total_summary['total_amount']:,.2f} บาท").border = border
     ws.cell(row=8, column=2).alignment = Alignment(horizontal='right')
 
-    ws.cell(row=9, column=1, value="จำนวนใบสำคัญ").border = border
-    ws.cell(row=9, column=2, value=f"{total_summary['total_count']:,} ใบ").border = border
+    ws.cell(row=9, column=1, value="ใบสำคัญเสร็จสิ้น").border = border
+    ws.cell(row=9, column=2, value=f"{total_summary['completed_count']:,} ใบ").border = border
     ws.cell(row=9, column=2).alignment = Alignment(horizontal='right')
 
-    ws.cell(row=10, column=1, value="หน่วยงานที่มีข้อมูล").border = border
-    ws.cell(row=10, column=2, value=f"{total_summary['total_departments']} หน่วยงาน").border = border
+    ws.cell(row=10, column=1, value="ใบสำคัญยกเลิก").border = border
+    ws.cell(row=10, column=2, value=f"{total_summary['cancelled_count']:,} ใบ").border = border
     ws.cell(row=10, column=2).alignment = Alignment(horizontal='right')
 
+    ws.cell(row=11, column=1, value="รวมทั้งหมด").border = border
+    ws.cell(row=11, column=2, value=f"{total_summary['total_count']:,} ใบ").border = border
+    ws.cell(row=11, column=2).alignment = Alignment(horizontal='right')
+    ws.cell(row=11, column=1).font = Font(bold=True)
+    ws.cell(row=11, column=2).font = Font(bold=True)
+
+    ws.cell(row=12, column=1, value="หน่วยงานที่มีข้อมูล").border = border
+    ws.cell(row=12, column=2, value=f"{total_summary['total_departments']} หน่วยงาน").border = border
+    ws.cell(row=12, column=2).alignment = Alignment(horizontal='right')
+
     # สรุปตามหน่วยงาน (ย้ายขึ้นมาก่อน)
-    dept_start_row = 12
+    dept_start_row = 14
     ws[f'A{dept_start_row}'] = "สรุปตามหน่วยงาน"
     ws[f'A{dept_start_row}'].font = Font(bold=True, size=12)
 
     # Headers สำหรับตารางหน่วยงาน
-    dept_headers = ['หน่วยงาน', 'รหัส', 'จำนวน (ใบ)', 'ยอดเงิน (บาท)', 'เปอร์เซ็นต์']
+    dept_headers = ['หน่วยงาน', 'รหัส', 'เสร็จสิ้น', 'ยกเลิก', 'รวม', 'ยอดเงิน (บาท)', 'เปอร์เซ็นต์']
     dept_header_row = dept_start_row + 1
 
     for col, header in enumerate(dept_headers, 1):
@@ -3477,14 +3570,18 @@ def revenue_summary_excel_export(request):
         row = dept_header_row + i
         ws.cell(row=row, column=1, value=dept['department']).border = border
         ws.cell(row=row, column=2, value=dept['department_code']).border = border
-        ws.cell(row=row, column=3, value=dept['count']).border = border
-        ws.cell(row=row, column=4, value=dept['amount']).border = border
-        ws.cell(row=row, column=5, value=f"{dept['percentage']}%").border = border
+        ws.cell(row=row, column=3, value=dept['completed_count']).border = border
+        ws.cell(row=row, column=4, value=dept['cancelled_count']).border = border
+        ws.cell(row=row, column=5, value=dept['count']).border = border
+        ws.cell(row=row, column=6, value=dept['amount']).border = border
+        ws.cell(row=row, column=7, value=f"{dept['percentage']}%").border = border
 
         # จัดรูปแบบ
         ws.cell(row=row, column=3).alignment = Alignment(horizontal='center')
-        ws.cell(row=row, column=4).alignment = Alignment(horizontal='right')
+        ws.cell(row=row, column=4).alignment = Alignment(horizontal='center')
         ws.cell(row=row, column=5).alignment = Alignment(horizontal='center')
+        ws.cell(row=row, column=6).alignment = Alignment(horizontal='right')
+        ws.cell(row=row, column=7).alignment = Alignment(horizontal='center')
 
     # ตารางรายรับ (เปลี่ยนชื่อจาก "สรุปตามช่วงเวลา")
     period_start_row = dept_header_row + len(department_summary) + 2
@@ -3505,7 +3602,7 @@ def revenue_summary_excel_export(request):
     ws[f'A{period_start_row}'].font = Font(bold=True, size=12)
 
     # Headers สำหรับตารางรายรับ
-    headers = ['ช่วงเวลา', 'จำนวน (ใบ)', 'ยอดเงิน (บาท)']
+    headers = ['ช่วงเวลา', 'เสร็จสิ้น', 'ยกเลิก', 'รวม', 'ยอดเงิน (บาท)']
     period_header_row = period_start_row + 1
 
     for col, header in enumerate(headers, 1):
@@ -3518,6 +3615,8 @@ def revenue_summary_excel_export(request):
 
     # คำนวณยอดรวม
     total_count = 0
+    total_completed = 0
+    total_cancelled = 0
     total_amount = 0
 
     # ข้อมูลตารางรายรับ
@@ -3531,14 +3630,20 @@ def revenue_summary_excel_export(request):
             period_display = str(period['period'])
 
         ws.cell(row=row, column=1, value=period_display).border = border
-        ws.cell(row=row, column=2, value=period['count']).border = border
-        ws.cell(row=row, column=3, value=period['amount']).border = border
+        ws.cell(row=row, column=2, value=period.get('completed_count', 0)).border = border
+        ws.cell(row=row, column=3, value=period.get('cancelled_count', 0)).border = border
+        ws.cell(row=row, column=4, value=period['count']).border = border
+        ws.cell(row=row, column=5, value=period['amount']).border = border
 
         # จัดรูปแบบตัวเลข
         ws.cell(row=row, column=2).alignment = Alignment(horizontal='center')
-        ws.cell(row=row, column=3).alignment = Alignment(horizontal='right')
+        ws.cell(row=row, column=3).alignment = Alignment(horizontal='center')
+        ws.cell(row=row, column=4).alignment = Alignment(horizontal='center')
+        ws.cell(row=row, column=5).alignment = Alignment(horizontal='right')
 
         # เก็บยอดรวม
+        total_completed += period.get('completed_count', 0)
+        total_cancelled += period.get('cancelled_count', 0)
         total_count += period['count']
         total_amount += period['amount']
 
@@ -3549,13 +3654,23 @@ def revenue_summary_excel_export(request):
     ws.cell(row=summary_row, column=1).fill = header_fill
     ws.cell(row=summary_row, column=1).alignment = Alignment(horizontal='center')
 
-    ws.cell(row=summary_row, column=2, value=total_count).border = border
+    ws.cell(row=summary_row, column=2, value=total_completed).border = border
     ws.cell(row=summary_row, column=2).font = Font(bold=True)
     ws.cell(row=summary_row, column=2).fill = header_fill
     ws.cell(row=summary_row, column=2).alignment = Alignment(horizontal='center')
 
-    ws.cell(row=summary_row, column=3, value=total_amount).border = border
+    ws.cell(row=summary_row, column=3, value=total_cancelled).border = border
     ws.cell(row=summary_row, column=3).font = Font(bold=True)
+    ws.cell(row=summary_row, column=3).fill = header_fill
+    ws.cell(row=summary_row, column=3).alignment = Alignment(horizontal='center')
+
+    ws.cell(row=summary_row, column=4, value=total_count).border = border
+    ws.cell(row=summary_row, column=4).font = Font(bold=True)
+    ws.cell(row=summary_row, column=4).fill = header_fill
+    ws.cell(row=summary_row, column=4).alignment = Alignment(horizontal='center')
+
+    ws.cell(row=summary_row, column=5, value=total_amount).border = border
+    ws.cell(row=summary_row, column=5).font = Font(bold=True)
     ws.cell(row=summary_row, column=3).fill = header_fill
     ws.cell(row=summary_row, column=3).alignment = Alignment(horizontal='right')
     
@@ -3604,13 +3719,13 @@ def revenue_summary_pdf_export(request):
     else:
         thai_font = 'Helvetica'
     
-    # ใช้ logic เดียวกันกับ revenue_summary_report_view
+    # ใช้ logic เดียวกันกับ revenue_summary_report_view - กรองเฉพาะใบที่ผ่านกระบวนการทางบัญชี
     if request.user.has_permission('receipt_view_all'):
-        receipts = Receipt.objects.all()
+        receipts = Receipt.objects.exclude(receipt_number__isnull=True).exclude(receipt_number='')
         departments = Department.objects.filter(is_active=True)
         view_scope = "ทุกหน่วยงาน"
     else:
-        receipts = Receipt.objects.filter(department__name=request.user.get_department())
+        receipts = Receipt.objects.filter(department__name=request.user.get_department()).exclude(receipt_number__isnull=True).exclude(receipt_number='')
         departments = Department.objects.filter(name=request.user.get_department(), is_active=True)
         view_scope = f"หน่วยงาน: {request.user.get_department()}"
     
@@ -3642,30 +3757,43 @@ def revenue_summary_pdf_export(request):
                 pass
     
     completed_receipts = receipts.filter(status='completed')
-    
-    # สรุปข้อมูล (ใช้ logic เดียวกัน)
+
+    # สรุปข้อมูล - รวมทุกสถานะ
     total_summary = {
         'total_amount': completed_receipts.aggregate(total=Sum('total_amount'))['total'] or 0,
-        'total_count': completed_receipts.count(),
-        'total_departments': completed_receipts.values('department').distinct().count(),
+        'total_count': receipts.count(),  # นับรวมทุกสถานะ
+        'completed_count': completed_receipts.count(),  # นับเฉพาะเสร็จสิ้น
+        'cancelled_count': receipts.filter(status='cancelled').count(),  # นับยกเลิก
+        'draft_count': receipts.filter(status='draft').count(),  # นับร่าง
+        'total_departments': receipts.values('department').distinct().count(),
     }
-    
+
     # สรุปตามหน่วยงาน
     department_summary = []
     for dept in departments:
-        dept_receipts = completed_receipts.filter(department=dept)
-        count = dept_receipts.count()
-        amount = dept_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
-        
-        if count > 0:
+        dept_receipts_all = receipts.filter(department=dept)
+        dept_receipts_completed = dept_receipts_all.filter(status='completed')
+        dept_receipts_cancelled = dept_receipts_all.filter(status='cancelled')
+        dept_receipts_draft = dept_receipts_all.filter(status='draft')
+
+        total_count = dept_receipts_all.count()
+        completed_count = dept_receipts_completed.count()
+        cancelled_count = dept_receipts_cancelled.count()
+        draft_count = dept_receipts_draft.count()
+        amount = dept_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0
+
+        if total_count > 0:  # แสดงเฉพาะหน่วยงานที่มีข้อมูล
             department_summary.append({
                 'department': dept.name,
                 'department_code': dept.code,
-                'count': count,
+                'count': total_count,  # รวมทุกสถานะ
+                'completed_count': completed_count,
+                'cancelled_count': cancelled_count,
+                'draft_count': draft_count,
                 'amount': amount,
                 'percentage': round((amount / total_summary['total_amount'] * 100) if total_summary['total_amount'] > 0 else 0, 1)
             })
-    
+
     department_summary.sort(key=lambda x: x['amount'], reverse=True)
     
     # สรุปตามช่วงเวลา
@@ -3689,37 +3817,40 @@ def revenue_summary_pdf_export(request):
         
         current_date = start_date
         while current_date <= end_date:
-            day_start = datetime.combine(current_date, datetime.min.time())
-            day_start = timezone.make_aware(day_start)
-            day_end = day_start + timedelta(days=1)
-            
-            day_receipts = completed_receipts.filter(
-                created_at__gte=day_start,
-                created_at__lt=day_end
-            )
-            
+            # ใช้ receipt_date แทน created_at เพื่อความถูกต้อง
+            day_receipts_all = receipts.filter(receipt_date=current_date)
+            day_receipts_completed = day_receipts_all.filter(status='completed')
+            day_receipts_cancelled = day_receipts_all.filter(status='cancelled')
+            day_receipts_draft = day_receipts_all.filter(status='draft')
+
             period_summary.append({
                 'period': current_date,  # ส่งเป็น date object เพื่อใช้ thai_date filter
-                'count': day_receipts.count(),
-                'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'count': day_receipts_all.count(),  # รวมทุกสถานะ
+                'completed_count': day_receipts_completed.count(),
+                'cancelled_count': day_receipts_cancelled.count(),
+                'draft_count': day_receipts_draft.count(),
+                'amount': day_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0  # เฉพาะเสร็จสิ้น
             })
 
             current_date += timedelta(days=1)
     elif period_type == 'daily':
         for i in range(29, -1, -1):
             day = now - timedelta(days=i)
-            day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-            day_end = day_start + timedelta(days=1)
-            
-            day_receipts = completed_receipts.filter(
-                created_at__gte=day_start,
-                created_at__lt=day_end
-            )
-            
+            current_date = day.date()
+
+            # ใช้ receipt_date แทน created_at เพื่อความถูกต้อง
+            day_receipts_all = receipts.filter(receipt_date=current_date)
+            day_receipts_completed = day_receipts_all.filter(status='completed')
+            day_receipts_cancelled = day_receipts_all.filter(status='cancelled')
+            day_receipts_draft = day_receipts_all.filter(status='draft')
+
             period_summary.append({
-                'period': day.date(),  # ส่งเป็น date object เพื่อใช้ thai_date filter
-                'count': day_receipts.count(),
-                'amount': day_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'period': current_date,  # ส่งเป็น date object เพื่อใช้ thai_date filter
+                'count': day_receipts_all.count(),  # รวมทุกสถานะ
+                'completed_count': day_receipts_completed.count(),
+                'cancelled_count': day_receipts_cancelled.count(),
+                'draft_count': day_receipts_draft.count(),
+                'amount': day_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0  # เฉพาะเสร็จสิ้น
             })
     
     elif period_type == 'monthly':
@@ -3744,20 +3875,38 @@ def revenue_summary_pdf_export(request):
                 next_month_start = now.replace(year=target_year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
             else:
                 next_month_start = now.replace(year=target_year, month=target_month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
-            
-            month_receipts = completed_receipts.filter(
-                created_at__gte=month_start,
-                created_at__lt=next_month_start
+
+            # ใช้ receipt_date แทน created_at
+            from datetime import date as date_type
+            month_start_date = date_type(year=target_year, month=target_month, day=1)
+            if target_month == 12:
+                month_end_date = date_type(year=target_year + 1, month=1, day=1)
+            else:
+                month_end_date = date_type(year=target_year, month=target_month + 1, day=1)
+
+            # วันสุดท้ายของเดือน
+            from datetime import timedelta as td
+            month_last_date = month_end_date - td(days=1)
+
+            month_receipts_all = receipts.filter(
+                receipt_date__gte=month_start_date,
+                receipt_date__lte=month_last_date
             )
-            
+            month_receipts_completed = month_receipts_all.filter(status='completed')
+            month_receipts_cancelled = month_receipts_all.filter(status='cancelled')
+            month_receipts_draft = month_receipts_all.filter(status='draft')
+
             thai_months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
                           'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
             thai_month = thai_months[target_month - 1]
-            
+
             period_summary.append({
                 'period': f"{thai_month} {target_year + 543}",
-                'count': month_receipts.count(),
-                'amount': month_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'count': month_receipts_all.count(),
+                'completed_count': month_receipts_completed.count(),
+                'cancelled_count': month_receipts_cancelled.count(),
+                'draft_count': month_receipts_draft.count(),
+                'amount': month_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0
             })
     
     elif period_type == 'fiscal_year':
@@ -3765,16 +3914,22 @@ def revenue_summary_pdf_export(request):
         for i in range(4, -1, -1):
             fiscal_year = current_fiscal - i
             fiscal_start, fiscal_end = get_fiscal_year_dates(fiscal_year)
-            
-            fiscal_receipts = completed_receipts.filter(
+
+            fiscal_receipts_all = receipts.filter(
                 receipt_date__gte=fiscal_start,
                 receipt_date__lte=fiscal_end
             )
-            
+            fiscal_receipts_completed = fiscal_receipts_all.filter(status='completed')
+            fiscal_receipts_cancelled = fiscal_receipts_all.filter(status='cancelled')
+            fiscal_receipts_draft = fiscal_receipts_all.filter(status='draft')
+
             period_summary.append({
                 'period': f"ปีงบ {fiscal_year}",
-                'count': fiscal_receipts.count(),
-                'amount': fiscal_receipts.aggregate(total=Sum('total_amount'))['total'] or 0
+                'count': fiscal_receipts_all.count(),
+                'completed_count': fiscal_receipts_completed.count(),
+                'cancelled_count': fiscal_receipts_cancelled.count(),
+                'draft_count': fiscal_receipts_draft.count(),
+                'amount': fiscal_receipts_completed.aggregate(total=Sum('total_amount'))['total'] or 0
             })
     
     # สร้าง PDF response
@@ -3929,28 +4084,30 @@ def revenue_summary_pdf_export(request):
             spaceAfter=4
         )))
 
-        dept_headers = ['หน่วยงาน', 'รหัส', 'จำนวน (ใบ)', 'ยอดเงิน (บาท)', 'เปอร์เซ็นต์']
+        dept_headers = ['หน่วยงาน', 'รหัส', 'เสร็จสิ้น', 'ยกเลิก', 'รวม', 'ยอดเงิน (บาท)', 'เปอร์เซ็นต์']
         dept_data = [dept_headers]
 
         for dept in department_summary[:10]:  # จำกัด 10 อันดับแรก
             dept_data.append([
                 dept['department'][:30],
                 dept['department_code'],
+                str(dept['completed_count']),
+                str(dept['cancelled_count']),
                 str(dept['count']),
                 f"{dept['amount']:,.0f}",
                 f"{dept['percentage']}%"
             ])
 
-        # ตารางเต็มกระดาษ landscape A4
-        dept_table = Table(dept_data, colWidths=[3*inch, 1.5*inch, 1.5*inch, 2.5*inch, 1.5*inch])
+        # ตารางเต็มกระดาษ landscape A4 - ความกว้างรวม 10 inch
+        dept_table = Table(dept_data, colWidths=[2.8*inch, 1.2*inch, 0.9*inch, 0.9*inch, 0.9*inch, 2*inch, 1.3*inch])
         dept_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), thai_font),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
-            ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),  # หน่วยงาน - ชิดซ้าย
+            ('ALIGN', (5, 1), (5, -1), 'RIGHT'),  # ยอดเงิน - ชิดขวา
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
@@ -3976,10 +4133,12 @@ def revenue_summary_pdf_export(request):
             spaceAfter=4
         )))
 
-        period_headers = ['ช่วงเวลา', 'จำนวน (ใบ)', 'ยอดเงิน (บาท)']
+        period_headers = ['ช่วงเวลา', 'เสร็จสิ้น', 'ยกเลิก', 'รวม', 'ยอดเงิน (บาท)']
         period_data = [period_headers]
 
         # คำนวณยอดรวม
+        total_completed = 0
+        total_cancelled = 0
         total_count = 0
         total_amount = 0
 
@@ -3993,23 +4152,29 @@ def revenue_summary_pdf_export(request):
 
             period_data.append([
                 period_display,
+                str(period.get('completed_count', 0)),
+                str(period.get('cancelled_count', 0)),
                 str(period['count']),
                 f"{period['amount']:,.0f}"
             ])
 
             # เก็บยอดรวม
+            total_completed += period.get('completed_count', 0)
+            total_cancelled += period.get('cancelled_count', 0)
             total_count += period['count']
             total_amount += period['amount']
 
         # เพิ่มแถวรวมท้ายตาราง
         period_data.append([
             'รวม',
+            str(total_completed),
+            str(total_cancelled),
             str(total_count),
             f"{total_amount:,.0f}"
         ])
 
-        # ตารางเต็มกระดาษ landscape A4
-        period_table = Table(period_data, colWidths=[4*inch, 2*inch, 4*inch])
+        # ตารางเต็มกระดาษ landscape A4 - ความกว้างรวม 10 inch
+        period_table = Table(period_data, colWidths=[3*inch, 1.5*inch, 1.5*inch, 1.5*inch, 2.5*inch])
 
         # คำนวณแถวสุดท้าย (แถวรวม)
         last_row = len(period_data) - 1
@@ -4020,8 +4185,8 @@ def revenue_summary_pdf_export(request):
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
-            ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),  # ช่วงเวลา - ชิดซ้าย
+            ('ALIGN', (4, 1), (4, -1), 'RIGHT'),  # ยอดเงิน - ชิดขวา
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             # แถวรวม - ตัวหนา และพื้นหลังเทาอ่อน
@@ -4158,7 +4323,7 @@ def receipt_report_pdf_export(request):
             Q(recipient_name__icontains=search_query)
         )
 
-    receipts = receipts.select_related('department', 'created_by').order_by('-created_at')
+    receipts = receipts.select_related('department', 'created_by').order_by('receipt_date', 'receipt_number')
 
     # สร้าง PDF response (inline - เปิดในแท็บใหม่)
     response = HttpResponse(content_type='application/pdf')
@@ -4275,13 +4440,24 @@ def receipt_report_pdf_export(request):
         spaceAfter=4
     )))
 
+    # สร้าง style สำหรับเซลล์ในตาราง
+    cell_style = ParagraphStyle(
+        'CellStyle',
+        parent=styles['Normal'],
+        fontName=thai_font,
+        fontSize=10,
+        leading=12,  # ระยะห่างระหว่างบรรทัด
+        alignment=0  # ชิดซ้าย
+    )
+
     # สร้างตาราง - ตามฟอร์มที่หน่วยงานกำหนด
     headers = ['ลำดับ', 'ใบสำคัญเลขที่', 'วันที่ขอ', 'รายการ', 'จำนวนเงิน', 'ผู้รับเงิน', 'ผู้จ่ายเงิน', 'หมายเหตุ']
     table_data = [headers]
 
-    # คำนวณยอดรวม (เฉพาะเสร็จสิ้น ไม่นับยกเลิก)
+    # คำนวณยอดรวม - แยกตามสถานะ
     total_amount = 0
-    total_count = 0
+    completed_count = 0
+    cancelled_count = 0
     status_map = {'draft': 'ร่าง', 'completed': 'เสร็จสิ้น', 'cancelled': 'ยกเลิก'}
     cancelled_rows = []  # เก็บ index ของแถวที่ยกเลิก
 
@@ -4296,37 +4472,60 @@ def receipt_report_pdf_export(request):
         items_text = []
         for item in receipt.items.all():
             items_text.append(f"{item.description}")
-        items_display = "\n".join(items_text) if items_text else "-"  # ใช้ \n แทน ; เพื่อขึ้นบรรทัดใหม่
+        items_display_text = "<br/>".join(items_text) if items_text else "-"  # ใช้ <br/> สำหรับ Paragraph
 
-        # ผู้จ่ายเงิน
-        payer = receipt.created_by.get_display_name() if receipt.created_by else "-"
+        # แปลงเป็น Paragraph เพื่อให้ word wrap ทำงาน
+        items_paragraph = Paragraph(items_display_text, cell_style)
+
+        # ผู้รับเงิน และ ผู้จ่ายเงิน - ขึ้นอยู่กับประเภท
+        recipient = receipt.recipient_name or "-"
+        if receipt.is_loan:
+            # กรณียืมเงิน - แสดงทั้งผู้รับและผู้จ่าย
+            payer = receipt.created_by.get_display_name() if receipt.created_by else "-"
+            payment_type = "ยืมเงิน"
+        else:
+            # กรณีจ่ายปกติ - แสดงเฉพาะผู้รับ, ผู้จ่ายเป็น "-"
+            payer = "-"
+            payment_type = "จ่ายปกติ"
+
+        # หมายเหตุ: สถานะ / ประเภทการจ่าย
+        note = f"{status_map.get(receipt.status, receipt.status)} / {payment_type}"
 
         row_data = [
             str(index),
             receipt.receipt_number or "-",
             thai_date,
-            items_display,  # แสดงเต็ม ไม่ตัด
+            items_paragraph,  # ใช้ Paragraph แทน plain text
             f"{receipt.total_amount:,.2f}",
-            receipt.recipient_name,  # แสดงเต็ม ไม่ตัด
-            payer,  # แสดงเต็ม ไม่ตัด
-            status_map.get(receipt.status, receipt.status)
+            recipient,
+            payer,
+            note
         ]
         table_data.append(row_data)
 
         # เก็บ index ของแถวที่ยกเลิก (สำหรับใส่สีพื้นหลัง)
         if receipt.status == 'cancelled':
             cancelled_rows.append(len(table_data) - 1)  # index ของแถวที่เพิ่งใส่
+            cancelled_count += 1
 
         # เก็บยอดรวม (เฉพาะเสร็จสิ้น ไม่นับยกเลิก)
         if receipt.status == 'completed':
             total_amount += receipt.total_amount
-            total_count += 1
+            completed_count += 1
 
-    # เพิ่มแถวรวม
+    # สร้างข้อความแสดงสถานะ
+    status_parts = []
+    if completed_count > 0:
+        status_parts.append(f'เสร็จสิ้น {completed_count}')
+    if cancelled_count > 0:
+        status_parts.append(f'ยกเลิก {cancelled_count}')
+    status_text = ' '.join(status_parts) if status_parts else '0 ใบ'
+
+    # เพิ่มแถวรวม - ใช้ merge cells
     table_data.append([
-        'รวม',
-        f'{total_count} ใบ',
+        status_text,  # Merge ลำดับ + ใบสำคัญเลขที่ (0-1)
         '',
+        'รวม',  # Merge วันที่ขอ + รายการ (2-3)
         '',
         f'{total_amount:,.2f}',
         '',
@@ -4335,7 +4534,7 @@ def receipt_report_pdf_export(request):
     ])
 
     # สร้างตาราง - เต็มหน้า landscape A4 (ขยายคอลัมภ์รายการ)
-    table = Table(table_data, colWidths=[0.4*inch, 1*inch, 0.9*inch, 3.5*inch, 1*inch, 1.5*inch, 1.2*inch, 1*inch])
+    table = Table(table_data, colWidths=[0.4*inch, 1*inch, 0.9*inch, 3.35*inch, 1*inch, 1.3*inch, 1.3*inch, 1.4*inch])
 
     # คำนวณแถวสุดท้าย (แถวรวม)
     last_row = len(table_data) - 1
@@ -4356,10 +4555,15 @@ def receipt_report_pdf_export(request):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('WORDWRAP', (0, 0), (-1, -1), True),  # ให้ข้อความขึ้นบรรทัดใหม่ได้
 
-        # แถวรวม - ตัวหนา และพื้นหลังเทาอ่อน
+        # แถวรวม - merge cells และจัดรูปแบบ
+        ('SPAN', (0, last_row), (1, last_row)),  # Merge ลำดับ + ใบสำคัญเลขที่
+        ('SPAN', (2, last_row), (3, last_row)),  # Merge วันที่ขอ + รายการ
+        ('SPAN', (5, last_row), (7, last_row)),  # Merge ผู้รับเงิน + ผู้จ่ายเงิน + หมายเหตุ
         ('BACKGROUND', (0, last_row), (-1, last_row), colors.lightgrey),
+        ('FONTNAME', (0, last_row), (-1, last_row), thai_font_bold),  # ตัวหนา
         ('FONTSIZE', (0, last_row), (-1, last_row), 12),
         ('TEXTCOLOR', (0, last_row), (-1, last_row), colors.black),
+        ('ALIGN', (5, last_row), (5, last_row), 'LEFT'),  # หมายเหตุชิดซ้าย
     ]
 
     # เพิ่มสีพื้นหลังสำหรับแถวที่ยกเลิก (สีเทาอ่อนกว่าหัวตาราง)
@@ -4372,6 +4576,19 @@ def receipt_report_pdf_export(request):
     table.setStyle(TableStyle(table_style))
 
     story.append(table)
+
+    # เพิ่มหมายเหตุใต้ตาราง
+    story.append(Spacer(1, 8))
+    note_style = ParagraphStyle(
+        'NoteStyle',
+        parent=styles['Normal'],
+        fontName=thai_font,
+        fontSize=12,  # เท่ากับแถวรวม
+        alignment=0,  # ชิดซ้าย
+        leftIndent=10
+    )
+    note_text = "หมายเหตุ: ยอดรวมคำนวณจากรายการที่เสร็จสิ้นเท่านั้น รายการที่ยกเลิกไม่นำมารวมในการคำนวณ"
+    story.append(Paragraph(note_text, note_style))
 
     # เพิ่มลายเซ็นต์ท้ายรายงาน
     story.append(Spacer(1, 20))
@@ -4473,9 +4690,9 @@ def receipt_report_excel_export(request):
             Q(recipient_name__icontains=search_query)
         )
 
-    # เรียงลำดับ
-    receipts = receipts.select_related('department', 'created_by').order_by('-created_at')
-    
+    # เรียงลำดับ - จากวันที่น้อยไปมาก (ต้นเดือนไปปลายเดือน)
+    receipts = receipts.select_related('department', 'created_by').order_by('receipt_date', 'receipt_number')
+
     # สร้าง Excel workbook
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -4564,8 +4781,19 @@ def receipt_report_excel_export(request):
             items_text.append(f"{item.description}")
         items_display = "\n".join(items_text) if items_text else "-"
 
-        # ผู้จ่ายเงิน
-        payer = receipt.created_by.get_display_name() if receipt.created_by else "-"
+        # ผู้รับเงิน และ ผู้จ่ายเงิน - ขึ้นอยู่กับประเภท
+        recipient = receipt.recipient_name or "-"
+        if receipt.is_loan:
+            # กรณียืมเงิน - แสดงทั้งผู้รับและผู้จ่าย
+            payer = receipt.created_by.get_display_name() if receipt.created_by else "-"
+            payment_type = "ยืมเงิน"
+        else:
+            # กรณีจ่ายปกติ - แสดงเฉพาะผู้รับ, ผู้จ่ายเป็น "-"
+            payer = "-"
+            payment_type = "จ่ายปกติ"
+
+        # หมายเหตุ: สถานะ / ประเภทการจ่าย
+        note = f"{status_map.get(receipt.status, receipt.status)} / {payment_type}"
 
         # แปลงวันที่เป็นรูปแบบไทย
         if receipt.receipt_date:
@@ -4580,9 +4808,9 @@ def receipt_report_excel_export(request):
             thai_date,  # วันที่ขอ (แบบไทย)
             items_display,  # รายการ (แสดงเต็ม)
             receipt.total_amount,  # จำนวนเงิน
-            receipt.recipient_name,  # ผู้รับเงิน (แสดงเต็ม)
-            payer,  # ผู้จ่ายเงิน (แสดงเต็ม)
-            status_map.get(receipt.status, receipt.status)  # หมายเหตุ
+            recipient,  # ผู้รับเงิน
+            payer,  # ผู้จ่ายเงิน (ขึ้นอยู่กับประเภท)
+            note  # หมายเหตุ: สถานะ / ประเภทการจ่าย
         ]
 
         for col, value in enumerate(row_data, 1):
@@ -4605,34 +4833,60 @@ def receipt_report_excel_export(request):
             if receipt.status == 'cancelled':
                 cell.fill = cancelled_fill
 
-        # นับยอดรวม (เฉพาะเสร็จสิ้น)
+        # นับยอดรวม - แยกตามสถานะ
         if receipt.status == 'completed':
             total_amount += receipt.total_amount
             total_count += 1
+        elif receipt.status == 'cancelled':
+            pass  # นับไว้แล้วในตัวแปรแยก
 
         row_num += 1
 
-    # แถวรวม
+    # สร้างข้อความแสดงสถานะ
+    completed_count = receipts.filter(status='completed').count()
+    cancelled_count = receipts.filter(status='cancelled').count()
+    status_parts = []
+    if completed_count > 0:
+        status_parts.append(f'เสร็จสิ้น {completed_count}')
+    if cancelled_count > 0:
+        status_parts.append(f'ยกเลิก {cancelled_count}')
+    status_text = ' '.join(status_parts) if status_parts else '0 ใบ'
+
+    # แถวรวม - Merge cells เหมือน PDF
     summary_row = row_num
-    ws.cell(row=summary_row, column=1, value="รวม").font = Font(bold=True)
-    ws.cell(row=summary_row, column=1).alignment = Alignment(horizontal='center')
+
+    # Merge (ลำดับ + ใบสำคัญเลขที่) = คอลัมน์ 1-2
+    ws.merge_cells(start_row=summary_row, start_column=1, end_row=summary_row, end_column=2)
+    ws.cell(row=summary_row, column=1, value=status_text).font = Font(bold=True, size=12)
+    ws.cell(row=summary_row, column=1).alignment = Alignment(horizontal='center', vertical='center')
     ws.cell(row=summary_row, column=1).fill = header_fill
     ws.cell(row=summary_row, column=1).border = border
 
-    ws.cell(row=summary_row, column=2, value=f"{total_count} ใบ").font = Font(bold=True)
-    ws.cell(row=summary_row, column=2).alignment = Alignment(horizontal='center')
-    ws.cell(row=summary_row, column=2).fill = header_fill
-    ws.cell(row=summary_row, column=2).border = border
+    # Merge (วันที่ขอ + รายการ) = คอลัมน์ 3-4
+    ws.merge_cells(start_row=summary_row, start_column=3, end_row=summary_row, end_column=4)
+    ws.cell(row=summary_row, column=3, value="รวม").font = Font(bold=True, size=12)
+    ws.cell(row=summary_row, column=3).alignment = Alignment(horizontal='center', vertical='center')
+    ws.cell(row=summary_row, column=3).fill = header_fill
+    ws.cell(row=summary_row, column=3).border = border
 
-    for col in [3, 4, 6, 7, 8]:
-        ws.cell(row=summary_row, column=col).border = border
-        ws.cell(row=summary_row, column=col).fill = header_fill
-
-    ws.cell(row=summary_row, column=5, value=total_amount).font = Font(bold=True)
-    ws.cell(row=summary_row, column=5).alignment = Alignment(horizontal='right')
+    # จำนวนเงิน = คอลัมน์ 5
+    ws.cell(row=summary_row, column=5, value=total_amount).font = Font(bold=True, size=12)
+    ws.cell(row=summary_row, column=5).alignment = Alignment(horizontal='right', vertical='center')
     ws.cell(row=summary_row, column=5).number_format = '#,##0.00'
     ws.cell(row=summary_row, column=5).fill = header_fill
     ws.cell(row=summary_row, column=5).border = border
+
+    # Merge (ผู้รับเงิน + ผู้จ่ายเงิน + หมายเหตุ) = คอลัมน์ 6-8
+    ws.merge_cells(start_row=summary_row, start_column=6, end_row=summary_row, end_column=8)
+    ws.cell(row=summary_row, column=6).fill = header_fill
+    ws.cell(row=summary_row, column=6).border = border
+
+    # หมายเหตุใต้ตาราง
+    note_row = summary_row + 1
+    ws.cell(row=note_row, column=1, value="หมายเหตุ: ยอดรวมคำนวณจากรายการที่เสร็จสิ้นเท่านั้น รายการที่ยกเลิกไม่นำมารวมในการคำนวณ")
+    ws.cell(row=note_row, column=1).font = Font(size=11)
+    ws.cell(row=note_row, column=1).alignment = Alignment(horizontal='left', vertical='center')
+    ws.merge_cells(start_row=note_row, start_column=1, end_row=note_row, end_column=8)
 
     # ปรับขนาดคอลัมน์
     column_widths = [8, 18, 15, 50, 15, 25, 20, 15]
