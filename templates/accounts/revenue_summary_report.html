@@ -126,6 +126,36 @@
     </div>
 </div>
 
+<!-- Export Buttons -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <span class="text-muted">
+                    <i class="fas fa-chart-bar me-1"></i>
+                    รายงานสรุปรายรับ
+                </span>
+            </div>
+            <div class="btn-group">
+                <a href="{% url 'revenue_summary_excel_export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+                   class="btn btn-success btn-sm">
+                    <i class="fas fa-file-excel me-1"></i>
+                    Export Excel
+                </a>
+                <a href="{% url 'revenue_summary_pdf_export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+                   class="btn btn-danger btn-sm" target="_blank">
+                    <i class="fas fa-file-pdf me-1"></i>
+                    Export PDF
+                </a>
+                <a href="{% url 'receipt_report' %}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-list me-1"></i>
+                    รายละเอียด
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Charts Row -->
 <div class="row mb-4">
     <!-- Period Summary Chart -->
@@ -280,36 +310,6 @@
                     ไม่พบข้อมูล
                 </div>
                 {% endfor %}
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Export Buttons -->
-<div class="row mb-3">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <span class="text-muted">
-                    <i class="fas fa-chart-bar me-1"></i>
-                    รายงานสรุปรายรับ
-                </span>
-            </div>
-            <div class="btn-group">
-                <a href="{% url 'revenue_summary_excel_export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" 
-                   class="btn btn-success btn-sm">
-                    <i class="fas fa-file-excel me-1"></i>
-                    Export Excel
-                </a>
-                <a href="{% url 'revenue_summary_pdf_export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" 
-                   class="btn btn-danger btn-sm" target="_blank">
-                    <i class="fas fa-file-pdf me-1"></i>
-                    Export PDF
-                </a>
-                <a href="{% url 'receipt_report' %}" class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-list me-1"></i>
-                    รายละเอียด
-                </a>
             </div>
         </div>
     </div>
