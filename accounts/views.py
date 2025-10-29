@@ -2925,9 +2925,10 @@ def receipt_report_view(request):
     total_amount = receipts.filter(status='completed').aggregate(
         total=Sum('total_amount')
     )['total'] or 0
-    
+
     total_count = receipts.count()
     completed_count = receipts.filter(status='completed').count()
+    cancelled_count = receipts.filter(status='cancelled').count()
     
     # Pagination
     paginator = Paginator(receipts, 50)  # 50 รายการต่อหน้า
@@ -2963,6 +2964,7 @@ def receipt_report_view(request):
         'total_amount': total_amount,
         'total_count': total_count,
         'completed_count': completed_count,
+        'cancelled_count': cancelled_count,
         'status_summary': status_summary,
         'filter_applied': filter_applied,
 

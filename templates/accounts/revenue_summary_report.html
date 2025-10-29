@@ -160,7 +160,7 @@
                                 </thead>
                                 <tbody>
                                     {% for period in period_summary %}
-                                    <tr>
+                                    <tr class="clickable-row" onclick="window.location.href='{% url 'receipt_report' %}?date_from={{ period.period|date:'Y-m-d' }}&date_to={{ period.period|date:'Y-m-d' }}&status=&q='" style="cursor: pointer;">
                                         <td>{{ period.period|thai_date:"short" }}</td>
                                         <td class="text-center">
                                             <span class="badge bg-success">{{ period.completed_count }}</span>
@@ -212,7 +212,7 @@
                             </thead>
                             <tbody>
                                 {% for period in period_summary %}
-                                <tr>
+                                <tr {% if period_type == 'daily' %}class="clickable-row" onclick="window.location.href='{% url 'receipt_report' %}?date_from={{ period.period|date:'Y-m-d' }}&date_to={{ period.period|date:'Y-m-d' }}&status=&q='" style="cursor: pointer;"{% endif %}>
                                     <td>{{ period.period|thai_date:"short" }}</td>
                                     <td class="text-center">
                                         <span class="badge bg-success">{{ period.completed_count }}</span>
@@ -383,6 +383,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .table tbody tr:hover {
     background-color: rgba(0, 123, 255, 0.05);
+}
+
+.table tbody tr.clickable-row:hover {
+    background-color: rgba(0, 123, 255, 0.15);
+    transform: scale(1.01);
+}
+
+.clickable-row {
+    transition: all 0.2s ease;
 }
 
 .card {

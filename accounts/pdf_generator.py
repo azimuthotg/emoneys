@@ -800,15 +800,21 @@ class ReceiptPDFGenerator:
             if is_food:
                 # หมายเหตุสำหรับค่าอาหาร (อยู่เหนือ footer_info)
                 note_x = qr_x + 3.5*cm
-                note_y_start = qr_y + 2.5*cm  # เริ่มจากตำแหน่งสูงกว่า footer_info
+                note_y_start = qr_y + 2.4*cm  # เลื่อนลงมาจาก 2.9cm
 
+                # บรรทัดหัวข้อ "หมายเหตุ :" (ตัวหนา)
+                canvas.setFont(self.thai_font_bold, 12)
+                canvas.drawString(note_x, note_y_start, "หมายเหตุ :")
+
+                # เปลี่ยนกลับเป็นฟอนต์ปกติสำหรับรายการ
                 canvas.setFont(self.thai_font, 12)
 
                 # บรรทัดที่ 1
-                canvas.drawString(note_x, note_y_start, "1. ต้องแนบสำเนาบัตรประชาชนของผู้รับเงิน พร้อมเซ็นรับรองสำเนาถูกต้อง")
+                note_y_1 = note_y_start - 0.5*cm
+                canvas.drawString(note_x, note_y_1, "1. ต้องแนบสำเนาบัตรประชาชนของผู้รับเงิน พร้อมเซ็นรับรองสำเนาถูกต้อง")
 
                 # บรรทัด ที่ 2
-                note_y_2 = note_y_start - 0.45*cm
+                note_y_2 = note_y_1 - 0.45*cm
                 canvas.drawString(note_x, note_y_2, "2. ลายเซ็นรับรองสำเนาถูกต้องในสำเนาบัตรประชาชนของผู้รับเงิน ต้องตรงกับลายเซ็นในใบสำคัญรับเงิน")
 
                 # บรรทัดที่ 3
