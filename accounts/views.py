@@ -1740,7 +1740,8 @@ def receipt_save_ajax(request):
                     template_id=template_id,
                     description=item_data.get('description', ''),
                     amount=amount,
-                    order=idx
+                    order=idx,
+                    additional_recipient_name=item_data.get('additional_recipient_name', None)
                 )
             except (ValueError, TypeError) as e:
                 return JsonResponse({'success': False, 'message': f'รายการที่ {idx} มีข้อผิดพลาด: {str(e)}'}, status=400)
@@ -5192,7 +5193,8 @@ def receipt_update_ajax(request, receipt_id):
                     template_id=template_id,
                     description=item_data.get('description', ''),
                     amount=amount,
-                    order=idx
+                    order=idx,
+                    additional_recipient_name=item_data.get('additional_recipient_name', None)
                 )
             except (ValueError, TypeError) as e:
                 return JsonResponse({'success': False, 'message': f'รายการที่ {idx} มีข้อผิดพลาด: {str(e)}'}, status=400)

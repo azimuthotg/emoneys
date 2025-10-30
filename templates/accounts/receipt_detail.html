@@ -394,6 +394,24 @@
                                     {% if item.template %}
                                         <span class="badge bg-secondary ms-2">รายการสำเร็จรูป</span>
                                     {% endif %}
+
+                                    {% if item.additional_recipient_name %}
+                                        <div class="mt-2 small" style="color: #000;">
+                                            <span id="recipient-display-{{ item.id }}"></span>
+                                            <script>
+                                                (function() {
+                                                    var recipientData = '{{ item.additional_recipient_name|escapejs }}';
+                                                    var displayElement = document.getElementById('recipient-display-{{ item.id }}');
+                                                    if (recipientData.indexOf('|') !== -1) {
+                                                        var parts = recipientData.split('|');
+                                                        displayElement.textContent = 'ผู้รับรอง [' + parts[0] + '] ให้ [' + parts[1] + ']';
+                                                    } else {
+                                                        displayElement.textContent = 'ผู้รับรอง ' + recipientData;
+                                                    }
+                                                })();
+                                            </script>
+                                        </div>
+                                    {% endif %}
                                 </td>
                                 <td class="text-end font-monospace amount-cell" data-amount="{{ item.amount }}">{{ item.amount|floatformat:2|intcomma }} บาท</td>
                             </tr>

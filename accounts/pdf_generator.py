@@ -39,6 +39,7 @@ class WatermarkCanvas(pdfgen_canvas.Canvas):
         self.page_height = kwargs.pop('page_height', A4[1])
         self.thai_font_bold = kwargs.pop('thai_font_bold', 'Helvetica-Bold')
         self.qr_callback = kwargs.pop('qr_callback', None)
+        self.online_other_data = kwargs.pop('online_other_data', None)
         pdfgen_canvas.Canvas.__init__(self, *args, **kwargs)
 
     def showPage(self):
@@ -48,7 +49,7 @@ class WatermarkCanvas(pdfgen_canvas.Canvas):
         """
         # วาด QR Code ก่อน (ด้านล่าง)
         if self.qr_callback and self.receipt:
-            self.qr_callback(self, None, self.receipt)
+            self.qr_callback(self, None, self.receipt, self.online_other_data)
 
         # วาด watermark ทับบนสุด
         if self.receipt and self.receipt.status == 'cancelled':
@@ -316,18 +317,6 @@ class ReceiptPDFGenerator:
         # สร้าง PDF ด้วย Custom Canvas
         buffer = BytesIO()
 
-        # สร้าง custom canvas factory
-        def canvas_factory(filename, **kwargs):
-            return WatermarkCanvas(
-                filename,
-                receipt=receipt,
-                page_width=self.page_width,
-                page_height=self.page_height,
-                thai_font_bold=self.thai_font_bold,
-                qr_callback=self._draw_floating_qr,
-                **kwargs  # ส่ง parameters อื่นๆ ต่อไปยัง Canvas
-            )
-
         doc = SimpleDocTemplate(
             buffer,
             pagesize=A4,
@@ -336,7 +325,7 @@ class ReceiptPDFGenerator:
             topMargin=self.margin_top,
             bottomMargin=self.margin_bottom
         )
-        
+
         # สร้างเนื้อหา
         story = []
 
@@ -347,17 +336,31 @@ class ReceiptPDFGenerator:
         # ข้อมูลใบสำคัญ (ชื่อหน่วยงาน + ที่อยู่ + วันที่)
         story.extend(self._create_receipt_info(receipt))
         story.append(Spacer(1, 0.3 * cm))
-        
+
         # ข้อมูลผู้รับเงิน
         story.extend(self._create_recipient_info(receipt))
         story.append(Spacer(1, 0.3 * cm))
-        
+
         # รายการรับเงิน (รวมแถวรวมเป็นเงินแล้ว)
-        story.extend(self._create_items_table(receipt))
+        items_content, online_other_data = self._create_items_table(receipt)
+        story.extend(items_content)
         story.append(Spacer(1, 0.3 * cm))
-        
+
         # ลายเซ็นและ QR Code
-        story.extend(self._create_signature_section(receipt))
+        story.extend(self._create_signature_section(receipt, online_other_data))
+
+        # สร้าง custom canvas factory (หลังจากได้ online_other_data แล้ว)
+        def canvas_factory(filename, **kwargs):
+            return WatermarkCanvas(
+                filename,
+                receipt=receipt,
+                page_width=self.page_width,
+                page_height=self.page_height,
+                thai_font_bold=self.thai_font_bold,
+                qr_callback=self._draw_floating_qr,
+                online_other_data=online_other_data,
+                **kwargs  # ส่ง parameters อื่นๆ ต่อไปยัง Canvas
+            )
 
         # สร้าง PDF ด้วย custom canvas (watermark จะถูกวาดโดย WatermarkCanvas.showPage())
         doc.build(story, canvasmaker=canvas_factory)
@@ -617,12 +620,26 @@ class ReceiptPDFGenerator:
         # หัวตาราง
         data = [['ลำดับ', 'รายการ', 'จำนวนเงิน (บาท)']]
         
+        # ตรวจสอบว่ามี online_other item หรือไม่ (เพื่อใช้ในการแสดงข้อความรับรอง)
+        online_other_data = None
+
         # รายการ
         for idx, item in enumerate(receipt.items.all().order_by('order'), 1):
             # ใช้ PyThaiNLP รวมคำเป็นกลุ่มใหญ่ แล้วให้ ReportLab ตัดต่อ
             prepared_text = self.prepare_thai_text(item.description)
             description_text = prepared_text.replace('\n', '<br/>')
-            
+
+            # เก็บข้อมูล additional_recipient_name สำหรับแสดงในข้อความรับรองด้านล่าง
+            if item.additional_recipient_name:
+                # เก็บข้อมูลรายการแรกที่เป็น online_other
+                if online_other_data is None and '|' in item.additional_recipient_name:
+                    parts = item.additional_recipient_name.split('|', 1)
+                    online_other_data = {
+                        'prefix': parts[0],
+                        'recipient': parts[1]
+                    }
+                # ไม่แสดงในตารางรายการ (จะแสดงในข้อความรับรองด้านล่างแทน)
+
             data.append([
                 str(idx),
                 Paragraph(description_text, description_style),  # PyThaiNLP + ReportLab ร่วมมือกัน
@@ -680,16 +697,45 @@ class ReceiptPDFGenerator:
             leading=16,
             textColor=colors.black,
             alignment=TA_LEFT,
-            spaceBefore=0.2 * cm
+            spaceBefore=0.2 * cm,
+            leftIndent=6
         )
         
         amount_text_content = f"จำนวนเงิน(ตัวอักษร): {receipt.total_amount_text}"
         content.append(Paragraph(amount_text_content, amount_text_style))
-        
-        return content
+
+        # เพิ่มข้อความรับรองสำหรับ online_other template
+        if online_other_data:
+            certification_style = ParagraphStyle(
+                'CertificationStyle',
+                parent=styles['Normal'],
+                fontName=self.thai_font,
+                fontSize=14,
+                leading=18,
+                textColor=colors.black,
+                alignment=TA_LEFT,
+                spaceBefore=0.5 * cm,
+                leftIndent=6,
+                firstLineIndent=1.27 * cm
+            )
+
+            # ฝังชื่อเป็น inline bold ภายใน paragraph เดียวกัน
+            prefix_name = online_other_data['prefix']
+            recipient_name = online_other_data['recipient']
+
+            certification_text = (
+                f'ข้าพเจ้า <font face="{self.thai_font_bold}">{prefix_name}</font> '
+                f'ขอรับรองว่า <font face="{self.thai_font_bold}">{recipient_name}</font> '
+                f'ได้เข้าร่วมประชุมผ่านสื่อ<nobr>อิเล็กทรอนิกส์</nobr>'
+                f'จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม  โดยการโอนเงินเข้าบัญชีเงินฝากธนาคาร '
+                f'ของคณะกรรมการดังกล่าวจริง  รายละเอียดตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
+            )
+            content.append(Paragraph(certification_text, certification_style))
+
+        return content, online_other_data
     
     
-    def _create_signature_section(self, receipt):
+    def _create_signature_section(self, receipt, online_other_data=None):
         """
         สร้างส่วนลายเซ็น (รองรับทั้งจ่ายปกติและยืมเงิน)
 
@@ -711,20 +757,28 @@ class ReceiptPDFGenerator:
         content = []
         content.append(Spacer(1, 1 * cm))
 
-        # กำหนดชื่อตาม is_loan
+        # กำหนดชื่อและป้ายตาม template และ is_loan
+        if online_other_data:
+            # Template "รับเงินอื่น ๆ Online": ช่องบนเป็นผู้รับรอง
+            first_label = 'ลงชื่อ ................................. ผู้รับรอง'
+            first_name = online_other_data['prefix']  # ชื่อผู้รับรอง
+        else:
+            # Template อื่นๆ: ช่องบนเป็นผู้รับเงิน
+            first_label = 'ลงชื่อ ................................. ผู้รับเงิน'
+            first_name = receipt.recipient_name
+
+        # ช่องล่าง (ผู้จ่ายเงิน): ใช้ logic เดิม
         if receipt.is_loan:
-            # ยืมเงิน: แสดงชื่อผู้รับเงิน และ ผู้จ่ายเป็นชื่อผู้สร้าง
-            recipient_name = receipt.recipient_name
+            # ยืมเงิน: แสดงชื่อผู้สร้าง
             payer_name = receipt.created_by.get_display_name()
         else:
-            # จ่ายปกติ: แสดงชื่อผู้รับเงิน, ผู้จ่ายเงินเป็นว่าง (จุด)
-            recipient_name = receipt.recipient_name
+            # จ่ายปกติ: ว่างไว้ (จุด)
             payer_name = '...........................................................'
 
         # ตารางลายเซ็น
         data = [
-            ['ลงชื่อ ................................. ผู้รับเงิน'],
-            [f'({recipient_name})'],
+            [first_label],
+            [f'({first_name})'],
             [''],
             ['ลงชื่อ ................................. ผู้จ่ายเงิน'],
             [f'({payer_name})']
@@ -759,7 +813,7 @@ class ReceiptPDFGenerator:
                     return True
         return False
 
-    def _draw_floating_qr(self, canvas, doc, receipt):
+    def _draw_floating_qr(self, canvas, doc, receipt, online_other_data=None):
         """วาด QR Code มุมซ้ายล่าง (รองรับทั้ง draft และใบสำคัญจริง)"""
         try:
             # สร้าง QR Code (รองรับทั้ง draft และใบสำคัญจริง)
@@ -797,10 +851,13 @@ class ReceiptPDFGenerator:
             # ตรวจสอบว่าเป็นใบสำคัญค่าอาหารหรือไม่
             is_food = self._is_food_receipt(receipt)
 
+            # ตรวจสอบว่าเป็นใบสำคัญ online_other หรือไม่
+            is_online_other = online_other_data is not None
+
             if is_food:
                 # หมายเหตุสำหรับค่าอาหาร (อยู่เหนือ footer_info)
                 note_x = qr_x + 3.5*cm
-                note_y_start = qr_y + 2.4*cm  # เลื่อนลงมาจาก 2.9cm
+                note_y_start = qr_y + 2.4*cm
 
                 # บรรทัดหัวข้อ "หมายเหตุ :" (ตัวหนา)
                 canvas.setFont(self.thai_font_bold, 12)
@@ -825,8 +882,36 @@ class ReceiptPDFGenerator:
                 text_x = qr_x + 3.5*cm
                 text_y = qr_y + 0.3*cm
                 canvas.drawString(text_x, text_y, footer_info)
+            elif is_online_other:
+                # หมายเหตุสำหรับ รับเงินอื่น ๆ Online (อยู่เหนือ footer_info)
+                note_x = qr_x + 3.5*cm
+                note_y_start = qr_y + 2.4*cm
+
+                # บรรทัดหัวข้อ "หมายเหตุ :" (ตัวหนา)
+                canvas.setFont(self.thai_font_bold, 12)
+                canvas.drawString(note_x, note_y_start, "หมายเหตุ :")
+
+                # เปลี่ยนกลับเป็นฟอนต์ปกติสำหรับรายการ
+                canvas.setFont(self.thai_font, 12)
+
+                # บรรทัดที่ 1
+                note_y_1 = note_y_start - 0.5*cm
+                canvas.drawString(note_x, note_y_1, "1. ผู้รับรองต้องเป็นประธานคณะกรรมการหรือเลขานุการในที่ประชุมครั้งนั้น เป็นผู้ลงนามรับ พร้อมเซ็นรับรองสำเนาถูกต้อง")
+
+                # บรรทัดที่ 2
+                note_y_2 = note_y_1 - 0.45*cm
+                canvas.drawString(note_x, note_y_2, "2. สำเนาหลักฐานการโอนเงินและรูปถ่ายขนาดประชุมที่แสดงให้เห็นถึงรูปกรรมการ วัน และเวลาประชุม")
+
+                # บรรทัดที่ 3
+                note_y_3 = note_y_2 - 0.45*cm
+                canvas.drawString(note_x, note_y_3, "3. ต้องลงลายเซ็นด้วยปากกาสีน้ำเงินเท่านั้น")
+
+                # วาดข้อความ footer_info (ชิดขอบล่าง)
+                text_x = qr_x + 3.5*cm
+                text_y = qr_y + 0.3*cm
+                canvas.drawString(text_x, text_y, footer_info)
             else:
-                # ไม่ใช่ค่าอาหาร แสดงแค่ footer_info
+                # ไม่ใช่ค่าอาหาร และไม่ใช่ online_other แสดงแค่ footer_info
                 text_x = qr_x + 3.5*cm
                 text_y = qr_y + 0.3*cm
                 canvas.setFont(self.thai_font, 12)

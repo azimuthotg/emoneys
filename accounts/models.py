@@ -928,16 +928,18 @@ class ReceiptTemplate(models.Model):
     รายการสำเร็จรูปสำหรับใบสำคัญรับเงิน
     เช่น ค่าอาหารว่าง, ค่าประกันของเสียหาย
 
-    รองรับ 3 รูปแบบการกรอก:
+    รองรับ 4 รูปแบบการกรอก:
     1. simple: กรอกเฉพาะจำนวนเงิน (เช่น ค่าประกันของเสียหาย max 1000 บาท)
     2. textarea: กรอกรายละเอียด + จำนวนเงิน (เช่น รับเงินอื่นๆ)
     3. food_calculation: กรอกหลายรายการย่อย พร้อมการคำนวณ (เช่น ค่าอาหาร)
+    4. online_other: กรอกรายละเอียด + จำนวนเงิน + ข้าพเจ้า (เช่น รับเงินอื่นๆ Online)
     """
 
     INPUT_TYPE_CHOICES = [
         ('simple', 'ช่องเดียว - จำนวนเงิน'),
         ('textarea', 'ช่องเดียว - รายละเอียด + เงิน'),
         ('food_calculation', 'หลายรายการย่อย - คำนวณอัตโนมัติ'),
+        ('online_other', 'รับเงินอื่นๆ Online - รายละเอียด + ข้าพเจ้า'),
     ]
 
     name = models.CharField(
@@ -1512,7 +1514,16 @@ class ReceiptItem(models.Model):
         default=1,
         verbose_name="ลำดับ"
     )
-    
+
+    # ฟิลด์เพิ่มเติมสำหรับ template พิเศษ
+    additional_recipient_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="ชื่อผู้รับเงินเพิ่มเติม",
+        help_text="ใช้สำหรับ template รับเงินอื่นๆ Online (ข้าพเจ้า ...)"
+    )
+
     def __str__(self):
         return f"{self.receipt.receipt_number} - {self.description} ({self.amount} บาท)"
     

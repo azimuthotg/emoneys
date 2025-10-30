@@ -113,6 +113,25 @@
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div class="flex-grow-1">
                                         <div class="item-description-display mb-1">{{ item.description|linebreaksbr }}</div>
+
+                                        {% if item.additional_recipient_name %}
+                                            <div class="mt-2 small" style="color: #000;">
+                                                <span id="recipient-edit-display-{{ item.id }}"></span>
+                                                <script>
+                                                    (function() {
+                                                        var recipientData = '{{ item.additional_recipient_name|escapejs }}';
+                                                        var displayElement = document.getElementById('recipient-edit-display-{{ item.id }}');
+                                                        if (recipientData.indexOf('|') !== -1) {
+                                                            var parts = recipientData.split('|');
+                                                            displayElement.textContent = 'ผู้รับรอง [' + parts[0] + '] ให้ [' + parts[1] + ']';
+                                                        } else {
+                                                            displayElement.textContent = 'ผู้รับรอง ' + recipientData;
+                                                        }
+                                                    })();
+                                                </script>
+                                            </div>
+                                        {% endif %}
+
                                         <div class="text-muted">จำนวนเงิน: <span class="item-amount-display fw-bold">{{ item.amount|floatformat:2|intcomma }}</span> บาท</div>
                                         <input type="hidden" class="item-description-hidden" name="form-{{ forloop.counter0 }}-description" value="{{ item.description }}">
                                         <input type="hidden" class="item-amount-hidden" name="form-{{ forloop.counter0 }}-amount" value="{{ item.amount }}">

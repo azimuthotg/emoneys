@@ -327,6 +327,8 @@ function handleTemplateChange() {
         renderTextareaInput(container);
     } else if (currentTemplate.inputType === 'food_calculation') {
         renderFoodCalculationInput(container);
+    } else if (currentTemplate.inputType === 'online_other') {
+        renderOnlineOtherInput(container);
     }
 }
 
@@ -388,6 +390,68 @@ function renderTextareaInput(container) {
         </div>
     `;
     container.innerHTML = html;
+}
+
+// Render online_other input (รับเงินอื่น ๆ Online)
+function renderOnlineOtherInput(container) {
+    // ดึงชื่อผู้รับเงินจาก input field
+    const recipientName = document.getElementById('recipient_name').value || '';
+
+    const html = `
+        <div class="row g-2">
+            <!-- ส่วนที่ 1: Textarea + Amount (เหมือน textarea แบบเดิม) -->
+            <div class="col-md-8">
+                <label class="form-label fw-bold mb-1 small">รายละเอียด</label>
+                <textarea class="form-control form-control-sm" id="online-description" rows="3"
+                          placeholder="กรอกรายละเอียดการรับเงิน..."></textarea>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold mb-1 small">จำนวนเงิน</label>
+                <div class="input-group input-group-sm">
+                    <input type="number" class="form-control" id="online-amount"
+                           step="0.01" min="0" placeholder="0.00">
+                    <span class="input-group-text">บาท</span>
+                </div>
+            </div>
+
+            <!-- ส่วนที่ 2: ฟิลด์เพิ่มเติม (2 ช่อง col-6) -->
+            <div class="col-md-6">
+                <label class="form-label fw-bold mb-1 small">ชื่อผู้รับรองผู้รับเงิน</label>
+                <input type="text" class="form-control form-control-sm" id="online-prefix"
+                       value="" placeholder="กรอกชื่อผู้รับรอง">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold mb-1 small">ชื่อผู้รับเงิน</label>
+                <input type="text" class="form-control form-control-sm" id="online-recipient"
+                       value="${recipientName}" placeholder="กรอกชื่อผู้รับเงิน">
+                <small class="form-text text-muted">ดึงจากช่อง "ชื่อผู้รับเงิน" ด้านบน (แก้ไขได้)</small>
+            </div>
+
+            <!-- ปุ่มเพิ่มรายการ -->
+            <div class="col-12 d-flex justify-content-end">
+                <button type="button" class="btn btn-success btn-sm" onclick="addOnlineOtherItem()">
+                    <i class="fas fa-plus me-1"></i> เพิ่มรายการ
+                </button>
+            </div>
+        </div>
+    `;
+    container.innerHTML = html;
+
+    // ฟังการเปลี่ยนแปลงของช่อง recipient_name เพื่ออัพเดทอัตโนมัติ
+    const recipientNameField = document.getElementById('recipient_name');
+    if (recipientNameField) {
+        // Remove existing listener if any to prevent duplicates
+        recipientNameField.removeEventListener('input', updateOnlineRecipient);
+        recipientNameField.addEventListener('input', updateOnlineRecipient);
+    }
+}
+
+// Helper function for auto-sync recipient name
+function updateOnlineRecipient() {
+    const onlineRecipientField = document.getElementById('online-recipient');
+    if (onlineRecipientField) {
+        onlineRecipientField.value = this.value;
+    }
 }
 
 // Render food calculation input with multiple sub-items
@@ -508,6 +572,49 @@ function addTextareaItem() {
     document.getElementById('textarea-amount').value = '';
 }
 
+// Add online_other item to list
+function addOnlineOtherItem() {
+    const description = document.getElementById('online-description').value.trim();
+    const amount = parseFloat(document.getElementById('online-amount').value);
+    const prefix = document.getElementById('online-prefix').value.trim();
+    const recipient = document.getElementById('online-recipient').value.trim();
+
+    // ตรวจสอบความถูกต้อง
+    if (!description) {
+        showToast('กรุณากรอกรายละเอียด', 'warning');
+        return;
+    }
+
+    if (!prefix) {
+        showToast('กรุณากรอกชื่อผู้รับรอง', 'warning');
+        return;
+    }
+
+    if (!recipient) {
+        showToast('กรุณากรอกชื่อผู้รับเงิน', 'warning');
+        return;
+    }
+
+    if (!amount || amount <= 0) {
+        showToast('กรุณากรอกจำนวนเงินที่ถูกต้อง', 'warning');
+        return;
+    }
+
+    // เพิ่มรายการ (ส่งข้อมูลแยก)
+    addItemToList({
+        template_id: currentTemplate.id,
+        template_name: currentTemplate.name,
+        description: description,
+        amount: amount,
+        additional_recipient_prefix: prefix,
+        additional_recipient_name: recipient
+    });
+
+    // เคลียร์ฟอร์ม (แต่เก็บชื่อผู้รับเงินไว้)
+    document.getElementById('online-description').value = '';
+    document.getElementById('online-amount').value = '';
+}
+
 // Calculate food item total
 function calculateFoodTotal() {
     const items = currentTemplate.subItems.items || [];
@@ -609,7 +716,7 @@ function addFoodItems() {
 }
 
 // Common function to add item to list
-function addItemToList(description, amount) {
+function addItemToList(descriptionOrData, amount) {
     itemCounter++;
     const container = document.getElementById('items-container');
 
@@ -619,21 +726,46 @@ function addItemToList(description, amount) {
         emptyMessage.remove();
     }
 
+    // รองรับ 2 รูปแบบ: (description, amount) หรือ ({description, amount, ...})
+    let description, finalAmount, templateId, additionalRecipientPrefix, additionalRecipientName;
+
+    if (typeof descriptionOrData === 'object' && descriptionOrData !== null) {
+        // Object format (ใหม่)
+        description = descriptionOrData.description;
+        finalAmount = descriptionOrData.amount;
+        templateId = descriptionOrData.template_id || '';
+        additionalRecipientPrefix = descriptionOrData.additional_recipient_prefix || '';
+        additionalRecipientName = descriptionOrData.additional_recipient_name || '';
+    } else {
+        // String format (เก่า)
+        description = descriptionOrData;
+        finalAmount = amount;
+        templateId = currentTemplate ? currentTemplate.id : '';
+        additionalRecipientPrefix = '';
+        additionalRecipientName = '';
+    }
+
     // Replace newlines with <br> for display
     const displayDescription = description.replace(/\n/g, '<br>');
 
-    // Get template_id from currentTemplate if available
-    const templateId = currentTemplate ? currentTemplate.id : '';
+    // สร้างข้อความแสดงผู้รับรอง (แบบ A)
+    let recipientDisplay = '';
+    if (additionalRecipientPrefix && additionalRecipientName) {
+        recipientDisplay = `<div class="mt-2 small" style="color: #000;">ผู้รับรอง [${additionalRecipientPrefix}] ให้ [${additionalRecipientName}]</div>`;
+    }
 
     const itemHtml = `
         <div class="item-row border rounded p-3 mb-3" data-item-id="${itemCounter}">
             <div class="d-flex justify-content-between align-items-start">
                 <div class="flex-grow-1">
                     <div class="fw-bold mb-1">${displayDescription}</div>
-                    <div class="text-muted">จำนวนเงิน: <span class="fw-bold">${amount.toLocaleString()}</span> บาท</div>
+                    ${recipientDisplay}
+                    <div class="text-muted">จำนวนเงิน: <span class="fw-bold">${finalAmount.toLocaleString()}</span> บาท</div>
                     <input type="hidden" class="item-description-hidden" value="${description}">
-                    <input type="hidden" class="item-amount-hidden" value="${amount}">
+                    <input type="hidden" class="item-amount-hidden" value="${finalAmount}">
                     <input type="hidden" class="item-template-id-hidden" value="${templateId}">
+                    <input type="hidden" class="item-additional-recipient-prefix-hidden" value="${additionalRecipientPrefix}">
+                    <input type="hidden" class="item-additional-recipient-hidden" value="${additionalRecipientName}">
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${itemCounter})">
                     <i class="fas fa-trash"></i>
@@ -946,20 +1078,29 @@ function saveReceipt(status) {
         form.reportValidity();
         return;
     }
-    
+
     // Check items
     const items = [];
     document.querySelectorAll('.item-row').forEach(row => {
         const description = row.querySelector('.item-description-hidden').value.trim();
         const amount = parseFloat(row.querySelector('.item-amount-hidden').value) || 0;
         const templateId = row.querySelector('.item-template-id-hidden')?.value || '';
+        const additionalRecipientPrefix = row.querySelector('.item-additional-recipient-prefix-hidden')?.value || '';
+        const additionalRecipient = row.querySelector('.item-additional-recipient-hidden')?.value || '';
 
         if (description && amount > 0) {
-            items.push({
+            const item = {
                 description: description,
                 amount: amount,
                 template_id: templateId
-            });
+            };
+
+            // เพิ่มฟิลด์ additional_recipient ถ้ามีค่า (รวมทั้ง prefix และ name)
+            if (additionalRecipientPrefix && additionalRecipient) {
+                item.additional_recipient_name = `${additionalRecipientPrefix}|${additionalRecipient}`;
+            }
+
+            items.push(item);
         }
     });
     
