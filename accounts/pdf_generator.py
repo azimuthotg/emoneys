@@ -713,22 +713,23 @@ class ReceiptPDFGenerator:
                 fontSize=14,
                 leading=18,
                 textColor=colors.black,
-                alignment=TA_LEFT,
+                alignment=TA_LEFT,  # เปลี่ยนเป็น JUSTIFY เพื่อกระจายข้อความเต็มบรรทัด
                 spaceBefore=0.5 * cm,
                 leftIndent=6,
-                firstLineIndent=1.27 * cm
+                firstLineIndent=1 * cm
             )
 
             # ฝังชื่อเป็น inline bold ภายใน paragraph เดียวกัน
+            # ใส่ <br/> เองเพื่อควบคุมการขึ้นบรรทัดใหม่
             prefix_name = online_other_data['prefix']
             recipient_name = online_other_data['recipient']
 
             certification_text = (
-                f'ข้าพเจ้า <font face="{self.thai_font_bold}">{prefix_name}</font> '
-                f'ขอรับรองว่า <font face="{self.thai_font_bold}">{recipient_name}</font> '
-                f'ได้เข้าร่วมประชุมผ่านสื่อ<nobr>อิเล็กทรอนิกส์</nobr>'
-                f'จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม  โดยการโอนเงินเข้าบัญชีเงินฝากธนาคาร '
-                f'ของคณะกรรมการดังกล่าวจริง  รายละเอียดตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
+                f'ข้าพเจ้า <font face="{self.thai_font_bold}"><nobr>{prefix_name}</nobr></font> '
+                f'ขอรับรองว่า <font face="{self.thai_font_bold}"><nobr>{recipient_name}</nobr></font> '
+                f'ได้เข้าร่วมประชุมผ่านสื่อ<nobr>อิเล็กทรอนิกส์</nobr><br/>'
+                f'จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม&nbsp;โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของคณะกรรมการดังกล่าวจริง&nbsp;รายละเอียด<br/>'
+                f'ตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
             )
             content.append(Paragraph(certification_text, certification_style))
 
