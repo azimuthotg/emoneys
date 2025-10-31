@@ -720,17 +720,66 @@ class ReceiptPDFGenerator:
             )
 
             # ฝังชื่อเป็น inline bold ภายใน paragraph เดียวกัน
-            # ใส่ <br/> เองเพื่อควบคุมการขึ้นบรรทัดใหม่
+            # เลือก template ตามความกว้างชื่อ (3 แบบ: สั้น/กลาง/ยาว)
             prefix_name = online_other_data['prefix']
             recipient_name = online_other_data['recipient']
 
-            certification_text = (
-                f'ข้าพเจ้า <font face="{self.thai_font_bold}"><nobr>{prefix_name}</nobr></font> '
-                f'ขอรับรองว่า <font face="{self.thai_font_bold}"><nobr>{recipient_name}</nobr></font> '
-                f'ได้เข้าร่วมประชุมผ่านสื่อ<nobr>อิเล็กทรอนิกส์</nobr><br/>'
-                f'จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม&nbsp;โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของคณะกรรมการดังกล่าวจริง&nbsp;รายละเอียด<br/>'
-                f'ตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
-            )
+            # คำนวณความกว้างจริงของชื่อ
+            from reportlab.pdfbase.pdfmetrics import stringWidth
+
+            prefix_width = stringWidth(prefix_name, self.thai_font_bold, 14)
+            recipient_width = stringWidth(recipient_name, self.thai_font_bold, 14)
+            intro_text_width = stringWidth('ข้าพเจ้า  ขอรับรองว่า  ', self.thai_font, 14)
+
+            total_width = prefix_width + recipient_width + intro_text_width
+
+            # ความกว้างที่มีในบรรทัดแรก (หลัง firstLineIndent)
+            # กระดาษ A4 = 21 cm, margin ซ้าย+ขวา = 4 cm, firstLineIndent = 1.27 cm
+            # available = (21 - 4 - 1.27) cm = 15.73 cm ≈ 446 points
+            available_width_first_line = (21 - 4 - 1.27) * cm
+
+            # ความกว้างบรรทัดที่สอง (ไม่มี firstLineIndent)
+            available_width_other_lines = (21 - 4 - 0.2) * cm  # leftIndent = 6 points ≈ 0.2 cm
+
+            # เลือก template ตามความกว้าง (4 แบบ)
+            # Threshold: Template 1 (>400), Template 2 (350-400), Template 3 (300-350), Template 4 (≤300)
+            if total_width > 400:
+                # Template 1: ชื่อยาวมาก (>400 points)
+                certification_text = (
+                    f'ข้าพเจ้า <font face="{self.thai_font_bold}"><nobr>{prefix_name}</nobr></font> '
+                    f'ขอรับรองว่า <font face="{self.thai_font_bold}"><nobr>{recipient_name}</nobr></font> '
+                    f'ได้เข้าร่วมประชุมผ่านสื่ออิเล็กทรอนิกส์จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม '
+                    f'โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของคณะกรรมการดังกล่าวจริง '
+                    f'รายละเอียดตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
+                )
+            elif total_width > 350:
+                # Template 2: ชื่อยาวปานกลาง (350-400 points)
+                certification_text = (
+                    f'ข้าพเจ้า <font face="{self.thai_font_bold}"><nobr>{prefix_name}</nobr></font> '
+                    f'ขอรับรองว่า <font face="{self.thai_font_bold}"><nobr>{recipient_name}</nobr></font><br/>'
+                    f'ได้เข้าร่วมประชุมผ่านสื่อ<nobr>อิเล็กทรอนิกส์</nobr>จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม'
+                    f'โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของ<br/>คณะกรรมการดังกล่าวจริง'
+                    f'รายละเอียดตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
+                )
+            elif total_width > 300:
+                # Template 3: ชื่อปานกลาง (300-350 points)
+                certification_text = (
+                    f'ข้าพเจ้า <font face="{self.thai_font_bold}"><nobr>{prefix_name}</nobr></font> '
+                    f'ขอรับรองว่า <font face="{self.thai_font_bold}"><nobr>{recipient_name}</nobr></font>'
+                    f'&nbsp;ได้เข้าร่วมประชุมผ่านสื่อ<br/><nobr>อิเล็กทรอนิกส์</nobr>จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม '
+                    f'โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของคณะกรรมการดังกล่าว<br/>จริงรายละเอียด'
+                    f'ตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
+                )
+            else:
+                # Template 4: ชื่อสั้น (≤300 points)
+                certification_text = (
+                    f'ข้าพเจ้า <font face="{self.thai_font_bold}"><nobr>{prefix_name}</nobr></font> '
+                    f'ขอรับรองว่า <font face="{self.thai_font_bold}"><nobr>{recipient_name}</nobr></font> '
+                    f'ได้เข้าร่วมประชุมผ่านสื่อ<nobr>อิเล็กทรอนิกส์</nobr><br/>'
+                    f'จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม&nbsp;โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของคณะกรรมการดังกล่าวจริงรายละเอียด<br/>'
+                    f'ตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
+                )
+
             content.append(Paragraph(certification_text, certification_style))
 
         return content, online_other_data
