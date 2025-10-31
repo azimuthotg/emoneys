@@ -486,18 +486,32 @@ class ReceiptPDFGenerator:
         # แปลงวันที่เป็นพุทธศักราช ค.ศ. 2568 (ถ้าร่างจะแสดง xx/xx/xxxx)
         thai_date = convert_to_thai_date(receipt.receipt_date, 'full') if receipt.receipt_date else "xx/xx/xxxx"
 
+        # ตรวจสอบความยาวชื่อหน่วยงาน เพื่อเลือก Template
+        dept_name_full = f"{receipt.department.name} มหาวิทยาลัยนครพนม"
+        dept_name_length = len(dept_name_full)
+
+        # Template System: ปรับความกว้างคอลัมน์ตามความยาวชื่อหน่วยงาน
+        if dept_name_length > 50:
+            # Template 2: ชื่อยาว - เยื้องซ้าย 1cm เพื่อให้พื้นที่มากขึ้น
+            left_col_width = 9 * cm
+            right_col_width = 8 * cm
+        else:
+            # Template 1: ชื่อปกติ - ใช้ค่าเดิม
+            left_col_width = 10 * cm
+            right_col_width = 7 * cm
+
         # สร้างตาราง 2 คอลัมน์ - คอลัมน์ซ้ายว่าง, คอลัมน์ขวาชิดซ้าย (ตามเส้นแดงในรูป)
         data = [
             # บรรทัด 1: ชื่อหน่วยงาน
-            ["", Paragraph(f"{receipt.department.name} มหาวิทยาลัยนครพนม", left_style)],
+            ["", Paragraph(dept_name_full, left_style)],
             # บรรทัด 2: ที่อยู่หน่วยงาน
             ["", Paragraph(f"{receipt.department.get_full_address()}" or "ที่อยู่ไม่ระบุ", left_style)],
             # บรรทัด 3: วันที่ไทย
             ["", Paragraph(f"วันที่ {thai_date}", left_style)]
         ]
 
-        # คอลัมน์ซ้ายกว้าง ~10cm, คอลัมน์ขวากว้าง ~7cm (ตรงกับเส้นกั้นในรูป)
-        table = Table(data, colWidths=[10*cm, 7*cm])
+        # ใช้ความกว้างคอลัมน์ตาม Template ที่เลือก (ทั้ง 3 บรรทัดใช้ค่าเดียวกัน)
+        table = Table(data, colWidths=[left_col_width, right_col_width])
         table.setStyle(TableStyle([
             ('ALIGN', (1, 0), (1, -1), 'LEFT'),      # คอลัมน์ขวาชิดซ้าย
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
