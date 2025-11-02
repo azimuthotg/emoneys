@@ -29,6 +29,8 @@ db.sqlite3-journal
 .idea/
 *.swp
 *.swo
+*.md.bak
+pp.md
 
 # OS
 .DS_Store
@@ -54,6 +56,17 @@ analyze_*.py
 *_test_*.py
 *.backup
 *_output.pdf
+
+# Database Reset Scripts (ไม่ควร commit ขึ้น production)
+reset_receipts.py
+reset_receipts.sql
+check_before_reset.sql
+verify_after_reset.sql
+backup_before_reset.sh
+FILES_LIST.txt
+README_RESET_*.md
+RESET_RECEIPTS_*.md
+create_online_other_template.py
 
 # Documentation (temporary)
 ANALYSIS_*.md
