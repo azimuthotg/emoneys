@@ -912,41 +912,10 @@ class ReceiptPDFGenerator:
             # วาด QR Code ลงบน canvas
             qr_img.drawOn(canvas, qr_x, qr_y)
 
-            # ตรวจสอบว่าเป็นใบสำคัญค่าอาหารหรือไม่
-            is_food = self._is_food_receipt(receipt)
-
             # ตรวจสอบว่าเป็นใบสำคัญ online_other หรือไม่
             is_online_other = online_other_data is not None
 
-            if is_food:
-                # หมายเหตุสำหรับค่าอาหาร (อยู่เหนือ footer_info)
-                note_x = qr_x + 3.5*cm
-                note_y_start = qr_y + 2.4*cm
-
-                # บรรทัดหัวข้อ "หมายเหตุ :" (ตัวหนา)
-                canvas.setFont(self.thai_font_bold, 12)
-                canvas.drawString(note_x, note_y_start, "หมายเหตุ :")
-
-                # เปลี่ยนกลับเป็นฟอนต์ปกติสำหรับรายการ
-                canvas.setFont(self.thai_font, 12)
-
-                # บรรทัดที่ 1
-                note_y_1 = note_y_start - 0.5*cm
-                canvas.drawString(note_x, note_y_1, "1. ต้องแนบสำเนาบัตรประชาชนของผู้รับเงิน พร้อมเซ็นรับรองสำเนาถูกต้อง")
-
-                # บรรทัด ที่ 2
-                note_y_2 = note_y_1 - 0.45*cm
-                canvas.drawString(note_x, note_y_2, "2. ลายเซ็นรับรองสำเนาถูกต้องในสำเนาบัตรประชาชนของผู้รับเงิน ต้องตรงกับลายเซ็นในใบสำคัญรับเงิน")
-
-                # บรรทัดที่ 3
-                note_y_3 = note_y_2 - 0.45*cm
-                canvas.drawString(note_x, note_y_3, "3. ต้องลงลายเซ็นด้วยปากกาสีน้ำเงินเท่านั้น")
-
-                # วาดข้อความ footer_info (ชิดขอบล่าง)
-                text_x = qr_x + 3.5*cm
-                text_y = qr_y + 0.3*cm
-                canvas.drawString(text_x, text_y, footer_info)
-            elif is_online_other:
+            if is_online_other:
                 # หมายเหตุสำหรับ รับเงินอื่น ๆ Online (อยู่เหนือ footer_info)
                 note_x = qr_x + 3.5*cm
                 note_y_start = qr_y + 2.4*cm
@@ -975,10 +944,32 @@ class ReceiptPDFGenerator:
                 text_y = qr_y + 0.3*cm
                 canvas.drawString(text_x, text_y, footer_info)
             else:
-                # ไม่ใช่ค่าอาหาร และไม่ใช่ online_other แสดงแค่ footer_info
+                # หมายเหตุสำหรับใบสำคัญทั่วไป (ใช้เหมือนค่าอาหาร)
+                note_x = qr_x + 3.5*cm
+                note_y_start = qr_y + 2.4*cm
+
+                # บรรทัดหัวข้อ "หมายเหตุ :" (ตัวหนา)
+                canvas.setFont(self.thai_font_bold, 12)
+                canvas.drawString(note_x, note_y_start, "หมายเหตุ :")
+
+                # เปลี่ยนกลับเป็นฟอนต์ปกติสำหรับรายการ
+                canvas.setFont(self.thai_font, 12)
+
+                # บรรทัดที่ 1
+                note_y_1 = note_y_start - 0.5*cm
+                canvas.drawString(note_x, note_y_1, "1. ต้องแนบสำเนาบัตรประชาชนของผู้รับเงิน พร้อมเซ็นรับรองสำเนาถูกต้อง")
+
+                # บรรทัด ที่ 2
+                note_y_2 = note_y_1 - 0.45*cm
+                canvas.drawString(note_x, note_y_2, "2. ลายเซ็นรับรองสำเนาถูกต้องในสำเนาบัตรประชาชนของผู้รับเงิน ต้องตรงกับลายเซ็นในใบสำคัญรับเงิน")
+
+                # บรรทัดที่ 3
+                note_y_3 = note_y_2 - 0.45*cm
+                canvas.drawString(note_x, note_y_3, "3. ต้องลงลายเซ็นด้วยปากกาสีน้ำเงินเท่านั้น")
+
+                # วาดข้อความ footer_info (ชิดขอบล่าง)
                 text_x = qr_x + 3.5*cm
                 text_y = qr_y + 0.3*cm
-                canvas.setFont(self.thai_font, 12)
                 canvas.drawString(text_x, text_y, footer_info)
 
         except Exception as e:

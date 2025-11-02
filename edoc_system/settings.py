@@ -80,10 +80,10 @@ WSGI_APPLICATION = 'edoc_system.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': config('DB_NAME', default='emoneys'),
-        'USER': config('DB_USER', default='admin_e'),
-        'PASSWORD': config('DB_PASSWORD', default='41132834'),
-        'HOST': config('DB_HOST', default='202.29.55.213'),
+        'NAME': config('DB_NAME', default='your_database_name'),
+        'USER': config('DB_USER', default='your_database_user'),
+        'PASSWORD': config('DB_PASSWORD', default='your_database_password'),
+        'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='3306'),
         'OPTIONS': {
             'charset': 'utf8mb4',
@@ -164,7 +164,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # NPU API Configuration
 NPU_API_BASE_URL = config('NPU_API_BASE_URL', default='https://api.npu.ac.th/v2/ldap/')
 NPU_API_AUTH_ENDPOINT = config('NPU_API_AUTH_ENDPOINT', default='auth_and_get_personnel/')
-NPU_API_TOKEN = config('NPU_API_TOKEN', default='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzgxNzY2MDQ4LCJpYXQiOjE3NTAyMzAwNDgsImp0aSI6IjE3MWFlZWIyZDEzMTRkZDM4M2Q1YWI2OGViYWMwMjZlIiwidXNlcl9pZCI6Nn0.Lw46efm04LQnBS3AwtlnDjtJwgcvOsFDt0e8yfrtgKk')
+NPU_API_TOKEN = config('NPU_API_TOKEN', default='your_npu_api_token_here')
 NPU_API_TIMEOUT = config('NPU_API_TIMEOUT', default=30, cast=int)  # seconds
 
 # NPU API Settings
@@ -182,7 +182,7 @@ NPU_API_SETTINGS = {
 # NPU Student API Configuration
 NPU_STUDENT_API_BASE_URL = config('NPU_STUDENT_API_BASE_URL', default='https://api.npu.ac.th/v2/ldap/')
 NPU_STUDENT_API_AUTH_ENDPOINT = config('NPU_STUDENT_API_AUTH_ENDPOINT', default='auth_and_get_student/')
-NPU_STUDENT_API_TOKEN = config('NPU_STUDENT_API_TOKEN', default='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzgxNzY2MDQ4LCJpYXQiOjE3NTAyMzAwNDgsImp0aSI6IjE3MWFlZWIyZDEzMTRkZDM4M2Q1YWI2OGViYWMwMjZlIiwidXNlcl9pZCI6Nn0.Lw46efm04LQnBS3AwtlnDjtJwgcvOsFDt0e8yfrtgKk')
+NPU_STUDENT_API_TOKEN = config('NPU_STUDENT_API_TOKEN', default='your_npu_student_api_token_here')
 NPU_STUDENT_API_TIMEOUT = config('NPU_STUDENT_API_TIMEOUT', default=30, cast=int)  # seconds
 
 # NPU Student API Settings

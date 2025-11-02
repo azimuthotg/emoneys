@@ -46,3 +46,23 @@ capture/
 
 # Claude
 .claude/
+
+# Testing and Analysis files
+test_*.py
+check_*.py
+analyze_*.py
+*_test_*.py
+*.backup
+*_output.pdf
+
+# Documentation (temporary)
+ANALYSIS_*.md
+CODEBASE_*.md
+DOCUMENTATION_INDEX*.md
+FILE_REFERENCE*.md
+PROGRESS_LOG*.md
+QUICK_REFERENCE*.md
+RECEIPTS_*.md
+RECEIPT_*.txt
+*_GUIDE.md
+*_ARCHITECTURE.txt
