@@ -1501,7 +1501,7 @@ class ReceiptItem(models.Model):
         help_text="ถ้าเลือกจากรายการสำเร็จรูป"
     )
     description = models.CharField(
-        max_length=500,
+        max_length=2000,
         verbose_name="รายการ",
         help_text="คำอธิบายรายการ"
     )
