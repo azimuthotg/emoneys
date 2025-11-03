@@ -821,36 +821,44 @@ class DocumentVolume(models.Model):
     def get_or_create_volume_for_department(cls, department, fiscal_year=None, user=None):
         """
         หาหรือสร้างเล่มสำหรับหน่วยงานในปีงบประมาณที่กำหนด
-        
+        รองรับการแชร์เล่มเดียวกันระหว่างหลายหน่วยงาน (เช่น หน่วยงานย่อยของสำนักงานอธิการบดี)
+
         Args:
             department (Department): หน่วยงาน
             fiscal_year (int, optional): ปีงบประมาณ พ.ศ. ถ้าไม่ระบุจะใช้ปีปัจจุบัน
             user (User, optional): ผู้สร้าง
-            
+
         Returns:
-            DocumentVolume: เล่มเอกสาร
+            tuple: (DocumentVolume, created) - เล่มเอกสารและสถานะการสร้างใหม่
         """
         if fiscal_year is None:
             from utils.fiscal_year import get_current_fiscal_year
             fiscal_year = get_current_fiscal_year()
-        
+
         from utils.fiscal_year import get_volume_code, get_fiscal_year_dates
-        
+
         volume_code = get_volume_code(department.code, fiscal_year)
         fiscal_start, fiscal_end = get_fiscal_year_dates(fiscal_year)
-        
-        volume, created = cls.objects.get_or_create(
-            department=department,
-            fiscal_year=fiscal_year,
-            defaults={
-                'volume_code': volume_code,
-                'fiscal_year_start': fiscal_start,
-                'fiscal_year_end': fiscal_end,
-                'created_by': user,
-                'status': 'active'
-            }
-        )
-        
+
+        # ลองหา volume จาก volume_code และ fiscal_year ก่อน
+        # เพื่อให้หลายหน่วยงานที่ใช้ department code เดียวกัน สามารถใช้เล่มร่วมกันได้
+        try:
+            volume = cls.objects.get(volume_code=volume_code, fiscal_year=fiscal_year)
+            created = False
+        except cls.DoesNotExist:
+            # ถ้าไม่พบ volume_code นี้ในปีงบประมาณนี้ ให้สร้างใหม่
+            volume, created = cls.objects.get_or_create(
+                department=department,
+                fiscal_year=fiscal_year,
+                defaults={
+                    'volume_code': volume_code,
+                    'fiscal_year_start': fiscal_start,
+                    'fiscal_year_end': fiscal_end,
+                    'created_by': user,
+                    'status': 'active'
+                }
+            )
+
         return volume, created
     
     class Meta:

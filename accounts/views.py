@@ -4479,15 +4479,19 @@ def receipt_report_pdf_export(request):
         items_paragraph = Paragraph(items_display_text, cell_style)
 
         # ผู้รับเงิน และ ผู้จ่ายเงิน - ขึ้นอยู่กับประเภท
-        recipient = receipt.recipient_name or "-"
+        recipient_text = receipt.recipient_name or "-"
         if receipt.is_loan:
             # กรณียืมเงิน - แสดงทั้งผู้รับและผู้จ่าย
-            payer = receipt.created_by.get_display_name() if receipt.created_by else "-"
+            payer_text = receipt.created_by.get_display_name() if receipt.created_by else "-"
             payment_type = "ยืมเงิน"
         else:
             # กรณีจ่ายปกติ - แสดงเฉพาะผู้รับ, ผู้จ่ายเป็น "-"
-            payer = "-"
+            payer_text = "-"
             payment_type = "จ่ายปกติ"
+
+        # แปลงเป็น Paragraph เพื่อให้ตัดคำได้
+        recipient_paragraph = Paragraph(recipient_text, cell_style)
+        payer_paragraph = Paragraph(payer_text, cell_style)
 
         # หมายเหตุ: สถานะ / ประเภทการจ่าย
         note = f"{status_map.get(receipt.status, receipt.status)} / {payment_type}"
@@ -4498,8 +4502,8 @@ def receipt_report_pdf_export(request):
             thai_date,
             items_paragraph,  # ใช้ Paragraph แทน plain text
             f"{receipt.total_amount:,.2f}",
-            recipient,
-            payer,
+            recipient_paragraph,  # ใช้ Paragraph เพื่อให้ตัดคำได้
+            payer_paragraph,  # ใช้ Paragraph เพื่อให้ตัดคำได้
             note
         ]
         table_data.append(row_data)
@@ -4534,8 +4538,10 @@ def receipt_report_pdf_export(request):
         ''
     ])
 
-    # สร้างตาราง - เต็มหน้า landscape A4 (ขยายคอลัมภ์รายการ)
-    table = Table(table_data, colWidths=[0.4*inch, 1*inch, 0.9*inch, 3.35*inch, 1*inch, 1.3*inch, 1.3*inch, 1.4*inch])
+    # สร้างตาราง - เต็มหน้า landscape A4 (ปรับคอลัมน์ให้สมดุล)
+    # ลดความกว้าง: ใบสำคัญเลขที่(0.8), วันที่ขอ(0.8), จำนวนเงิน(0.8), หมายเหตุ(1.1)
+    # เพิ่มความกว้าง: ผู้รับเงิน, ผู้จ่ายเงิน
+    table = Table(table_data, colWidths=[0.4*inch, 0.8*inch, 0.8*inch, 3.35*inch, 0.8*inch, 1.65*inch, 1.65*inch, 1.1*inch])
 
     # คำนวณแถวสุดท้าย (แถวรวม)
     last_row = len(table_data) - 1

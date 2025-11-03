@@ -335,21 +335,29 @@ function loadExistingItems() {
 
                 <!-- Edit Mode (hidden by default) -->
                 <div class="item-edit-mode" style="display: none;">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small">รายการ</label>
-                        <textarea class="form-control form-control-sm item-description-edit" rows="3"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
-                        <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01" value="${item.amount}">
-                    </div>
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemCounter})">
-                            <i class="fas fa-save me-1"></i> บันทึก
-                        </button>
-                        <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(${itemCounter})">
-                            <i class="fas fa-times me-1"></i> ยกเลิก
-                        </button>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small">รายการ</label>
+                            <textarea class="form-control form-control-sm item-description-edit" rows="6"></textarea>
+                            <small class="form-text text-muted">
+                                สามารถจัดข้อความได้เท่าขนาดช่อง เพื่อแสดงผลในไฟล์ PDF ที่ถูกต้อง<br>
+                                สามารถเว้นวรรคได้, Shift+Enter เพื่อขึ้นบรรทัดใหม่
+                            </small>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
+                            <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01" value="${item.amount}">
+                        </div>
+                        <div class="col-md-3 d-flex align-items-start">
+                            <div class="d-flex gap-2" style="margin-top: 24px;">
+                                <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemCounter})">
+                                    <i class="fas fa-save me-1"></i> บันทึก
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(${itemCounter})">
+                                    <i class="fas fa-times me-1"></i> ยกเลิก
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -413,21 +421,29 @@ function addItemToList(description, amount) {
 
             <!-- Edit Mode (hidden by default) -->
             <div class="item-edit-mode" style="display: none;">
-                <div class="mb-3">
-                    <label class="form-label fw-bold small">รายการ</label>
-                    <textarea class="form-control form-control-sm item-description-edit" rows="3">${description}</textarea>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
-                    <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01" value="${amount}">
-                </div>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemCounter})">
-                        <i class="fas fa-save me-1"></i> บันทึก
-                    </button>
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(${itemCounter})">
-                        <i class="fas fa-times me-1"></i> ยกเลิก
-                    </button>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small">รายการ</label>
+                        <textarea class="form-control form-control-sm item-description-edit" rows="6">${description}</textarea>
+                        <small class="form-text text-muted">
+                            สามารถจัดข้อความได้เท่าขนาดช่อง เพื่อแสดงผลในไฟล์ PDF ที่ถูกต้อง<br>
+                            สามารถเว้นวรรคได้, Shift+Enter เพื่อขึ้นบรรทัดใหม่
+                        </small>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
+                        <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01" value="${amount}">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-start">
+                        <div class="d-flex gap-2" style="margin-top: 24px;">
+                            <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemCounter})">
+                                <i class="fas fa-save me-1"></i> บันทึก
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(${itemCounter})">
+                                <i class="fas fa-times me-1"></i> ยกเลิก
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -679,21 +695,29 @@ function saveFoodItem(itemId) {
 
     // Reset edit mode HTML to original structure
     editMode.innerHTML = `
-        <div class="mb-3">
-            <label class="form-label fw-bold small">รายการ</label>
-            <textarea class="form-control form-control-sm item-description-edit" rows="3"></textarea>
-        </div>
-        <div class="mb-3">
-            <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
-            <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01">
-        </div>
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemId})">
-                <i class="fas fa-save me-1"></i> บันทึก
-            </button>
-            <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(${itemId})">
-                <i class="fas fa-times me-1"></i> ยกเลิก
-            </button>
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label fw-bold small">รายการ</label>
+                <textarea class="form-control form-control-sm item-description-edit" rows="6"></textarea>
+                <small class="form-text text-muted">
+                    สามารถจัดข้อความได้เท่าขนาดช่อง เพื่อแสดงผลในไฟล์ PDF ที่ถูกต้อง<br>
+                    สามารถเว้นวรรคได้, Shift+Enter เพื่อขึ้นบรรทัดใหม่
+                </small>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
+                <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01">
+            </div>
+            <div class="col-md-3 d-flex align-items-start">
+                <div class="d-flex gap-2" style="margin-top: 24px;">
+                    <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemId})">
+                        <i class="fas fa-save me-1"></i> บันทึก
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(${itemId})">
+                        <i class="fas fa-times me-1"></i> ยกเลิก
+                    </button>
+                </div>
+            </div>
         </div>
     `;
 
@@ -756,21 +780,29 @@ function cancelEdit(itemId) {
 
     // Reset edit mode HTML to original structure
     editMode.innerHTML = `
-        <div class="mb-3">
-            <label class="form-label fw-bold small">รายการ</label>
-            <textarea class="form-control form-control-sm item-description-edit" rows="3"></textarea>
-        </div>
-        <div class="mb-3">
-            <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
-            <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01">
-        </div>
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemId})">
-                <i class="fas fa-save me-1"></i> บันทึก
-            </button>
-            <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(${itemId})">
-                <i class="fas fa-times me-1"></i> ยกเลิก
-            </button>
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label fw-bold small">รายการ</label>
+                <textarea class="form-control form-control-sm item-description-edit" rows="6"></textarea>
+                <small class="form-text text-muted">
+                    สามารถจัดข้อความได้เท่าขนาดช่อง เพื่อแสดงผลในไฟล์ PDF ที่ถูกต้อง<br>
+                    สามารถเว้นวรรคได้, Shift+Enter เพื่อขึ้นบรรทัดใหม่
+                </small>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold small">จำนวนเงิน (บาท)</label>
+                <input type="number" class="form-control form-control-sm item-amount-edit" step="0.01">
+            </div>
+            <div class="col-md-3 d-flex align-items-start">
+                <div class="d-flex gap-2" style="margin-top: 24px;">
+                    <button type="button" class="btn btn-sm btn-success" onclick="saveItem(${itemId})">
+                        <i class="fas fa-save me-1"></i> บันทึก
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(${itemId})">
+                        <i class="fas fa-times me-1"></i> ยกเลิก
+                    </button>
+                </div>
+            </div>
         </div>
     `;
 
