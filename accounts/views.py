@@ -584,10 +584,9 @@ def department_create_view(request):
             # Check if department already has a code
             if Department.objects.filter(name=department_name).exists():
                 return JsonResponse({'success': False, 'message': 'หน่วยงานนี้มีชื่อย่อแล้ว'})
-                
-            # Check if code is already used
-            if Department.objects.filter(code=code).exists():
-                return JsonResponse({'success': False, 'message': 'ชื่อย่อนี้ถูกใช้แล้ว'})
+
+            # Note: Multiple departments can now share the same code (e.g., sub-departments under same parent)
+            # So we removed the unique code validation
             
             # Create department code
             department = Department.objects.create(
@@ -639,10 +638,9 @@ def department_edit_view(request, department_id):
             # Validate input
             if not code:
                 return JsonResponse({'success': False, 'message': 'กรุณากรอกชื่อย่อ'})
-            
-            # Check if code is already used by another department
-            if Department.objects.filter(code=code).exclude(id=department_id).exists():
-                return JsonResponse({'success': False, 'message': 'ชื่อย่อนี้ถูกใช้แล้ว'})
+
+            # Note: Multiple departments can now share the same code (e.g., sub-departments under same parent)
+            # So we removed the unique code validation
             
             # Update department data
             department.code = code

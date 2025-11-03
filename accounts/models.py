@@ -383,10 +383,10 @@ class Department(models.Model):
         verbose_name="ชื่อหน่วยงาน (จาก NPU AD)"
     )
     code = models.CharField(
-        max_length=20, 
-        unique=True, 
+        max_length=20,
+        unique=False,  # Allow multiple departments to share the same code
         verbose_name="ชื่อย่อหน่วยงาน",
-        help_text="ชื่อย่อที่จะใช้ในใบสำคัญรับเงิน"
+        help_text="ชื่อย่อที่จะใช้ในใบสำคัญรับเงิน (หลายหน่วยงานสามารถใช้ชื่อย่อเดียวกันได้)"
     )
     is_active = models.BooleanField(
         default=True, 
