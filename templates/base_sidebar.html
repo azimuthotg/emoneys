@@ -328,8 +328,9 @@
                 </div>
             </div>
 
-            <!-- รายงาน (เฉพาะเจ้าหน้าที่) -->
+            <!-- รายงาน (เฉพาะผู้มีสิทธิ์ดูรายงาน - ไม่ใช่ Basic User ที่มีแค่ receipt_view_own) -->
             {% if user.user_type == 'staff' %}
+                {% if user|has_perm:"report_view" or user|has_perm:"receipt_view_department" or user|has_perm:"receipt_view_all" %}
             <div class="menu-item">
                 <div class="menu-link" style="cursor: default;">
                     <i class="fas fa-chart-bar"></i>
@@ -367,6 +368,7 @@
                     -->
                 </div>
             </div>
+                {% endif %}
             {% endif %}
 
             <!-- ผู้ดูแลระบบ (Admin Only - ตามสิทธิ์) -->

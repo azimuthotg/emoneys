@@ -212,15 +212,23 @@ def dashboard(request):
         # If no matching department found, create it or handle gracefully
         if not user_departments.exists():
             print(f"Warning: Department '{user_department}' not found in Department table")
-    
-    # Calculate actual receipt statistics for user's department(s)
+
+    # Calculate actual receipt statistics
     from django.db.models import Count, Sum
     from datetime import datetime, timedelta
-    
-    # Base queryset - user's department receipts
-    base_queryset = Receipt.objects.all()
-    if user_departments.exists():
-        base_queryset = base_queryset.filter(department__in=user_departments)
+
+    # Base queryset - กำหนดตาม scope ของผู้ใช้
+    if request.user.has_permission('receipt_view_all'):
+        # Admin: ดูทั้งหมด
+        base_queryset = Receipt.objects.all()
+    elif request.user.has_permission('receipt_view_department'):
+        # Department Manager: ดูระดับหน่วยงาน
+        base_queryset = Receipt.objects.all()
+        if user_departments.exists():
+            base_queryset = base_queryset.filter(department__in=user_departments)
+    else:
+        # Basic User: ดูเฉพาะของตัวเอง
+        base_queryset = Receipt.objects.filter(created_by=request.user)
     
     # Current month range
     from django.utils import timezone
@@ -229,36 +237,61 @@ def dashboard(request):
         datetime.combine(today.replace(day=1), datetime.min.time())
     )
     
-    # Statistics calculations
-    stats = {
-        'total_receipts_issued': base_queryset.filter(created_by=request.user).count(),
-        'total_receipts_approved': base_queryset.filter(status='completed').count(),
-        'pending_approval': base_queryset.filter(status='draft').count(),
-        'this_month_count': base_queryset.filter(
-            created_at__gte=first_day_month,
-            status='completed'
-        ).count(),
-        'this_month_amount': base_queryset.filter(
-            created_at__gte=first_day_month,
-            status='completed'
-        ).aggregate(total=Sum('total_amount'))['total'] or 0,
-        'user_total_amount': base_queryset.filter(
-            created_by=request.user,
-            status='completed'
-        ).aggregate(total=Sum('total_amount'))['total'] or 0
-    }
+    # Statistics calculations (ปรับตาม scope ของผู้ใช้)
+    if request.user.has_permission('receipt_view_department') or request.user.has_permission('receipt_view_all'):
+        # Department Manager / Admin: แสดงสถิติระดับหน่วยงาน/ทั้งหมด
+        stats = {
+            'total_receipts_issued': base_queryset.filter(created_by=request.user).count(),
+            'total_receipts_approved': base_queryset.filter(status='completed').count(),
+            'pending_approval': base_queryset.filter(status='draft').count(),
+            'this_month_count': base_queryset.filter(
+                created_at__gte=first_day_month,
+                status='completed'
+            ).count(),
+            'this_month_amount': base_queryset.filter(
+                created_at__gte=first_day_month,
+                status='completed'
+            ).aggregate(total=Sum('total_amount'))['total'] or 0,
+            'user_total_amount': base_queryset.filter(
+                created_by=request.user,
+                status='completed'
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
+        }
+    else:
+        # Basic User: แสดงเฉพาะสถิติส่วนตัว
+        stats = {
+            'total_receipts_issued': base_queryset.count(),  # ทั้งหมดที่สร้าง
+            'total_receipts_approved': base_queryset.filter(status='completed').count(),  # เสร็จสิ้น
+            'pending_approval': base_queryset.filter(status='draft').count(),  # ร่าง
+            'this_month_count': base_queryset.filter(
+                created_at__gte=first_day_month,
+                status='completed'
+            ).count(),
+            'this_month_amount': base_queryset.filter(
+                created_at__gte=first_day_month,
+                status='completed'
+            ).aggregate(total=Sum('total_amount'))['total'] or 0,
+            'user_total_amount': base_queryset.filter(
+                status='completed'
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
+        }
     
     # Recent receipts issued by current user (last 5)
     recent_received = Receipt.objects.filter(
         created_by=request.user
     ).order_by('-created_at')[:5]
-    
+
     # Recent receipts in user's department (last 5, excluding user's own)
-    recent_forwarded = Receipt.objects.filter(
-        department__in=user_departments
-    ).exclude(
-        created_by=request.user
-    ).order_by('-created_at')[:5] if user_departments.exists() else []
+    # Basic User: ไม่แสดง (เพราะดูเฉพาะของตัวเอง)
+    # Department Manager/Admin: แสดงของคนอื่นในหน่วยงาน
+    if request.user.has_permission('receipt_view_department') or request.user.has_permission('receipt_view_all'):
+        recent_forwarded = Receipt.objects.filter(
+            department__in=user_departments
+        ).exclude(
+            created_by=request.user
+        ).order_by('-created_at')[:5] if user_departments.exists() else []
+    else:
+        recent_forwarded = []  # Basic User: ไม่แสดง
 
     # นับคำขอแก้ไขรออนุมัติ (สำหรับ Dep Manager / Senior Manager)
     pending_edit_requests = 0
@@ -1478,9 +1511,9 @@ def receipt_list_view(request):
         receipts = Receipt.objects.filter(department__name=request.user.get_department())
         view_scope = f'หน่วยงาน: {request.user.get_department()}'
     elif request.user.has_permission('receipt_view_own'):
-        # Basic Users can see all receipts in their department for receipt number tracking
-        receipts = Receipt.objects.filter(department__name=request.user.get_department())
-        view_scope = f'หน่วยงาน: {request.user.get_department()}'
+        # Basic Users: ดูเฉพาะใบสำคัญที่สร้างโดยตัวเอง
+        receipts = Receipt.objects.filter(created_by=request.user)
+        view_scope = 'ของฉัน'
     else:
         # ไม่มีสิทธิ์ดูใด ๆ
         receipts = Receipt.objects.none()
@@ -1580,8 +1613,8 @@ def receipt_detail_view(request, receipt_id):
         elif request.user.has_permission('receipt_view_department') and receipt.department.name == request.user.get_department():
             can_view = True
         elif request.user.has_permission('receipt_view_own'):
-            # Basic Users can view all receipts in their department for receipt number tracking
-            can_view = (receipt.department.name == request.user.get_department())
+            # Basic Users: ดูได้เฉพาะใบสำคัญที่สร้างโดยตัวเอง
+            can_view = (receipt.created_by == request.user)
         else:
             can_view = False
         
@@ -2656,7 +2689,14 @@ def reports_dashboard_view(request):
     from django.utils import timezone
     from datetime import datetime, timedelta
     from utils.fiscal_year import get_current_fiscal_year, get_fiscal_year_dates
-    
+
+    # ตรวจสอบสิทธิ์การเข้าถึงรายงาน
+    if not (request.user.has_permission('report_view') or
+            request.user.has_permission('receipt_view_department') or
+            request.user.has_permission('receipt_view_all')):
+        messages.error(request, 'คุณไม่มีสิทธิ์เข้าถึงหน้ารายงาน')
+        return redirect('dashboard')
+
     # กำหนด scope การดู - กรองเฉพาะใบที่ผ่านกระบวนการทางบัญชี (มีเลขที่)
     if request.user.has_permission('receipt_view_all'):
         receipts = Receipt.objects.exclude(receipt_number__isnull=True).exclude(receipt_number='')
@@ -2862,7 +2902,14 @@ def receipt_report_view(request):
     from django.db.models import Sum, Q
     from datetime import datetime
 
-    # กำหนด scope การดู (ไม่ต้องเช็ค report_view permission)
+    # ตรวจสอบสิทธิ์การเข้าถึงรายงาน
+    if not (request.user.has_permission('report_view') or
+            request.user.has_permission('receipt_view_department') or
+            request.user.has_permission('receipt_view_all')):
+        messages.error(request, 'คุณไม่มีสิทธิ์เข้าถึงหน้ารายงาน')
+        return redirect('dashboard')
+
+    # กำหนด scope การดู
     if request.user.has_permission('receipt_view_all'):
         # กรองเฉพาะเอกสารที่ผ่านกระบวนการทางบัญชีแล้ว (มีเลขที่เอกสาร)
         receipts = Receipt.objects.exclude(receipt_number__isnull=True).exclude(receipt_number='')
@@ -2992,7 +3039,14 @@ def revenue_summary_report_view(request):
     from django.utils import timezone
     from datetime import datetime, timedelta
     from utils.fiscal_year import get_current_fiscal_year, get_fiscal_year_dates
-    
+
+    # ตรวจสอบสิทธิ์การเข้าถึงรายงาน
+    if not (request.user.has_permission('report_view') or
+            request.user.has_permission('receipt_view_department') or
+            request.user.has_permission('receipt_view_all')):
+        messages.error(request, 'คุณไม่มีสิทธิ์เข้าถึงหน้ารายงาน')
+        return redirect('dashboard')
+
     # กำหนด scope การดู - กรองเฉพาะใบที่ผ่านกระบวนการทางบัญชี (มีเลขที่)
     if request.user.has_permission('receipt_view_all'):
         receipts = Receipt.objects.exclude(receipt_number__isnull=True).exclude(receipt_number='')
