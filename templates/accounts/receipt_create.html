@@ -341,7 +341,7 @@ function renderSimpleInput(container) {
 
     const html = `
         <div class="row g-2">
-            <div class="col-md-8">
+            <div class="col-md-5">
                 <label class="form-label fw-bold mb-1 small">รายละเอียด</label>
                 <input type="text" class="form-control form-control-sm" id="simple-description"
                        value="${templateName}${maxAmountText}" readonly>
@@ -355,9 +355,9 @@ function renderSimpleInput(container) {
                 </div>
                 ${maxAmount > 0 ? `<div class="form-text text-warning small">สูงสุด ${maxAmount.toLocaleString()} บาท</div>` : ''}
             </div>
-            <div class="col-md-1 d-flex align-items-end">
-                <button type="button" class="btn btn-success btn-sm w-100" onclick="addSimpleItem()">
-                    <i class="fas fa-plus"></i>
+            <div class="col-md-2 d-flex align-items-start">
+                <button type="button" class="btn btn-success btn-sm w-100" onclick="addSimpleItem()" style="margin-top: 24px;">
+                    <i class="fas fa-plus me-1"></i> เพิ่มรายการ
                 </button>
             </div>
         </div>
@@ -369,10 +369,14 @@ function renderSimpleInput(container) {
 function renderTextareaInput(container) {
     const html = `
         <div class="row g-2">
-            <div class="col-md-8">
+            <div class="col-md-4">
                 <label class="form-label fw-bold mb-1 small">รายละเอียด</label>
-                <textarea class="form-control form-control-sm" id="textarea-description" rows="3"
+                <textarea class="form-control form-control-sm" id="textarea-description" rows="6"
                           placeholder="กรอกรายละเอียด..."></textarea>
+                <small class="form-text text-muted">
+                    สามารถจัดข้อความได้เท่าขนาดช่อง เพื่อแสดงผลในไฟล์ PDF ที่ถูกต้อง<br>
+                    สามารถเว้นวรรคได้, Shift+Enter เพื่อขึ้นบรรทัดใหม่
+                </small>
             </div>
             <div class="col-md-3">
                 <label class="form-label fw-bold mb-1 small">จำนวนเงิน</label>
@@ -382,9 +386,9 @@ function renderTextareaInput(container) {
                     <span class="input-group-text">บาท</span>
                 </div>
             </div>
-            <div class="col-md-1 d-flex align-items-end">
-                <button type="button" class="btn btn-success btn-sm w-100" onclick="addTextareaItem()">
-                    <i class="fas fa-plus"></i>
+            <div class="col-md-2 d-flex align-items-start">
+                <button type="button" class="btn btn-success btn-sm w-100" onclick="addTextareaItem()" style="margin-top: 24px;">
+                    <i class="fas fa-plus me-1"></i> เพิ่มรายการ
                 </button>
             </div>
         </div>
@@ -400,10 +404,14 @@ function renderOnlineOtherInput(container) {
     const html = `
         <div class="row g-2">
             <!-- ส่วนที่ 1: Textarea + Amount (เหมือน textarea แบบเดิม) -->
-            <div class="col-md-8">
+            <div class="col-md-4">
                 <label class="form-label fw-bold mb-1 small">รายละเอียด</label>
-                <textarea class="form-control form-control-sm" id="online-description" rows="3"
+                <textarea class="form-control form-control-sm" id="online-description" rows="6"
                           placeholder="กรอกรายละเอียดการรับเงิน..."></textarea>
+                <small class="form-text text-muted">
+                    สามารถจัดข้อความได้เท่าขนาดช่อง เพื่อแสดงผลในไฟล์ PDF ที่ถูกต้อง<br>
+                    สามารถเว้นวรรคได้, Shift+Enter เพื่อขึ้นบรรทัดใหม่
+                </small>
             </div>
             <div class="col-md-3">
                 <label class="form-label fw-bold mb-1 small">จำนวนเงิน</label>
@@ -414,22 +422,23 @@ function renderOnlineOtherInput(container) {
                 </div>
             </div>
 
-            <!-- ส่วนที่ 2: ฟิลด์เพิ่มเติม (2 ช่อง col-6) -->
-            <div class="col-md-6">
+            <!-- บังคับขึ้นบรรทัดใหม่ -->
+            <div class="w-100"></div>
+
+            <!-- ส่วนที่ 2: ฟิลด์เพิ่มเติม + ปุ่มในบรรทัดเดียวกัน -->
+            <div class="col-md-4">
                 <label class="form-label fw-bold mb-1 small">ชื่อผู้รับรองผู้รับเงิน</label>
                 <input type="text" class="form-control form-control-sm" id="online-prefix"
                        value="" placeholder="กรอกชื่อผู้รับรอง">
             </div>
-            <div class="col-md-6">
+            <div class="col-md-5">
                 <label class="form-label fw-bold mb-1 small">ชื่อผู้รับเงิน</label>
                 <input type="text" class="form-control form-control-sm" id="online-recipient"
                        value="${recipientName}" placeholder="กรอกชื่อผู้รับเงิน">
                 <small class="form-text text-muted">ดึงจากช่อง "ชื่อผู้รับเงิน" ด้านบน (แก้ไขได้)</small>
             </div>
-
-            <!-- ปุ่มเพิ่มรายการ -->
-            <div class="col-12 d-flex justify-content-end">
-                <button type="button" class="btn btn-success btn-sm" onclick="addOnlineOtherItem()">
+            <div class="col-md-3 d-flex align-items-start">
+                <button type="button" class="btn btn-success btn-sm w-100" onclick="addOnlineOtherItem()" style="margin-top: 24px;">
                     <i class="fas fa-plus me-1"></i> เพิ่มรายการ
                 </button>
             </div>

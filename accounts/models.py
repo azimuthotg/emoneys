@@ -1223,24 +1223,56 @@ class Receipt(models.Model):
         from datetime import datetime
         from django.db.models import Max
         from django.db import transaction
+        from utils.fiscal_year import get_fiscal_year_from_date
 
         today = self.receipt_date or datetime.now().date()
 
         # Format: ddmmyy
         date_part = today.strftime("%d%m%y")
 
-        # หาเลข running number สำหรับวันนี้และหน่วยงานนี้
+        # หาเลข running number สำหรับวันนี้และ volume นี้
         prefix = f"{date_part}/"
+
+        # หา volume ของ department code นี้ในปีงบประมาณปัจจุบัน
+        # ใช้ volume_code จาก department code เพื่อให้หลาย department ที่ใช้ code เดียวกัน
+        # สามารถหา volume ร่วมกันได้
+        fiscal_year = get_fiscal_year_from_date(today)
+
+        from utils.fiscal_year import get_volume_code as get_vol_code
+        expected_volume_code = get_vol_code(self.department.code, fiscal_year)
+
+        try:
+            # หา volume ด้วย volume_code และ fiscal_year (ไม่ใช้ department)
+            volume = DocumentVolume.objects.get(
+                volume_code=expected_volume_code,
+                fiscal_year=fiscal_year
+            )
+            volume_code = volume.volume_code
+        except DocumentVolume.DoesNotExist:
+            # ถ้าไม่มี volume ให้ใช้ department code เป็นตัวกรอง (fallback)
+            volume_code = None
 
         # ใช้ transaction เพื่อป้องกัน race condition
         with transaction.atomic():
             # Lock rows เพื่อป้องกันการอ่านพร้อมกัน
-            last_receipt = Receipt.objects.filter(
-                receipt_number__startswith=prefix,
-                department=self.department
-            ).select_for_update().aggregate(
-                max_number=Max('receipt_number')
-            )['max_number']
+            # กรองด้วย volume_code เพื่อให้หลาย department ที่ใช้ volume เดียวกันมีเลขวิ่งต่อเนื่อง
+            if volume_code:
+                # กรองด้วย department ที่ใช้ volume_code เดียวกัน
+                departments_in_volume = Department.objects.filter(code=self.department.code)
+                last_receipt = Receipt.objects.filter(
+                    receipt_number__startswith=prefix,
+                    department__in=departments_in_volume
+                ).select_for_update().aggregate(
+                    max_number=Max('receipt_number')
+                )['max_number']
+            else:
+                # Fallback: กรองด้วย department เฉพาะ
+                last_receipt = Receipt.objects.filter(
+                    receipt_number__startswith=prefix,
+                    department=self.department
+                ).select_for_update().aggregate(
+                    max_number=Max('receipt_number')
+                )['max_number']
 
             if last_receipt:
                 # ดึงตัวเลขท้ายสุด
