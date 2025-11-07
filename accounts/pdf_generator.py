@@ -331,20 +331,20 @@ class ReceiptPDFGenerator:
 
         # หัวเอกสาร (รวมเล่มที่และเลขที่แล้ว)
         story.extend(self._create_header(receipt))
-        story.append(Spacer(1, 0.3 * cm))
+        story.append(Spacer(1, 0 * cm))
 
         # ข้อมูลใบสำคัญ (ชื่อหน่วยงาน + ที่อยู่ + วันที่)
         story.extend(self._create_receipt_info(receipt))
-        story.append(Spacer(1, 0.3 * cm))
+        story.append(Spacer(1, 0.2 * cm))
 
         # ข้อมูลผู้รับเงิน
         story.extend(self._create_recipient_info(receipt))
-        story.append(Spacer(1, 0.3 * cm))
+        story.append(Spacer(1, 0.2 * cm))
 
         # รายการรับเงิน (รวมแถวรวมเป็นเงินแล้ว)
         items_content, online_other_data = self._create_items_table(receipt)
         story.extend(items_content)
-        story.append(Spacer(1, 0.3 * cm))
+        story.append(Spacer(1, 0.1* cm))
 
         # ลายเซ็นและ QR Code
         story.extend(self._create_signature_section(receipt, online_other_data))
@@ -711,7 +711,7 @@ class ReceiptPDFGenerator:
             leading=16,
             textColor=colors.black,
             alignment=TA_LEFT,
-            spaceBefore=0.2 * cm,
+            spaceBefore=0.1 * cm,
             leftIndent=6
         )
         
@@ -728,7 +728,7 @@ class ReceiptPDFGenerator:
                 leading=18,
                 textColor=colors.black,
                 alignment=TA_LEFT,  # เปลี่ยนเป็น JUSTIFY เพื่อกระจายข้อความเต็มบรรทัด
-                spaceBefore=0.5 * cm,
+                spaceBefore=0.2 * cm,
                 leftIndent=6,
                 firstLineIndent=1 * cm
             )
@@ -762,7 +762,7 @@ class ReceiptPDFGenerator:
                 certification_text = (
                     f'ข้าพเจ้า <font face="{self.thai_font_bold}"><nobr>{prefix_name}</nobr></font> '
                     f'ขอรับรองว่า <font face="{self.thai_font_bold}"><nobr>{recipient_name}</nobr></font> '
-                    f'ได้เข้าร่วมประชุมผ่านสื่ออิเล็กทรอนิกส์จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม '
+                    f'ได้เข้าร่วมประชุมผ่านสื่ออิเล็กทรอนิกส์จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุมหรือค่าตอบแทนคณะกรรมการ '
                     f'โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของคณะกรรมการดังกล่าวจริง '
                     f'รายละเอียดตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
                 )
@@ -771,8 +771,8 @@ class ReceiptPDFGenerator:
                 certification_text = (
                     f'ข้าพเจ้า <font face="{self.thai_font_bold}"><nobr>{prefix_name}</nobr></font> '
                     f'ขอรับรองว่า <font face="{self.thai_font_bold}"><nobr>{recipient_name}</nobr></font><br/>'
-                    f'ได้เข้าร่วมประชุมผ่านสื่อ<nobr>อิเล็กทรอนิกส์</nobr>จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม'
-                    f'โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของ<br/>คณะกรรมการดังกล่าวจริง'
+                    f'ได้เข้าร่วมประชุมผ่านสื่อ<nobr>อิเล็กทรอนิกส์</nobr>จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุมหรือค่าตอบแทนคณะกรรมการ '
+                    f'โดยการโอนเงิน<br/>เข้าบัญชีเงินฝากธนาคารของคณะกรรมการดังกล่าวจริง '
                     f'รายละเอียดตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
                 )
             elif total_width > 300:
@@ -780,8 +780,8 @@ class ReceiptPDFGenerator:
                 certification_text = (
                     f'ข้าพเจ้า <font face="{self.thai_font_bold}"><nobr>{prefix_name}</nobr></font> '
                     f'ขอรับรองว่า <font face="{self.thai_font_bold}"><nobr>{recipient_name}</nobr></font>'
-                    f'&nbsp;ได้เข้าร่วมประชุมผ่านสื่อ<br/><nobr>อิเล็กทรอนิกส์</nobr>จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม '
-                    f'โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของคณะกรรมการดังกล่าว<br/>จริงรายละเอียด'
+                    f'&nbsp;ได้เข้าร่วมประชุมผ่านสื่อ<br/><nobr>อิเล็กทรอนิกส์</nobr>จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุมหรือค่าตอบแทนคณะกรรมการ '
+                    f'โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของ<br/>คณะกรรมการดังกล่าวจริงรายละเอียด'
                     f'ตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
                 )
             else:
@@ -789,8 +789,8 @@ class ReceiptPDFGenerator:
                 certification_text = (
                     f'ข้าพเจ้า <font face="{self.thai_font_bold}"><nobr>{prefix_name}</nobr></font> '
                     f'ขอรับรองว่า <font face="{self.thai_font_bold}"><nobr>{recipient_name}</nobr></font> '
-                    f'ได้เข้าร่วมประชุมผ่านสื่อ<nobr>อิเล็กทรอนิกส์</nobr><br/>'
-                    f'จริงและมีสิทธิ์ได้รับเงินค่าเบี้ยประชุม&nbsp;โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของคณะกรรมการดังกล่าวจริงรายละเอียด<br/>'
+                    f'ได้เข้าร่วมประชุมผ่านสื่อ<nobr>อิเล็กทรอนิกส์</nobr>จริง<br/>'
+                    f'และมีสิทธิ์ได้รับเงินค่าเบี้ยประชุมหรือค่าตอบแทนคณะกรรมการ โดยการโอนเงินเข้าบัญชีเงินฝากธนาคารของคณะกรรมการ<br/>ดังกล่าวจริงรายละเอียด'
                     f'ตามหลักฐานการโอนเงินที่ได้แนบมาพร้อมนี้'
                 )
 
@@ -901,13 +901,13 @@ class ReceiptPDFGenerator:
             else:
                 verification_url = receipt.get_verification_url()
                 if verification_url:
-                    footer_info = f"URL ตรวจสอบ: {verification_url} | สร้างเมื่อ: {created_thai} เวลา {time_thai} น."
+                    footer_info = f"ตรวจสอบ: {verification_url} | สร้างเมื่อ: {created_thai} เวลา {time_thai} น."
                 else:
                     footer_info = f"สร้างเมื่อ: {created_thai} เวลา {time_thai} น."
 
             # วาง QR Code ที่มุมซ้าย-ล่าง (ตำแหน่งคงที่)
             qr_x = self.margin_left
-            qr_y = self.margin_bottom
+            qr_y = self.margin_bottom -1*cm
 
             # วาด QR Code ลงบน canvas
             qr_img.drawOn(canvas, qr_x, qr_y)
@@ -917,8 +917,8 @@ class ReceiptPDFGenerator:
 
             if is_online_other:
                 # หมายเหตุสำหรับ รับเงินอื่น ๆ Online (อยู่เหนือ footer_info)
-                note_x = qr_x + 3.5*cm
-                note_y_start = qr_y + 2.4*cm
+                note_x = qr_x + 2.5*cm
+                note_y_start = qr_y + 2*cm
 
                 # บรรทัดหัวข้อ "หมายเหตุ :" (ตัวหนา)
                 canvas.setFont(self.thai_font_bold, 12)
@@ -940,13 +940,13 @@ class ReceiptPDFGenerator:
                 canvas.drawString(note_x, note_y_3, "3. ต้องลงลายเซ็นด้วยปากกาสีน้ำเงินเท่านั้น")
 
                 # วาดข้อความ footer_info (ชิดขอบล่าง)
-                text_x = qr_x + 3.5*cm
-                text_y = qr_y + 0.3*cm
+                text_x = qr_x + 2.5*cm
+                text_y = qr_y + 0.25*cm
                 canvas.drawString(text_x, text_y, footer_info)
             else:
                 # หมายเหตุสำหรับใบสำคัญทั่วไป (ใช้เหมือนค่าอาหาร)
-                note_x = qr_x + 3.5*cm
-                note_y_start = qr_y + 2.4*cm
+                note_x = qr_x + 2.5*cm
+                note_y_start = qr_y + 2*cm
 
                 # บรรทัดหัวข้อ "หมายเหตุ :" (ตัวหนา)
                 canvas.setFont(self.thai_font_bold, 12)
@@ -968,8 +968,8 @@ class ReceiptPDFGenerator:
                 canvas.drawString(note_x, note_y_3, "3. ต้องลงลายเซ็นด้วยปากกาสีน้ำเงินเท่านั้น")
 
                 # วาดข้อความ footer_info (ชิดขอบล่าง)
-                text_x = qr_x + 3.5*cm
-                text_y = qr_y + 0.3*cm
+                text_x = qr_x + 2.5*cm
+                text_y = qr_y + 0.25*cm
                 canvas.drawString(text_x, text_y, footer_info)
 
         except Exception as e:
@@ -1009,7 +1009,7 @@ class ReceiptPDFGenerator:
             img_buffer.seek(0)
 
             # สร้าง Image object สำหรับ ReportLab
-            img = Image(img_buffer, width=3*cm, height=3*cm)
+            img = Image(img_buffer, width=2.4*cm, height=2.4*cm)
 
             return img
 
