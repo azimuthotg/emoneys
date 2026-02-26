@@ -12,17 +12,15 @@ class LoginForm(AuthenticationForm):
         max_length=50,  # เพิ่มขนาดให้รองรับ admin users
         widget=forms.TextInput(attrs={
             'class': 'form-control form-control-lg',
-            'id': 'ldap_uid',
             'placeholder': 'รหัสบัตรประชาชน / รหัสนักศึกษา / Username',
             'required': True,
         }),
         label='รหัสบัตรประชาชน / รหัสนักศึกษา / Username'
     )
-    
+
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={
             'class': 'form-control form-control-lg',
-            'id': 'password',
             'placeholder': 'กรอกรหัสผ่าน',
             'required': True,
         }),
