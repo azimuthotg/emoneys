@@ -185,9 +185,13 @@
 <script>
 // Username Input Validation with Real-time User Type Detection
 document.getElementById('id_username').addEventListener('input', function(e) {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length > 13) value = value.slice(0, 13);
-    e.target.value = value;
+    const value = e.target.value;
+    const isAllDigits = /^\d+$/.test(value);
+
+    // Limit digit-only input to 13 characters
+    if (isAllDigits && value.length > 13) {
+        e.target.value = value.slice(0, 13);
+    }
 
     // Get hint elements
     const hintDiv = document.getElementById('userTypeHint');
@@ -197,15 +201,20 @@ document.getElementById('id_username').addEventListener('input', function(e) {
     // Remove existing validation classes
     e.target.classList.remove('is-valid', 'is-invalid');
 
-    // Skip validation for admin user
-    if (value === 'admin') {
-        e.target.classList.add('is-valid');
+    if (value.length === 0) {
+        // Empty field
         hintDiv.style.display = 'none';
         return;
     }
 
-    // Real-time user type detection and hint display
-    if (value.length === 13) {
+    if (!isAllDigits) {
+        // Text username (manual user / admin)
+        e.target.classList.add('is-valid');
+        hintDiv.style.display = 'block';
+        badgeElement.className = 'badge bg-secondary';
+        badgeElement.style.cssText = 'font-size: 0.85rem; padding: 6px 12px;';
+        textElement.innerHTML = 'ผู้ใช้งานทั่วไป (Username)';
+    } else if (value.length === 13) {
         // Staff (13 digits)
         e.target.classList.add('is-valid');
         hintDiv.style.display = 'block';
@@ -219,16 +228,13 @@ document.getElementById('id_username').addEventListener('input', function(e) {
         badgeElement.className = 'badge bg-success';
         badgeElement.style.cssText = 'font-size: 0.85rem; padding: 6px 12px;';
         textElement.innerHTML = 'นักศึกษา (รหัสนักศึกษา 12 หลัก)';
-    } else if (value.length > 0) {
-        // Invalid length
+    } else {
+        // Digits but wrong length
         e.target.classList.add('is-invalid');
         hintDiv.style.display = 'block';
         badgeElement.className = 'badge bg-warning text-dark';
         badgeElement.style.cssText = 'font-size: 0.85rem; padding: 6px 12px;';
         textElement.innerHTML = 'กรุณากรอก 12 หลัก (นักศึกษา) หรือ 13 หลัก (เจ้าหน้าที่)';
-    } else {
-        // Empty field
-        hintDiv.style.display = 'none';
     }
 });
 
@@ -262,18 +268,19 @@ document.querySelector('form').addEventListener('submit', function(e) {
     usernameField.classList.remove('is-invalid');
     passwordField.classList.remove('is-invalid');
 
-    // Validate Username (accept 12 digits for students, 13 digits for staff, or 'admin')
-    if (username === 'admin') {
-        // Admin is always valid
-    } else if (username.length === 12 && username.match(/^\d{12}$/)) {
-        // Student ID (12 digits) - valid
-    } else if (username.length === 13 && username.match(/^\d{13}$/)) {
-        // Staff ID (13 digits) - valid
-    } else {
-        // Invalid
+    // Validate Username
+    if (username.length === 0) {
+        // Empty - invalid
         usernameField.classList.add('is-invalid');
         isValid = false;
+    } else if (/^\d+$/.test(username)) {
+        // Numeric input - must be exactly 12 (student) or 13 (staff) digits
+        if (username.length !== 12 && username.length !== 13) {
+            usernameField.classList.add('is-invalid');
+            isValid = false;
+        }
     }
+    // Text username (non-numeric) - valid if non-empty, let backend authenticate
 
     // Validate password
     if (!password) {
