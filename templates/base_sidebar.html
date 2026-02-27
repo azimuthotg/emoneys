@@ -78,67 +78,93 @@
         }
         
         .sidebar-menu {
-            padding: 20px 0 100px 0;
+            padding: 8px 0 80px 0;
             min-height: calc(100vh - 100px);
         }
-        
+
         .menu-item {
-            margin-bottom: 5px;
+            margin-bottom: 2px;
         }
-        
+
+        /* Section header label (เอกสาร / รายงาน / ผู้ดูแลระบบ) */
+        .menu-section {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px 3px 15px;
+            color: rgba(255, 255, 255, 0.42);
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            cursor: default;
+            user-select: none;
+        }
+
+        .menu-section i {
+            width: 18px;
+            margin-right: 8px;
+            text-align: center;
+            font-size: 0.75rem;
+        }
+
+        .sidebar.collapsed .menu-section span {
+            opacity: 0;
+            display: none;
+        }
+
         .menu-link {
             display: flex;
             align-items: center;
-            padding: 12px 20px;
+            padding: 9px 15px;
             color: rgba(255, 255, 255, 0.8);
             text-decoration: none;
             transition: all 0.3s ease;
             border-left: 3px solid transparent;
         }
-        
+
         .menu-link:hover {
             background-color: rgba(255, 255, 255, 0.1);
             color: white;
             border-left-color: #CFAE43;
         }
-        
+
         .menu-link.active {
             background-color: rgba(207, 174, 67, 0.2);
             color: #CFAE43;
             border-left-color: #CFAE43;
         }
-        
+
         .menu-link i {
-            width: 20px;
-            margin-right: 12px;
+            width: 18px;
+            margin-right: 10px;
             text-align: center;
         }
-        
+
         .menu-text {
             transition: opacity 0.3s ease;
         }
-        
+
         .sidebar.collapsed .menu-text {
             opacity: 0;
             display: none;
         }
-        
+
         .submenu {
             padding-left: 0;
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease;
         }
-        
+
         .submenu.show {
-            max-height: 400px;
+            max-height: 500px;
         }
-        
+
         .submenu .menu-link {
-            padding-left: 52px;
-            font-size: 0.9rem;
+            padding: 7px 15px 7px 44px;
+            font-size: 0.85rem;
         }
-        
+
         .sidebar.collapsed .submenu {
             display: none;
         }
@@ -301,20 +327,17 @@
                 </a>
             </div>
 
-            <!-- เอกสาร (แสดงให้ทุกคน แต่ submenu แตกต่างกัน) -->
+            <!-- เอกสาร -->
             <div class="menu-item">
-                <div class="menu-link" style="cursor: default;">
+                <div class="menu-section">
                     <i class="fas fa-file-alt"></i>
-                    <span class="menu-text">เอกสาร</span>
+                    <span>เอกสาร</span>
                 </div>
                 <div class="submenu show" id="documents-submenu">
-                    <!-- รายการเอกสารของฉัน (แสดงให้ทุกคน) -->
                     <a href="{% url 'receipt_list' %}" class="menu-link {% if request.resolver_match.url_name == 'receipt_list' %}active{% endif %}">
                         <i class="fas fa-list"></i>
-                        <span class="menu-text">รายการเอกสารของฉัน</span>
+                        <span class="menu-text">เอกสารของฉัน</span>
                     </a>
-
-                    <!-- คำขออนุมัติ (เฉพาะเจ้าหน้าที่) -->
                     {% if user.user_type == 'staff' %}
                     <a href="{% url 'edit_request_list' %}" class="menu-link {% if request.resolver_match.url_name == 'edit_request_list' %}active{% endif %}">
                         <i class="fas fa-edit"></i>
@@ -332,9 +355,9 @@
             {% if user.user_type == 'staff' %}
                 {% if user|has_perm:"report_view" or user|has_perm:"receipt_view_department" or user|has_perm:"receipt_view_all" %}
             <div class="menu-item">
-                <div class="menu-link" style="cursor: default;">
+                <div class="menu-section">
                     <i class="fas fa-chart-bar"></i>
-                    <span class="menu-text">รายงาน</span>
+                    <span>รายงาน</span>
                 </div>
                 <div class="submenu show" id="reports-submenu">
                     <a href="{% url 'reports_dashboard' %}" class="menu-link {% if request.resolver_match.url_name == 'reports_dashboard' %}active{% endif %}">
@@ -343,16 +366,16 @@
                     </a>
                     <a href="{% url 'revenue_summary_report' %}" class="menu-link {% if request.resolver_match.url_name == 'revenue_summary_report' %}active{% endif %}">
                         <i class="fas fa-chart-bar"></i>
-                        <span class="menu-text">รายงานสรุปรายรับ</span>
+                        <span class="menu-text">สรุปรายรับ</span>
                     </a>
                     <a href="{% url 'receipt_report' %}" class="menu-link {% if request.resolver_match.url_name == 'receipt_report' %}active{% endif %}">
                         <i class="fas fa-table"></i>
-                        <span class="menu-text">รายงานใบสำคัญรับเงิน</span>
+                        <span class="menu-text">ใบสำคัญรับเงิน</span>
                     </a>
                     {% if user|has_perm:"receipt_view_all" or user.is_staff %}
                     <a href="{% url 'audit_log' %}" class="menu-link {% if request.resolver_match.url_name == 'audit_log' %}active{% endif %}">
                         <i class="fas fa-history"></i>
-                        <span class="menu-text">ประวัติการเปลี่ยนแปลง</span>
+                        <span class="menu-text">ประวัติการแก้ไข</span>
                     </a>
                     {% endif %}
                     <!-- TODO: เมนูที่จะทำใน Phase 2 -->
@@ -374,9 +397,9 @@
             <!-- ผู้ดูแลระบบ (Admin Only - ตามสิทธิ์) -->
             {% if user.is_staff or user.is_superuser or user|has_perm:"user_manage" %}
             <div class="menu-item">
-                <div class="menu-link" style="cursor: default;">
+                <div class="menu-section">
                     <i class="fas fa-user-cog"></i>
-                    <span class="menu-text">ผู้ดูแลระบบ</span>
+                    <span>ผู้ดูแลระบบ</span>
                 </div>
                 <div class="submenu show" id="admin-submenu">
                     {% if user.is_staff or user.is_superuser or user|has_perm:"user_manage" %}
@@ -394,13 +417,13 @@
                     {% if user.is_staff or user.is_superuser or user|has_perm:"report_view" %}
                     <a href="{% url 'user_activity_log' %}" class="menu-link {% if request.resolver_match.url_name == 'user_activity_log' %}active{% endif %}">
                         <i class="fas fa-user-shield"></i>
-                        <span class="menu-text">ประวัติการใช้งานระบบ</span>
+                        <span class="menu-text">Log การใช้งาน</span>
                     </a>
                     {% endif %}
                     {% if user.is_staff or user.is_superuser or user|has_perm:"system_config" %}
                     <a href="{% url 'receipt_templates_list' %}" class="menu-link {% if request.resolver_match.url_name|slice:':17' == 'receipt_template' %}active{% endif %}">
                         <i class="fas fa-clipboard-list"></i>
-                        <span class="menu-text">จัดการรายการสำเร็จรูป</span>
+                        <span class="menu-text">รายการสำเร็จรูป</span>
                     </a>
                     <a href="{% url 'document_numbering' %}" class="menu-link {% if request.resolver_match.url_name == 'document_numbering' %}active{% endif %}">
                         <i class="fas fa-file-invoice"></i>
