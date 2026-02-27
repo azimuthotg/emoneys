@@ -265,7 +265,7 @@
                                                 <button class="btn btn-warning" onclick="editUserRoles({{ user.id }})" title="แก้ไขสิทธิ์" style="color: white;">
                                                     <i class="fas fa-user-tag"></i>
                                                 </button>
-                                                <button class="btn {% if user.has_usable_password %}btn-warning{% else %}btn-secondary{% endif %}" onclick="openResetPasswordModal({{ user.id }}, '{{ user.full_name|default:user.username|escapejs }}', {% if user.source == 'npu_api' %}true{% else %}false{% endif %}, {% if user.has_usable_password %}true{% else %}false{% endif %})" title="{% if user.has_usable_password %}Local Override{% else %}Reset Password{% endif %}">
+                                                <button class="btn {% if user.has_usable_password %}btn-success{% else %}btn-secondary{% endif %}" onclick="openResetPasswordModal({{ user.id }}, '{{ user.full_name|default:user.username|escapejs }}', {% if user.source == 'npu_api' %}true{% else %}false{% endif %}, {% if user.has_usable_password %}true{% else %}false{% endif %})" title="{% if user.has_usable_password %}Local Override{% else %}Reset Password{% endif %}">
                                                     <i class="fas fa-key"></i>
                                                 </button>
                                                 {% if user.is_active %}
@@ -523,7 +523,7 @@
                                                         <i class="fas fa-edit"></i>
                                                     </a>
                                                 {% endif %}
-                                                <button class="btn {% if user.has_usable_password %}btn-outline-warning{% else %}btn-outline-secondary{% endif %}" onclick="openResetPasswordModal({{ user.id }}, '{{ user.full_name|default:user.username|escapejs }}', {% if user.source == 'npu_api' %}true{% else %}false{% endif %}, {% if user.has_usable_password %}true{% else %}false{% endif %})" title="{% if user.has_usable_password %}Local Override{% else %}Reset Password{% endif %}">
+                                                <button class="btn {% if user.has_usable_password %}btn-outline-success{% else %}btn-outline-secondary{% endif %}" onclick="openResetPasswordModal({{ user.id }}, '{{ user.full_name|default:user.username|escapejs }}', {% if user.source == 'npu_api' %}true{% else %}false{% endif %}, {% if user.has_usable_password %}true{% else %}false{% endif %})" title="{% if user.has_usable_password %}Local Override{% else %}Reset Password{% endif %}">
                                                     <i class="fas fa-key"></i>
                                                 </button>
                                                 <button class="btn btn-outline-info" onclick="viewUserDetails({{ user.id }})" title="ดูรายละเอียด">
