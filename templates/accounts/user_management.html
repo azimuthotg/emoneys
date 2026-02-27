@@ -301,9 +301,13 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                            <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+                                <small class="text-muted" id="paginationInfoApproved"></small>
+                                <ul class="pagination pagination-sm mb-0" id="paginationControlsApproved"></ul>
+                            </div>
                         </div>
                     </div>
-                    
+
                     <!-- Tab 2: Pending Users -->
                     <div class="tab-pane fade" id="pending-pane" role="tabpanel">
                         <div class="mb-3">
@@ -384,9 +388,13 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                            <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+                                <small class="text-muted" id="paginationInfoPending"></small>
+                                <ul class="pagination pagination-sm mb-0" id="paginationControlsPending"></ul>
+                            </div>
                         </div>
                     </div>
-                    
+
                     <!-- Tab 3: Suspended Users -->
                     <div class="tab-pane fade" id="suspended-pane" role="tabpanel">
                         <div class="mb-3">
@@ -465,9 +473,13 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                            <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+                                <small class="text-muted" id="paginationInfoSuspended"></small>
+                                <ul class="pagination pagination-sm mb-0" id="paginationControlsSuspended"></ul>
+                            </div>
                         </div>
                     </div>
-                    
+
                     <!-- Tab 4: All Users -->
                     <div class="tab-pane fade" id="all-pane" role="tabpanel">
                         <div class="mb-3">
@@ -574,9 +586,13 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                            <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+                                <small class="text-muted" id="paginationInfoAll"></small>
+                                <ul class="pagination pagination-sm mb-0" id="paginationControlsAll"></ul>
+                            </div>
                         </div>
                     </div>
-                    
+
                 </div>
             </div>
         </div>
@@ -1062,6 +1078,104 @@ function createToastContainer() {
     return container;
 }
 
+// ===== Pagination =====
+const ROWS_PER_PAGE = 100;
+const paginationState = {};
+
+function paginateTable(tableType, page) {
+    const tableId = `${tableType}UsersTable`;
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    const rows = Array.from(table.getElementsByTagName('tr'));
+
+    // Separate data rows from empty-state (colspan) rows
+    const dataRows = rows.filter(r => {
+        const cells = r.getElementsByTagName('td');
+        return cells.length > 0 && cells[0].colSpan <= 1;
+    });
+    const emptyRow = rows.find(r => {
+        const cells = r.getElementsByTagName('td');
+        return cells.length > 0 && cells[0].colSpan > 1;
+    });
+
+    // Only count rows not hidden by search
+    const visibleRows = dataRows.filter(r => r.dataset.filterHidden !== 'true');
+
+    const total = visibleRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
+    page = Math.min(Math.max(1, page), totalPages);
+    paginationState[tableType] = page;
+
+    const start = (page - 1) * ROWS_PER_PAGE;
+    const end = Math.min(start + ROWS_PER_PAGE, total);
+
+    // Hide all data rows, then show current page slice
+    dataRows.forEach(r => r.style.display = 'none');
+    visibleRows.slice(start, end).forEach(r => r.style.display = '');
+
+    // Show empty state only when nothing to display
+    if (emptyRow) {
+        emptyRow.style.display = total === 0 ? '' : 'none';
+    }
+
+    renderPagination(tableType, page, totalPages, total, start + 1, end);
+}
+
+function renderPagination(tableType, currentPage, totalPages, total, start, end) {
+    const cap = capitalize(tableType);
+    const infoEl = document.getElementById(`paginationInfo${cap}`);
+    const controlsEl = document.getElementById(`paginationControls${cap}`);
+    if (!infoEl || !controlsEl) return;
+
+    if (total === 0) {
+        infoEl.textContent = '';
+        controlsEl.innerHTML = '';
+        return;
+    }
+
+    infoEl.textContent = `แสดง ${start}–${end} จาก ${total} รายการ`;
+
+    if (totalPages <= 1) {
+        controlsEl.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+
+    // Previous button
+    html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="event.preventDefault();paginateTable('${tableType}',${currentPage - 1})">‹</a></li>`;
+
+    // Page numbers with ellipsis
+    const delta = 2;
+    const rangeStart = Math.max(1, currentPage - delta);
+    const rangeEnd = Math.min(totalPages, currentPage + delta);
+
+    if (rangeStart > 1) {
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="event.preventDefault();paginateTable('${tableType}',1)">1</a></li>`;
+        if (rangeStart > 2) html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+    }
+    for (let p = rangeStart; p <= rangeEnd; p++) {
+        html += `<li class="page-item ${p === currentPage ? 'active' : ''}">
+            <a class="page-link" href="#" onclick="event.preventDefault();paginateTable('${tableType}',${p})">${p}</a></li>`;
+    }
+    if (rangeEnd < totalPages) {
+        if (rangeEnd < totalPages - 1) html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="event.preventDefault();paginateTable('${tableType}',${totalPages})">${totalPages}</a></li>`;
+    }
+
+    // Next button
+    html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="event.preventDefault();paginateTable('${tableType}',${currentPage + 1})">›</a></li>`;
+
+    controlsEl.innerHTML = html;
+}
+
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 // Search functionality — trigger on button click or Enter key only
 document.addEventListener('DOMContentLoaded', function() {
     const searchMap = {
@@ -1077,6 +1191,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (e.key === 'Enter') doSearch(id, tableType);
             });
         }
+    });
+
+    // Initialize pagination for all tabs
+    ['approved', 'pending', 'suspended', 'all'].forEach(tableType => {
+        paginateTable(tableType, 1);
     });
 });
 
@@ -1100,8 +1219,11 @@ function filterTable(searchTerm, tableType) {
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const cells = row.getElementsByTagName('td');
-        let shouldShow = false;
 
+        // Skip empty-state rows (colspan rows) — pagination manages them
+        if (cells.length === 0 || cells[0].colSpan > 1) continue;
+
+        let shouldShow = false;
         for (let j = 0; j < cells.length; j++) {
             const cellText = cells[j].textContent || cells[j].innerText;
             if (cellText.toLowerCase().indexOf(searchTerm.toLowerCase()) > -1) {
@@ -1109,9 +1231,10 @@ function filterTable(searchTerm, tableType) {
                 break;
             }
         }
-
-        row.style.display = shouldShow ? '' : 'none';
+        row.dataset.filterHidden = shouldShow ? 'false' : 'true';
     }
+
+    paginateTable(tableType, 1);
 }
 
 // ===== Reset Password =====
