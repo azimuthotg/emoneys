@@ -271,17 +271,27 @@ class HybridAuthBackend(BaseBackend):
                 return None  # Block suspended users
 
             elif user.approval_status == 'approved' and user.is_active:
-                # User is approved, verify password with NPU API
-                # (We always verify with NPU for security, no local passwords)
-                if self._verify_npu_staff_password(ldap_uid, password):
-                    # Update last login from NPU
-                    user.last_login = timezone.now()
-                    user.save(update_fields=['last_login'])
-                    print(f"✓ Staff login successful: {ldap_uid}")
-                    return user
+                # Check if admin has set a local password override
+                if user.has_usable_password():
+                    # Use local password (NPU password may be forgotten/changed)
+                    if user.check_password(password):
+                        user.last_login = timezone.now()
+                        user.save(update_fields=['last_login'])
+                        print(f"✓ Staff login via local override: {ldap_uid}")
+                        return user
+                    else:
+                        print(f"Invalid local override password for staff: {ldap_uid}")
+                        return None
                 else:
-                    print(f"Invalid password for staff user: {ldap_uid}")
-                    return None
+                    # No local override — verify with NPU API as normal
+                    if self._verify_npu_staff_password(ldap_uid, password):
+                        user.last_login = timezone.now()
+                        user.save(update_fields=['last_login'])
+                        print(f"✓ Staff login via NPU API: {ldap_uid}")
+                        return user
+                    else:
+                        print(f"Invalid NPU password for staff: {ldap_uid}")
+                        return None
             else:
                 print(f"Staff user {ldap_uid} in invalid state: {user.approval_status}")
                 return None
@@ -437,16 +447,27 @@ class HybridAuthBackend(BaseBackend):
                 return None  # Block suspended users
 
             elif user.approval_status == 'approved' and user.is_active:
-                # User is approved, verify password with NPU Student API
-                if self._verify_npu_student_password(student_code, password):
-                    # Update last login
-                    user.last_login = timezone.now()
-                    user.save(update_fields=['last_login'])
-                    print(f"✓ Student login successful: {student_code}")
-                    return user
+                # Check if admin has set a local password override
+                if user.has_usable_password():
+                    # Use local password (NPU password may be forgotten/changed)
+                    if user.check_password(password):
+                        user.last_login = timezone.now()
+                        user.save(update_fields=['last_login'])
+                        print(f"✓ Student login via local override: {student_code}")
+                        return user
+                    else:
+                        print(f"Invalid local override password for student: {student_code}")
+                        return None
                 else:
-                    print(f"Invalid password for student user: {student_code}")
-                    return None
+                    # No local override — verify with NPU Student API as normal
+                    if self._verify_npu_student_password(student_code, password):
+                        user.last_login = timezone.now()
+                        user.save(update_fields=['last_login'])
+                        print(f"✓ Student login via NPU API: {student_code}")
+                        return user
+                    else:
+                        print(f"Invalid NPU password for student: {student_code}")
+                        return None
             else:
                 print(f"Student user {student_code} in invalid state: {user.approval_status}")
                 return None

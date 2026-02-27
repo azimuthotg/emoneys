@@ -265,6 +265,9 @@
                                                 <button class="btn btn-warning" onclick="editUserRoles({{ user.id }})" title="แก้ไขสิทธิ์" style="color: white;">
                                                     <i class="fas fa-user-tag"></i>
                                                 </button>
+                                                <button class="btn btn-secondary" onclick="openResetPasswordModal({{ user.id }}, '{{ user.full_name|default:user.username|escapejs }}', {% if user.source == 'npu_api' %}true{% else %}false{% endif %}, {% if user.has_usable_password %}true{% else %}false{% endif %})" title="Reset Password">
+                                                    <i class="fas fa-key"></i>
+                                                </button>
                                                 {% if user.is_active %}
                                                     <button class="btn btn-danger" onclick="suspendUser({{ user.id }})" title="ระงับการใช้งาน">
                                                         <i class="fas fa-ban"></i>
@@ -431,6 +434,8 @@
                                         <td colspan="7" class="text-center py-4">
                                             <i class="fas fa-user-check fa-3x mb-3 opacity-50"></i>
                                             <p class="text-muted">ไม่มีผู้ใช้ที่ถูกระงับ</p>
+
+
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -518,6 +523,9 @@
                                                         <i class="fas fa-edit"></i>
                                                     </a>
                                                 {% endif %}
+                                                <button class="btn btn-outline-secondary" onclick="openResetPasswordModal({{ user.id }}, '{{ user.full_name|default:user.username|escapejs }}', {% if user.source == 'npu_api' %}true{% else %}false{% endif %}, {% if user.has_usable_password %}true{% else %}false{% endif %})" title="Reset Password">
+                                                    <i class="fas fa-key"></i>
+                                                </button>
                                                 <button class="btn btn-outline-info" onclick="viewUserDetails({{ user.id }})" title="ดูรายละเอียด">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
@@ -600,6 +608,55 @@
         </div>
     </div>
 </div>
+
+<!-- Reset Password Modal -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resetPasswordModalLabel">
+                    <i class="fas fa-key me-2"></i>Reset Password
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">ผู้ใช้: <strong id="rpUserName"></strong></p>
+
+                <!-- AD User Warning -->
+                <div id="rpAdWarning" class="alert alert-warning" style="display:none;">
+                    <i class="fas fa-info-circle me-1"></i>
+                    <strong>AD User</strong> — รหัสผ่านที่ตั้งจะใช้แทน NPU จนกว่าจะลบ Override
+                </div>
+
+                <!-- Override exists notice -->
+                <div id="rpOverrideSection" class="alert alert-info d-flex justify-content-between align-items-center" style="display:none;">
+                    <span><i class="fas fa-lock me-1"></i>มี Local Override password อยู่แล้ว</span>
+                    <button class="btn btn-sm btn-outline-danger" onclick="removePasswordOverride()">
+                        <i class="fas fa-unlock me-1"></i>ลบ Override
+                    </button>
+                </div>
+
+                <div id="rpError" class="alert alert-danger" style="display:none;"></div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-medium">รหัสผ่านใหม่ <span class="text-danger">*</span></label>
+                    <input type="password" class="form-control" id="rpNewPassword" placeholder="อย่างน้อย 8 ตัวอักษร">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-medium">ยืนยันรหัสผ่าน <span class="text-danger">*</span></label>
+                    <input type="password" class="form-control" id="rpConfirmPassword" placeholder="กรอกรหัสผ่านอีกครั้ง">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="submitResetPassword()">
+                    <i class="fas fa-save me-1"></i>บันทึกรหัสผ่าน
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -990,14 +1047,14 @@ function filterTable(searchTerm, tableType) {
     const tableId = `${tableType}UsersTable`;
     const table = document.getElementById(tableId);
     if (!table) return;
-    
+
     const rows = table.getElementsByTagName('tr');
-    
+
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const cells = row.getElementsByTagName('td');
         let shouldShow = false;
-        
+
         for (let j = 0; j < cells.length; j++) {
             const cellText = cells[j].textContent || cells[j].innerText;
             if (cellText.toLowerCase().indexOf(searchTerm.toLowerCase()) > -1) {
@@ -1005,9 +1062,95 @@ function filterTable(searchTerm, tableType) {
                 break;
             }
         }
-        
+
         row.style.display = shouldShow ? '' : 'none';
     }
+}
+
+// ===== Reset Password =====
+let _rpUserId = null;
+let _rpIsAdUser = false;
+
+function openResetPasswordModal(userId, userName, isAdUser, hasOverride) {
+    _rpUserId = userId;
+    _rpIsAdUser = isAdUser;
+
+    document.getElementById('rpUserName').textContent = userName;
+    document.getElementById('rpNewPassword').value = '';
+    document.getElementById('rpConfirmPassword').value = '';
+    document.getElementById('rpError').style.display = 'none';
+
+    const adWarning = document.getElementById('rpAdWarning');
+    const overrideSection = document.getElementById('rpOverrideSection');
+
+    if (isAdUser) {
+        adWarning.style.display = 'block';
+        overrideSection.style.display = hasOverride ? 'block' : 'none';
+    } else {
+        adWarning.style.display = 'none';
+        overrideSection.style.display = 'none';
+    }
+
+    new bootstrap.Modal(document.getElementById('resetPasswordModal')).show();
+}
+
+function submitResetPassword() {
+    const newPwd = document.getElementById('rpNewPassword').value.trim();
+    const confirmPwd = document.getElementById('rpConfirmPassword').value.trim();
+    const errorDiv = document.getElementById('rpError');
+
+    if (!newPwd || newPwd.length < 8) {
+        errorDiv.textContent = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    if (newPwd !== confirmPwd) {
+        errorDiv.textContent = 'รหัสผ่านไม่ตรงกัน';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    fetch(`/accounts/management/change-password/${_rpUserId}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ new_password: newPwd, confirm_password: confirmPwd })
+    })
+    .then(r => r.json())
+    .then(data => {
+        bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal')).hide();
+        if (data.success) {
+            showToast('success', data.message);
+        } else {
+            showToast('error', data.message || 'เกิดข้อผิดพลาด');
+        }
+    })
+    .catch(() => showToast('error', 'เกิดข้อผิดพลาดในการติดต่อเซิร์ฟเวอร์'));
+}
+
+function removePasswordOverride() {
+    if (!_rpUserId) return;
+    bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal')).hide();
+    showConfirm(
+        'ลบ Override password? ผู้ใช้จะกลับไป login ผ่าน NPU ตามปกติ',
+        function () {
+            fetch(`/accounts/management/remove-password-override/${_rpUserId}/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', data.message);
+                } else {
+                    showToast('error', data.message || 'เกิดข้อผิดพลาด');
+                }
+            })
+            .catch(() => showToast('error', 'เกิดข้อผิดพลาดในการติดต่อเซิร์ฟเวอร์'));
+        },
+        'ยืนยันการลบ Override',
+        'ลบ Override',
+        'btn-danger'
+    );
 }
 </script>
 {% endblock %}

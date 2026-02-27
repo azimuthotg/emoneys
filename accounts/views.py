@@ -1313,6 +1313,92 @@ def activate_user_ajax(request, user_id):
 
 
 @login_required
+def change_password_ajax(request, user_id):
+    """AJAX endpoint to set/reset password for any user (AD or Local)"""
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
+        return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์ในการดำเนินการ'}, status=403)
+
+    if request.method == 'POST':
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user = User.objects.get(id=user_id)
+
+            data = json.loads(request.body)
+            new_password = data.get('new_password', '').strip()
+            confirm_password = data.get('confirm_password', '').strip()
+
+            if not new_password:
+                return JsonResponse({'success': False, 'message': 'กรุณากรอกรหัสผ่านใหม่'}, status=400)
+
+            if len(new_password) < 8:
+                return JsonResponse({'success': False, 'message': 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'}, status=400)
+
+            if new_password != confirm_password:
+                return JsonResponse({'success': False, 'message': 'รหัสผ่านไม่ตรงกัน'}, status=400)
+
+            is_ad_user = user.source == 'npu_api'
+            user.set_password(new_password)
+            user.save(update_fields=['password'])
+
+            UserActivityLog.objects.create(
+                user=request.user,
+                action='change_password',
+                description=f'Reset password for user: {user.username} ({"AD override" if is_ad_user else "local"})',
+                ip_address=request.META.get('REMOTE_ADDR', ''),
+            ) if hasattr(UserActivityLog, 'objects') else None
+
+            msg = (
+                f'ตั้งรหัสผ่าน Override สำเร็จสำหรับ {user.full_name or user.username} '
+                f'(จะใช้รหัสนี้แทน NPU)'
+                if is_ad_user else
+                f'เปลี่ยนรหัสผ่านสำเร็จสำหรับ {user.full_name or user.username}'
+            )
+            return JsonResponse({'success': True, 'message': msg, 'is_ad_user': is_ad_user})
+
+        except User.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'ไม่พบผู้ใช้'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+
+
+@login_required
+def remove_password_override_ajax(request, user_id):
+    """AJAX endpoint to remove local password override — revert AD user back to NPU auth"""
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
+        return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์ในการดำเนินการ'}, status=403)
+
+    if request.method == 'POST':
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user = User.objects.get(id=user_id)
+
+            if user.source != 'npu_api':
+                return JsonResponse({'success': False, 'message': 'ใช้ได้เฉพาะ AD User เท่านั้น'}, status=400)
+
+            if not user.has_usable_password():
+                return JsonResponse({'success': False, 'message': 'ไม่มี Override password อยู่'}, status=400)
+
+            user.set_unusable_password()
+            user.save(update_fields=['password'])
+
+            return JsonResponse({
+                'success': True,
+                'message': f'ลบ Override password สำเร็จ {user.full_name or user.username} จะ login ผ่าน NPU ตามปกติ'
+            })
+
+        except User.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'ไม่พบผู้ใช้'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+
+
+@login_required
 def get_available_roles_ajax(request):
     """AJAX endpoint to get available roles"""
     if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):

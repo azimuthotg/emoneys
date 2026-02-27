@@ -25,6 +25,8 @@ urlpatterns = [
     path('management/reject-user/<int:user_id>/', views.reject_user_ajax, name='reject_user_ajax'),
     path('management/suspend-user/<int:user_id>/', views.suspend_user_ajax, name='suspend_user_ajax'),
     path('management/activate-user/<int:user_id>/', views.activate_user_ajax, name='activate_user_ajax'),
+    path('management/change-password/<int:user_id>/', views.change_password_ajax, name='change_password_ajax'),
+    path('management/remove-password-override/<int:user_id>/', views.remove_password_override_ajax, name='remove_password_override_ajax'),
     path('management/user-details/<int:user_id>/', views.user_details_ajax, name='user_details_ajax'),
     
     # Legacy admin URLs for backward compatibility
