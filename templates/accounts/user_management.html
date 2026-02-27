@@ -186,7 +186,15 @@
                         <div class="mb-3">
                             <div class="row">
                                 <div class="col-md-4">
-                                    <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchApproved">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchApproved">
+                                        <button class="btn btn-primary" onclick="doSearch('searchApproved', 'approved')" title="ค้นหา">
+                                            <i class="fas fa-search"></i>
+                                        </button>
+                                        <button class="btn btn-outline-secondary" onclick="clearSearch('searchApproved', 'approved')" title="ล้าง">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="col-md-3">
                                     <select class="form-select" id="filterDepartmentApproved">
@@ -301,7 +309,15 @@
                         <div class="mb-3">
                             <div class="row">
                                 <div class="col-md-6">
-                                    <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchPending">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchPending">
+                                        <button class="btn btn-primary" onclick="doSearch('searchPending', 'pending')" title="ค้นหา">
+                                            <i class="fas fa-search"></i>
+                                        </button>
+                                        <button class="btn btn-outline-secondary" onclick="clearSearch('searchPending', 'pending')" title="ล้าง">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="col-md-3">
                                     <select class="form-select" id="filterDepartmentPending">
@@ -376,7 +392,15 @@
                         <div class="mb-3">
                             <div class="row">
                                 <div class="col-md-6">
-                                    <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchSuspended">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchSuspended">
+                                        <button class="btn btn-primary" onclick="doSearch('searchSuspended', 'suspended')" title="ค้นหา">
+                                            <i class="fas fa-search"></i>
+                                        </button>
+                                        <button class="btn btn-outline-secondary" onclick="clearSearch('searchSuspended', 'suspended')" title="ล้าง">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="col-md-3">
                                     <select class="form-select" id="filterDepartmentSuspended">
@@ -449,7 +473,15 @@
                         <div class="mb-3">
                             <div class="row">
                                 <div class="col-md-4">
-                                    <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchAll">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" placeholder="ค้นหาชื่อ, เลขบัตรประชาชน..." id="searchAll">
+                                        <button class="btn btn-primary" onclick="doSearch('searchAll', 'all')" title="ค้นหา">
+                                            <i class="fas fa-search"></i>
+                                        </button>
+                                        <button class="btn btn-outline-secondary" onclick="clearSearch('searchAll', 'all')" title="ล้าง">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="col-md-3">
                                     <select class="form-select" id="filterDepartmentAll">
@@ -1030,18 +1062,33 @@ function createToastContainer() {
     return container;
 }
 
-// Search functionality
+// Search functionality — trigger on button click or Enter key only
 document.addEventListener('DOMContentLoaded', function() {
-    // Add search event listeners
-    ['searchPending', 'searchApproved', 'searchSuspended', 'searchAll'].forEach(id => {
-        const searchInput = document.getElementById(id);
-        if (searchInput) {
-            searchInput.addEventListener('input', function() {
-                filterTable(this.value, id.replace('search', '').toLowerCase());
+    const searchMap = {
+        'searchApproved': 'approved',
+        'searchPending': 'pending',
+        'searchSuspended': 'suspended',
+        'searchAll': 'all',
+    };
+    Object.entries(searchMap).forEach(([id, tableType]) => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') doSearch(id, tableType);
             });
         }
     });
 });
+
+function doSearch(inputId, tableType) {
+    const value = document.getElementById(inputId).value;
+    filterTable(value, tableType);
+}
+
+function clearSearch(inputId, tableType) {
+    document.getElementById(inputId).value = '';
+    filterTable('', tableType);
+}
 
 function filterTable(searchTerm, tableType) {
     const tableId = `${tableType}UsersTable`;
