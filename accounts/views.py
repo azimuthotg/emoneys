@@ -1341,12 +1341,7 @@ def change_password_ajax(request, user_id):
             user.set_password(new_password)
             user.save(update_fields=['password'])
 
-            UserActivityLog.objects.create(
-                user=request.user,
-                action='change_password',
-                description=f'Reset password for user: {user.username} ({"AD override" if is_ad_user else "local"})',
-                ip_address=request.META.get('REMOTE_ADDR', ''),
-            ) if hasattr(UserActivityLog, 'objects') else None
+            print(f"✓ Password reset by {request.user.username} for {user.username} ({'AD override' if is_ad_user else 'local'})")
 
             msg = (
                 f'ตั้งรหัสผ่าน Override สำเร็จสำหรับ {user.full_name or user.username} '
