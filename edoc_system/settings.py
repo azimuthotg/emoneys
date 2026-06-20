@@ -182,7 +182,10 @@ NPU_API_SETTINGS = {
 # NPU Student API Configuration
 NPU_STUDENT_API_BASE_URL = config('NPU_STUDENT_API_BASE_URL', default='https://api.npu.ac.th/v2/ldap/')
 NPU_STUDENT_API_AUTH_ENDPOINT = config('NPU_STUDENT_API_AUTH_ENDPOINT', default='auth_and_get_student/')
-NPU_STUDENT_API_TOKEN = config('NPU_STUDENT_API_TOKEN', default='your_npu_student_api_token_here')
+# ใช้ token ตัวเดียวกับ NPU_API_TOKEN (แหล่งเดียว) — เลิกแยก NPU_STUDENT_API_TOKEN
+# ทั้ง 2 endpoint อยู่บน NPU API เดียวกัน รับ JWT ตัวเดียวกันได้ การแยก token ทำให้ต้องต่ออายุ
+# 2 ที่ และเคยลืมต่อฝั่งนักศึกษาจน login ไม่ได้ (มิ.ย. 2026) จึงรวมเหลือที่เดียว
+NPU_STUDENT_API_TOKEN = NPU_API_TOKEN
 NPU_STUDENT_API_TIMEOUT = config('NPU_STUDENT_API_TIMEOUT', default=30, cast=int)  # seconds
 
 # NPU Student API Settings
