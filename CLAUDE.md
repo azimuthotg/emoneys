@@ -21,7 +21,7 @@ progress: 87
 phase: ส่งโค้ดชุดแรกขึ้น prod แล้ว (13 ส.ค. 2569) — ปุ่ม re-sync ข้อมูล NPU รายคน deploy สำเร็จและ verify แล้ว ก่อนหน้านั้นแก้เหตุ MySQL บล็อก host และตั้งระบบสำรองฐานข้อมูลที่เดิมไม่มีเลย คิวแก้บั๊กเดิมยังรออยู่
 next:
   - ทดสอบปุ่ม re-sync บนหน้าเว็บจริง แล้วกดอัปเดตหน่วยงานให้ user 1480100106549 (โค้ดขึ้น prod แล้ว ยังไม่มีใครกดใช้)
-  - ตัดสินใจเรื่อง PDF v2 ทั้งก้อน — ตายอยู่ (ไม่มีปุ่มไหนเรียก printReceiptV2/downloadPDFV2, pdfkit ไม่ได้ติดตั้งและไม่อยู่ใน requirements.txt) จะลบทิ้งทั้งชุด (2 view + 2 route + receipt_pdf_v2.html + JS กำพร้า 2 ตัว) หรือปลุกขึ้นมาใช้ ถ้าปลุกต้องแก้บรรทัด 258/292 เป็น receipt.department.name ก่อน ดู MEM.md
+  - ลบ PDF v2 ทิ้งทั้งชุด (เจ้าของตัดสินใจแล้ว 13 ส.ค. 2569 — ต้องทำก่อนพัฒนาอะไรต่อในส่วน PDF) ลบ 5 จุด: view receipt_pdf_v2_view + receipt_pdf_v2_download_view ใน views.py, 2 route (receipt_pdf_v2, receipt_pdf_v2_download) ใน urls.py, ไฟล์ templates/accounts/receipt_pdf_v2.html, และ JS กำพร้า printReceiptV2()/downloadPDFV2() ใน receipt_detail.html — หลังลบต้องยืนยันว่า PDF จาก reportlab ยัง byte-identical (ตัด CreationDate/ModDate/ID) ดู MEM.md
   - ย้าย reset_receipts.py / delete_drafts.py / check_receipts.py ออกจาก C:\emoneys ไปโฟลเดอร์แยก (ค้างอยู่ข้าง manage.py พิมพ์ผิดทีเดียวลบข้อมูลจริง)
   - ตั้ง max_connect_errors ให้สูงขึ้นบน MySQL prod (SET PERSIST) — ตอนนี้ยังเป็น default 100 คาดว่าจะโดนบล็อกซ้ำราว 19-20 ส.ค. 2569
   - ทดสอบ restore backup จริงลงฐานชั่วคราว (ยังไม่เคยพิสูจน์ว่ากู้ได้)
