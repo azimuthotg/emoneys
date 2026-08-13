@@ -117,6 +117,60 @@
 
 ---
 
+## Production — ตรวจสอบจริงบนเครื่อง 13 ส.ค. 2569
+
+ตรวจด้วย PowerShell บนเครื่อง prod เอง ไม่ได้อ่านจากเอกสารเก่า
+
+| หัวข้อ | ค่าจริง |
+|---|---|
+| path | **`C:\emoneys`** |
+| URL | `http://110.78.83.103/` — HTTP ผ่าน IP ตรง ไม่มี domain ไม่มี HTTPS ไม่มี reverse proxy |
+| วิธีรัน | `python -m waitress --listen=0.0.0.0:80 edoc_system.wsgi:application` |
+| auto-start | **Windows Service ชื่อ `emoneys`** — Running, StartType Automatic (reboot แล้วขึ้นเอง) |
+| DB | `emoneys` @ **`110.78.83.103`** — เครื่องเดียวกันแต่ต่อผ่าน public IP ไม่ใช่ localhost |
+| ปริมาณข้อมูล | ใบสำคัญ completed **10,484 ใบ**, 25 หน่วยงาน |
+| deploy | `git pull` บนเครื่องตรง ๆ ไม่มี CI/CD |
+
+> ⚠️ **`deploy_path` ที่เคยจดไว้ผิดทั้ง 2 แหล่ง** — เอกสารเก่า พ.ย. 2568 เขียน `C:\inetpub\wwwroot\emoneys`
+> และ `nms_agent/docs/projects/emoneys.md` เขียน `C:\projects\emoneys` ของจริงคือ `C:\emoneys`
+
+### ⚠️ prod รันด้วย `DEBUG=True` และแก้ตรง ๆ ไม่ได้
+
+ยืนยันแล้วจาก settings ที่มีผลจริง: `DEBUG=True`, `SECURE_SSL_REDIRECT=False`,
+`ALLOWED_HOSTS=['localhost','127.0.0.1','110.78.83.103']`, `EMAIL_BACKEND=console`
+
+**ห้ามสลับเป็น `DEBUG=False` เฉย ๆ** จะพัง 2 ต่อ:
+
+1. **static หาย** — [edoc_system/urls.py:51](edoc_system/urls.py) เสิร์ฟ static/media ในบล็อก
+   `if settings.DEBUG:` เท่านั้น Waitress ไม่ได้เสิร์ฟไฟล์นิ่งเอง และไม่มี IIS/nginx อยู่หน้า
+   → CSS/JS/โลโก้ 404 หมด (มีโฟลเดอร์ `staticfiles` อยู่แล้ว แปลว่าเคย `collectstatic`)
+2. **เข้าเว็บไม่ได้** — `SECURE_SSL_REDIRECT` จะกลายเป็น `True` ตามบล็อก `if not DEBUG:`
+   ใน settings แล้ว redirect ไป https ที่ไม่มีอยู่
+
+ที่ `SECURE_SSL_REDIRECT=False` อยู่ตอนนี้ **เป็นผลพลอยได้จาก DEBUG=True ไม่ใช่การตั้งใจตั้งค่า**
+
+**ลำดับการแก้ที่ปลอดภัย:** ติดตั้ง `whitenoise` + เพิ่ม middleware → ย้าย `SECURE_SSL_REDIRECT`
+ออกมาตั้งเป็น `False` อย่างชัดเจนแทนที่จะผูกกับ DEBUG → ค่อยตั้ง `DEBUG=False` → ทดสอบ static
+
+**ความเสี่ยงระหว่างที่ยังไม่แก้:** หน้า error 500 ของ Django ตอน DEBUG=True แสดงค่า settings
+ทั้งหมดรวม `SECRET_KEY`, รหัส MySQL และ NPU API token ให้คนที่ทำให้เกิด error เห็น
+บนระบบที่เปิด HTTP สาธารณะทาง IP และ MySQL ก็ผูกกับ public IP ด้วย
+
+### สภาพแวดล้อม Python บนเครื่องยังไม่ชัด (ค้างตรวจ)
+
+พบ Waitress รันอยู่ **2 process** สั่ง bind `0.0.0.0:80` เหมือนกัน:
+`C:\emoneys\emoney_env\Scripts\python.exe` (PID 3568) และ **`C:\Python312\python.exe`** (PID 3600)
+ทั้งที่ port 80 ผูกได้แค่ตัวเดียว
+
+และ `emoney_env\Scripts\python.exe -m pip list` ไม่เจอ Django/waitress/mysqlclient เลย
+ทั้งที่ interpreter ตัวเดียวกัน `import django` ได้ปกติ — อาจเป็นเพราะ venv ไม่มี pip
+หรือถูกสร้างแบบ `--system-site-packages` แล้วดึงของจาก `C:\Python312`
+
+**ต้องเคลียร์ก่อนแตะ dependency ใด ๆ** (เช่นตอนติดตั้ง whitenoise) ไม่งั้นอาจ install ลง venv
+แล้วตัวที่รันจริงไม่เห็น
+
+---
+
 ## หมายเหตุ
 
 - **ฐานข้อมูลคือ MySQL เท่านั้น** ไม่มี fallback SQLite (ในโค้ด settings คอมเมนต์ไว้แต่ไม่ได้เปิด)

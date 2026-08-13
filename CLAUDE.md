@@ -5,25 +5,32 @@ deployment: production
 deploy_url: http://110.78.83.103/
 deploy_server: 110.78.83.103
 deploy_os: Windows Server
-deploy_method: Waitress (ยืนยันจาก server header) + git pull บนเครื่อง
-deploy_path: C:\projects\emoneys (บนเครื่อง prod — ตาม nms_agent/docs/projects/emoneys.md)
-deploy_db: MySQL บนเครื่องเดียวกัน
+deploy_method: Windows Service ชื่อ emoneys (Automatic) รัน python -m waitress --listen=0.0.0.0:80 edoc_system.wsgi:application + git pull บนเครื่อง
+deploy_path: C:\emoneys (ตรวจบนเครื่องจริง 2026-08-13 — เอกสารเก่าที่ระบุ C:\projects\emoneys หรือ C:\inetpub\wwwroot\emoneys ผิดทั้งคู่)
+deploy_db: MySQL ฐาน emoneys บนเครื่องเดียวกัน แต่ต่อผ่าน public IP 110.78.83.103 ไม่ใช่ localhost
 deploy_notes:
-  - health check: http://110.78.83.103/health/ (verified โดย nms_agent)
-  - HTTP ผ่าน IP ตรง ไม่มี domain/HTTPS
+  - health check: http://110.78.83.103/health/ (verified 2026-08-13 — 200, db ok)
+  - HTTP ผ่าน IP ตรง ไม่มี domain/HTTPS/reverse proxy
+  - reboot แล้วขึ้นเอง เพราะเป็น Windows Service แบบ Automatic
+  - prod รัน DEBUG=True และ static ถูกเสิร์ฟผ่านบล็อก if settings.DEBUG ใน urls.py — สลับเป็น False เฉย ๆ จะทำเว็บล่ม ดู MEM.md
+  - ข้อมูลจริง ณ 2026-08-13: ใบสำคัญ completed 10,484 ใบ, 25 หน่วยงาน, ไม่มีเลขซ้ำเลย
 progress: 85
 phase: รื้อเอกสารให้ตรงกับระบบจริงเสร็จแล้ว (13 ส.ค. 2569) — คิวแก้บั๊กรอเจ้าของว่างมาลงมือต่อ ระบบยังใช้งานจริงตามปกติ
 next:
+  - เคลียร์สภาพแวดล้อม Python บน prod — มี waitress 2 process (venv กับ C:\Python312) bind port 80 เหมือนกัน และ pip list ใน venv ไม่เจอ Django ต้องรู้ว่าตัวไหนให้บริการจริงก่อนแตะ dependency
+  - แก้ DEBUG=True บน prod แบบปลอดภัย — ติดตั้ง whitenoise ก่อน แล้วแยก SECURE_SSL_REDIRECT ออกจาก DEBUG ค่อยปิด DEBUG (ปิดเฉย ๆ เว็บล่มทันที ดู MEM.md)
   - แก้ race condition ตอนออกเลขที่ใบสำคัญ — ย้ายตัวนับไปบนแถว DocumentVolume + select_for_update แถวนั้น + ขยาย atomic ให้ครอบ INSERT
   - เพิ่มการดัก IntegrityError ใน receipt_complete_draft_ajax (ตอนนี้ receipt.save() เปล่า ๆ ชนแล้วได้ 500)
   - แก้การนับ last_document_number ให้กรองด้วยทุก department ที่ใช้ code เดียวกัน (ตอนนี้กรอง department เดียว ไม่ตรงกับตอนออกเลข)
   - เพิ่ม receipt_cancel_approve / receipt_cancel_approve_manager เข้า Permission.PERMISSION_TYPES ให้ตรงกับที่ create_permissions.py สร้างจริง
   - ตั้ง EMAIL_BACKEND เป็น SMTP บน production (ตอนนี้เป็น console อีเมลแจ้งเตือนไม่ออกจริง)
   - ตัดสินใจเรื่อง push notification — ถอด pywebpush ออก หรือเขียนส่วนส่งให้เสร็จ
-  - ตรวจบน prod ว่ามีเลขที่ซ้ำเกิดขึ้นแล้วหรือยัง (กลุ่มหน่วยงานที่แชร์ code เท่านั้นที่หลุด constraint)
-  - ถามเจ้าของว่า GitHub PAT ที่เคยหลุดถูก revoke แล้วหรือยัง (remote สะอาดแล้วแต่ไม่ได้แปลว่า token ตาย)
+  - แก้ deploy_path ใน nms_agent/docs/projects/emoneys.md เป็น C:\emoneys (ตอนนี้เขียน C:\projects\emoneys ผิด)
+  - ถามเจ้าของว่า GitHub PAT ที่เคยหลุดถูก revoke แล้วหรือยัง (remote สะอาดทั้ง dev และ prod แล้วแต่ไม่ได้แปลว่า token ตาย)
 risks:
-  - เลขที่ใบสำคัญซ้ำได้เฉพาะกรณีหน่วยงานคนละ row ที่ใช้ code เดียวกันกดพร้อมกัน (กรณีอื่นมี unique_together กันไว้)
+  - prod รัน DEBUG=True — หน้า error 500 โชว์ SECRET_KEY รหัส MySQL และ NPU token บนเว็บที่เปิด HTTP สาธารณะ
+  - MySQL ผูกกับ public IP 110.78.83.103 ไม่ใช่ localhost
+  - เลขที่ใบสำคัญซ้ำได้ทางทฤษฎีเฉพาะหน่วยงานคนละ row ที่ใช้ code เดียวกัน (จริงยังไม่เคยเกิดใน 10,484 ใบ)
   - NPU API token อายุ 365 วัน ไม่มี auto-refresh ถ้าลืมต่อ ระบบล็อกอินตายทั้งระบบ
 updated: 2026-08-13
 -->
