@@ -223,6 +223,30 @@ MySQL container แล้วรัน resync ผู้ใช้ id 34 จริ�
 **ห้ามแก้ด้วยการตัด `.name` ออกเฉย ๆ** จะกลายเป็นดึงข้อมูลสดทันที แล้วใบเก่าทุกใบ
 จะเปลี่ยนหน่วยงานตามคนสร้าง ต้องแก้เป็น `{{ receipt.department.name }}` เท่านั้น
 
+พิสูจน์แล้วว่ามันคืนค่าว่าง **ทุกกรณีที่เป็นไปได้** (ข้อความปกติ / ว่าง / `None` /
+แม้แต่ข้อความที่เขียนว่า `name`) เพราะข้อความไม่มี attribute ชื่อ `name`
+และ `string_if_invalid` ไม่ได้ตั้งไว้ → default `''`
+**เคสเดียวที่มันจะตื่นขึ้นมาคือถ้ามีคนเปลี่ยน `User.department` จาก CharField เป็น ForeignKey**
+
+### ⚰️ PDF v2 เป็นโค้ดตาย — อย่าเสียเวลาแก้เทมเพลตนี้
+
+ตรวจเมื่อ 13 ส.ค. 2569:
+
+| ตรวจ | ผล |
+|---|---|
+| ปุ่มที่เรียก `printReceiptV2()` / `downloadPDFV2()` | **ไม่มีเลย** ฟังก์ชันถูกประกาศใน `receipt_detail.html` แต่ไม่มีใครเรียก |
+| `pdfkit` บน prod | **ไม่มี** — `ModuleNotFoundError` |
+| `pdfkit` ใน `requirements.txt` | **ไม่อยู่** |
+| `wkhtmltopdf.exe` | มีที่ `C:\Program Files\wkhtmltopdf\bin\` แต่ไม่มีตัวเรียก |
+| `reportlab` | ✅ 4.4.4 — **นี่คือตัวที่สร้าง PDF จริง** ผ่าน `pdf_generator.py` |
+
+ยิง `/receipt/<id>/pdf/v2/` ตรง ๆ ก็ได้แค่ error แล้วเด้งกลับ `receipt_list`
+([views.py:2228](accounts/views.py) จับ `Exception` ทั้งหมด)
+
+**ถ้าจะลบ element ทิ้ง ระวัง layout ขยับ** (กรณีมีคนปลุก PDF v2 ขึ้นมาภายหลัง):
+`.dept-name` มี `margin: 0 0 10px 0` และ `.form-value` มี `border-bottom: 1px dotted`
+ซึ่งคือเส้นประหลังคำว่า "ได้รับเงินจาก" — ลบ span ทิ้งแล้วเส้นประหายไปด้วย
+
 **ข้อมูลที่ยังเป็น "ของสด" จริง ๆ คือชื่อผู้สร้าง** (`receipt.created_by.get_display_name()`)
 ใช้ในหน้ารายละเอียด/ตรวจสอบสาธารณะ และใน PDF v1 เฉพาะกรณี `is_loan=True`
 ถ้า NPU เปลี่ยนชื่อคน (เช่น เปลี่ยนคำนำหน้า) ใบเก่าจะโชว์ชื่อใหม่ — ไม่ได้ทดสอบเคสนี้
