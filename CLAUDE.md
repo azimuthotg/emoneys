@@ -14,9 +14,19 @@ deploy_notes:
   - reboot แล้วขึ้นเอง เพราะเป็น Windows Service แบบ Automatic
   - prod รัน DEBUG=True และ static ถูกเสิร์ฟผ่านบล็อก if settings.DEBUG ใน urls.py — สลับเป็น False เฉย ๆ จะทำเว็บล่ม ดู MEM.md
   - ข้อมูลจริง ณ 2026-08-13: ใบสำคัญ completed 10,484 ใบ, 25 หน่วยงาน, ไม่มีเลขซ้ำเลย
-progress: 85
-phase: รื้อเอกสาร + สำรวจ production จริงเสร็จแล้ว (13 ส.ค. 2569) เอกสารตรงกับระบบแล้วทุกจุด — ยังไม่ได้แตะโค้ดเลย คิวแก้บั๊กรอเจ้าของว่างมาลงมือต่อ ระบบใช้งานจริงตามปกติ
+  - SSH เข้าได้แล้ว (13 ส.ค. 2569) Administrator@110.78.83.103 ด้วย key C:\Users\azimuthotg\.ssh\emoneys_prod — ดู MEM.md
+  - backup อัตโนมัติทุกวัน 02:00 ผ่าน Scheduled Task emoneys-db-backup → C:\backup\*.zip เก็บ 30 วัน
+  - restart service ใช้เวลาราว 15-20 วินาที (NSSM รอ Django+waitress บูต) ขึ้น WARNING "Waiting for service" เป็นเรื่องปกติ
+progress: 87
+phase: ส่งโค้ดชุดแรกขึ้น prod แล้ว (13 ส.ค. 2569) — ปุ่ม re-sync ข้อมูล NPU รายคน deploy สำเร็จและ verify แล้ว ก่อนหน้านั้นแก้เหตุ MySQL บล็อก host และตั้งระบบสำรองฐานข้อมูลที่เดิมไม่มีเลย คิวแก้บั๊กเดิมยังรออยู่
 next:
+  - ทดสอบปุ่ม re-sync บนหน้าเว็บจริง แล้วกดอัปเดตหน่วยงานให้ user 1480100106549 (โค้ดขึ้น prod แล้ว ยังไม่มีใครกดใช้)
+  - ย้าย reset_receipts.py / delete_drafts.py / check_receipts.py ออกจาก C:\emoneys ไปโฟลเดอร์แยก (ค้างอยู่ข้าง manage.py พิมพ์ผิดทีเดียวลบข้อมูลจริง)
+  - ตั้ง max_connect_errors ให้สูงขึ้นบน MySQL prod (SET PERSIST) — ตอนนี้ยังเป็น default 100 คาดว่าจะโดนบล็อกซ้ำราว 19-20 ส.ค. 2569
+  - ทดสอบ restore backup จริงลงฐานชั่วคราว (ยังไม่เคยพิสูจน์ว่ากู้ได้)
+  - ก๊อป backup ออกนอกเครื่อง prod (ตอนนี้ไฟล์อยู่ดิสก์ลูกเดียวกับฐานข้อมูล)
+  - หาว่าอะไรยิง connection เข้า MySQL prod จากนอกเครื่อง ~456 ครั้ง/วัน (อาจมีระบบอื่นที่พังอยู่โดยไม่มีใครรู้)
+  - จำกัดการเข้าถึง 3306 / 33060 / 3389 / 5985 ที่ firewall
   - แก้ DEBUG=True บน prod แบบปลอดภัย — กู้ pip ใน venv ก่อน (ensurepip) แล้วติดตั้ง whitenoise แยก SECURE_SSL_REDIRECT ออกจาก DEBUG ค่อยปิด DEBUG (ปิดเฉย ๆ เว็บล่มทันที ดู MEM.md)
   - เปลี่ยน service emoneys จาก LocalSystem เป็น service account ที่มีสิทธิ์เท่าที่จำเป็น
   - แก้ race condition ตอนออกเลขที่ใบสำคัญ — ย้ายตัวนับไปบนแถว DocumentVolume + select_for_update แถวนั้น + ขยาย atomic ให้ครอบ INSERT
@@ -25,10 +35,14 @@ next:
   - เพิ่ม receipt_cancel_approve / receipt_cancel_approve_manager เข้า Permission.PERMISSION_TYPES ให้ตรงกับที่ create_permissions.py สร้างจริง
   - ตั้ง EMAIL_BACKEND เป็น SMTP บน production (ตอนนี้เป็น console อีเมลแจ้งเตือนไม่ออกจริง)
   - ตัดสินใจเรื่อง push notification — ถอด pywebpush ออก หรือเขียนส่วนส่งให้เสร็จ
+  - พิจารณาทำ re-sync ยกชุดทั้ง 1,352 คน (ทำได้แล้วในทางเทคนิคหลังมี lookup endpoint — รอบนี้ทำแค่รายคน)
   - ถามเจ้าของว่า GitHub PAT ที่เคยหลุดถูก revoke แล้วหรือยัง (remote สะอาดทั้ง dev และ prod แล้วแต่ไม่ได้แปลว่า token ตาย)
 risks:
   - prod รัน DEBUG=True — หน้า error 500 โชว์ SECRET_KEY รหัส MySQL และ NPU token บนเว็บที่เปิด HTTP สาธารณะ
-  - MySQL ผูกกับ public IP 110.78.83.103 ไม่ใช่ localhost
+  - MySQL ผูกกับ public IP 110.78.83.103 ไม่ใช่ localhost และ user emoneys@% ต่อได้จากทุกที่
+  - backup อยู่ดิสก์ลูกเดียวกับฐานข้อมูล ดิสก์เสียคือหายทั้งคู่ และยังไม่เคยทดสอบ restore
+  - MySQL max_connect_errors ยังเป็น default 100 บล็อกคนนอกทั้งหมดพร้อมกันซ้ำได้ทุก ~6 วัน
+  - สคริปต์ลบข้อมูล (reset_receipts.py, delete_drafts.py) ค้างอยู่ในโฟลเดอร์แอปบน prod
   - service รันด้วยสิทธิ์ LocalSystem สูงเกินความจำเป็น
   - เลขที่ใบสำคัญซ้ำได้ทางทฤษฎีเฉพาะหน่วยงานคนละ row ที่ใช้ code เดียวกัน (จริงยังไม่เคยเกิดใน 10,484 ใบ)
   - NPU API token อายุ 365 วัน ไม่มี auto-refresh ถ้าลืมต่อ ระบบล็อกอินตายทั้งระบบ
