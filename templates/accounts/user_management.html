@@ -613,6 +613,8 @@
                 <!-- Content loaded via AJAX -->
             </div>
             <div class="modal-footer">
+                <!-- ปุ่ม "ดึงข้อมูลจาก NPU ใหม่" ถูกใส่ตอนโหลดข้อมูล เฉพาะผู้ใช้ที่มาจาก NPU API -->
+                <div id="userDetailsActions" class="me-auto"></div>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
             </div>
         </div>
@@ -843,6 +845,16 @@ function viewUserDetails(userId) {
     .then(data => {
         if (data.success) {
             document.getElementById('userDetailsContent').innerHTML = data.html;
+
+            // ผู้ใช้ที่มาจาก NPU API ดึงข้อมูลใหม่ได้ (ผู้ใช้ manual ไม่มีต้นทางให้ดึง)
+            const actions = document.getElementById('userDetailsActions');
+            actions.innerHTML = data.can_resync ? `
+                <button type="button" class="btn btn-outline-primary" id="npuResyncBtn"
+                        onclick="npuResync(${data.user_id})">
+                    <i class="fas fa-sync me-2"></i>ดึงข้อมูลจาก NPU ใหม่
+                </button>
+            ` : '';
+
             const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
             modal.show();
         } else {
@@ -852,6 +864,121 @@ function viewUserDetails(userId) {
     .catch(error => {
         console.error('Error:', error);
         showToast('error', 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    });
+}
+
+function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : value;
+    return div.innerHTML;
+}
+
+/**
+ * ดึงข้อมูลจาก NPU มาอัปเดตผู้ใช้รายนี้
+ *
+ * แบ่ง 2 จังหวะเสมอ: GET เพื่อดูก่อนว่าจะเปลี่ยนอะไร (ไม่เขียนอะไรลงฐานข้อมูล)
+ * แล้วให้แอดมินยืนยัน ค่อย POST เขียนจริง — แอดมินจะได้เห็นว่า NPU ส่งอะไรมา
+ * ก่อนที่ข้อมูลจะถูกแก้
+ */
+function npuResync(userId) {
+    const btn = document.getElementById('npuResyncBtn');
+    const resetBtn = () => {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sync me-2"></i>ดึงข้อมูลจาก NPU ใหม่';
+        }
+    };
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังดึงข้อมูล...';
+    }
+
+    fetch(`/accounts/management/npu-resync/${userId}/`)
+    .then(response => response.json().then(data => ({ ok: response.ok, data })))
+    .then(({ ok, data }) => {
+        resetBtn();
+        if (!ok || !data.success) {
+            showToast('error', data.message || 'ดึงข้อมูลจาก NPU ไม่สำเร็จ');
+            return;
+        }
+
+        if (!data.changes.length) {
+            showToast('info', 'ข้อมูลในระบบตรงกับ NPU อยู่แล้ว ไม่มีอะไรต้องอัปเดต');
+            return;
+        }
+
+        let html = `<p>ข้อมูลจาก NPU ของ <strong>${escapeHtml(data.user_display)}</strong>
+                    ต่างจากในระบบ ${data.changes.length} รายการ:</p>
+            <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-3">
+                <thead class="table-light">
+                    <tr><th>ข้อมูล</th><th>ในระบบตอนนี้</th><th>จาก NPU</th></tr>
+                </thead>
+                <tbody>`;
+        data.changes.forEach(c => {
+            html += `<tr>
+                <td class="fw-bold">${escapeHtml(c.label)}</td>
+                <td class="text-muted">${escapeHtml(c.old) || '<em>ไม่มีข้อมูล</em>'}</td>
+                <td class="text-success fw-bold">${escapeHtml(c.new)}</td>
+            </tr>`;
+        });
+        html += `</tbody></table></div>`;
+
+        data.warnings.forEach(w => {
+            html += `<div class="alert alert-warning mb-2">
+                        <i class="fas fa-exclamation-triangle me-2"></i>${escapeHtml(w)}
+                     </div>`;
+        });
+
+        html += `<div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    ใบสำคัญที่ออกไปแล้วจะไม่ถูกย้าย ยังคงอยู่กับหน่วยงานเดิมตามเดิม
+                 </div>`;
+
+        const askForConfirmation = () => showConfirm(
+            html,
+            function() {
+                fetch(`/accounts/management/npu-resync/${userId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    }
+                })
+                .then(response => response.json().then(d => ({ ok: response.ok, d })))
+                .then(({ ok, d }) => {
+                    if (ok && d.success) {
+                        showToast('success', d.message);
+                        location.reload();
+                    } else {
+                        showToast('error', d.message || 'อัปเดตไม่สำเร็จ');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('error', 'เกิดข้อผิดพลาดในการติดต่อเซิร์ฟเวอร์');
+                });
+            },
+            'ยืนยันการอัปเดตข้อมูลจาก NPU',
+            'อัปเดตข้อมูล',
+            'btn-primary'
+        );
+
+        // ปิด modal รายละเอียดให้เรียบร้อยก่อนเปิด modal ยืนยัน
+        // ถ้าเปิดซ้อนกันทันที Bootstrap จะลบ backdrop ของตัวแรกทีหลัง ทำให้จอค้างมืด
+        const detailsEl = document.getElementById('userDetailsModal');
+        const detailsModal = bootstrap.Modal.getInstance(detailsEl);
+        if (detailsModal) {
+            detailsEl.addEventListener('hidden.bs.modal', askForConfirmation, { once: true });
+            detailsModal.hide();
+        } else {
+            askForConfirmation();
+        }
+    })
+    .catch(error => {
+        resetBtn();
+        console.error('Error:', error);
+        showToast('error', 'เกิดข้อผิดพลาดในการติดต่อเซิร์ฟเวอร์');
     });
 }
 

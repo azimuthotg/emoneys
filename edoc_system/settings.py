@@ -167,10 +167,17 @@ NPU_API_AUTH_ENDPOINT = config('NPU_API_AUTH_ENDPOINT', default='auth_and_get_pe
 NPU_API_TOKEN = config('NPU_API_TOKEN', default='your_npu_api_token_here')
 NPU_API_TIMEOUT = config('NPU_API_TIMEOUT', default=30, cast=int)  # seconds
 
+# Lookup endpoints — ดึงข้อมูลด้วย JWT อย่างเดียว ไม่ต้องใช้รหัสผ่านของเจ้าตัว
+# อยู่คนละ path กับ auth: auth อยู่ใต้ /v2/ldap/ แต่ lookup อยู่ใต้ /v2/ ตรง ๆ
+#   GET /v2/personnel/{staffcitizenid}/   → ข้อมูลบุคลากร
+#   GET /v2/student/{student_code}/       → ข้อมูลนักศึกษา
+NPU_API_LOOKUP_BASE_URL = config('NPU_API_LOOKUP_BASE_URL', default='https://api.npu.ac.th/v2/')
+
 # NPU API Settings
 NPU_API_SETTINGS = {
     'base_url': NPU_API_BASE_URL,
     'auth_endpoint': NPU_API_AUTH_ENDPOINT,
+    'lookup_base_url': NPU_API_LOOKUP_BASE_URL,
     'token': NPU_API_TOKEN,
     'timeout': NPU_API_TIMEOUT,
     'headers': {
@@ -192,6 +199,7 @@ NPU_STUDENT_API_TIMEOUT = config('NPU_STUDENT_API_TIMEOUT', default=30, cast=int
 NPU_STUDENT_API_SETTINGS = {
     'base_url': NPU_STUDENT_API_BASE_URL,
     'auth_endpoint': NPU_STUDENT_API_AUTH_ENDPOINT,
+    'lookup_base_url': NPU_API_LOOKUP_BASE_URL,
     'token': NPU_STUDENT_API_TOKEN,
     'timeout': NPU_STUDENT_API_TIMEOUT,
     'headers': {

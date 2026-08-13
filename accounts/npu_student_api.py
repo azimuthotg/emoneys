@@ -8,6 +8,7 @@ from datetime import datetime
 from django.conf import settings
 from django.utils import timezone
 from .models import NPUApiLog
+from .npu_api import NPULookupError
 
 
 class NPUStudentApiClient:
@@ -16,6 +17,7 @@ class NPUStudentApiClient:
     def __init__(self):
         self.base_url = settings.NPU_STUDENT_API_SETTINGS['base_url']
         self.auth_endpoint = settings.NPU_STUDENT_API_SETTINGS['auth_endpoint']
+        self.lookup_base_url = settings.NPU_STUDENT_API_SETTINGS['lookup_base_url']
         self.headers = settings.NPU_STUDENT_API_SETTINGS['headers']
         self.timeout = settings.NPU_STUDENT_API_SETTINGS['timeout']
 
@@ -126,6 +128,90 @@ class NPUStudentApiClient:
             )
             print(f"NPU Student API Error: {error_msg}")
             return None
+
+    def lookup_student(self, student_code):
+        """
+        ดึงข้อมูลนักศึกษาจากรหัสนักศึกษา ด้วย JWT อย่างเดียว **ไม่ต้องใช้รหัสผ่านของเจ้าตัว**
+
+        คู่กับ `NPUApiClient.lookup_personnel()` — ใช้ตอนแอดมินสั่ง re-sync
+        endpoint คืน JSON แบบแบน จึงห่อเป็นรูปเดียวกับ `authenticate_student()`
+        เพื่อให้ `extract_student_data()` ใช้ต่อได้โดยไม่ต้องแก้
+
+        Args:
+            student_code (str): รหัสนักศึกษา 12 หลัก
+
+        Returns:
+            dict: {'success': True, 'student_info': {...}}
+
+        Raises:
+            NPULookupError: พร้อมข้อความภาษาไทยที่บอกสาเหตุให้แอดมินอ่าน
+        """
+        start_time = time.time()
+        url = f"{self.lookup_base_url}student/{student_code}/"
+        request_data = {'method': 'GET', 'url': url}
+
+        try:
+            response = requests.get(url, headers=self.headers, timeout=self.timeout)
+            response_time_ms = int((time.time() - start_time) * 1000)
+
+            if response.status_code == 200:
+                student_info = response.json()
+
+                self._log_api_call(
+                    student_code=student_code,
+                    action='lookup',
+                    status='success',
+                    request_data=request_data,
+                    response_data=student_info,
+                    response_time_ms=response_time_ms
+                )
+
+                return {'success': True, 'student_info': student_info}
+
+            if response.status_code == 404:
+                message = f'ไม่พบรหัสนักศึกษา {student_code} ในระบบ NPU (อาจพ้นสภาพแล้ว)'
+            elif response.status_code in (401, 403):
+                message = 'NPU API ปฏิเสธสิทธิ์ — โทเคนน่าจะหมดอายุ ต้องต่ออายุ NPU_API_TOKEN'
+            else:
+                message = f'NPU API ตอบกลับ HTTP {response.status_code}'
+
+            self._log_api_call(
+                student_code=student_code,
+                action='lookup',
+                status='failed' if response.status_code == 404 else 'error',
+                request_data=request_data,
+                response_data={'status_code': response.status_code, 'response_text': response.text[:1000]},
+                response_time_ms=response_time_ms,
+                error_message=message
+            )
+            raise NPULookupError(message)
+
+        except requests.exceptions.Timeout:
+            message = f'NPU API ไม่ตอบสนองภายใน {self.timeout} วินาที'
+            self._log_api_call(
+                student_code=student_code, action='lookup', status='error',
+                request_data=request_data, error_message=message,
+                response_time_ms=int((time.time() - start_time) * 1000)
+            )
+            raise NPULookupError(message)
+
+        except requests.exceptions.ConnectionError:
+            message = 'เชื่อมต่อ NPU API ไม่ได้'
+            self._log_api_call(
+                student_code=student_code, action='lookup', status='error',
+                request_data=request_data, error_message=message,
+                response_time_ms=int((time.time() - start_time) * 1000)
+            )
+            raise NPULookupError(message)
+
+        except ValueError:
+            message = 'NPU API ตอบกลับในรูปแบบที่อ่านไม่ได้ (ไม่ใช่ JSON)'
+            self._log_api_call(
+                student_code=student_code, action='lookup', status='error',
+                request_data=request_data, error_message=message,
+                response_time_ms=int((time.time() - start_time) * 1000)
+            )
+            raise NPULookupError(message)
 
     def _log_api_call(self, student_code, action, status, request_data=None,
                      response_data=None, error_message="", response_time_ms=None):

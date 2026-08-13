@@ -468,7 +468,12 @@ def user_details_ajax(request, user_id):
             'approval_status': user.approval_status,
             'date_joined': user.date_joined.strftime('%d/%m/%Y %H:%M'),
             'last_login': user.last_login.strftime('%d/%m/%Y %H:%M') if user.last_login else 'ไม่เคยเข้าใช้',
+            'last_npu_sync': user.last_npu_sync.strftime('%d/%m/%Y %H:%M') if user.last_npu_sync else 'ไม่เคย',
         }
+
+        # ผู้ใช้จาก NPU ดึงข้อมูลใหม่ได้ ถ้ามีคีย์ไว้ค้นหา (เลขบัตร / รหัสนักศึกษา)
+        identifier = user.student_code if user.user_type == 'student' else user.ldap_uid
+        can_resync = user.source == 'npu_api' and bool(identifier)
         
         html = f"""
         <div class="row g-3">
@@ -514,15 +519,191 @@ def user_details_ajax(request, user_id):
                 <label class="form-label fw-bold">เข้าใช้ล่าสุด:</label>
                 <p class="form-control-plaintext">{user_data['last_login']}</p>
             </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold">ข้อมูล NPU อัปเดตล่าสุด:</label>
+                <p class="form-control-plaintext">{user_data['last_npu_sync']}</p>
+            </div>
         </div>
         """
-        
-        return JsonResponse({'success': True, 'html': html})
+
+        return JsonResponse({
+            'success': True,
+            'html': html,
+            'can_resync': can_resync,
+            'user_id': user.id,
+        })
         
     except User.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'ไม่พบผู้ใช้'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+# ฟิลด์ที่ NPU เป็นเจ้าของข้อมูล และอนุญาตให้ดึงมาทับได้ตอน re-sync
+#
+# จงใจไม่รวม:
+#   - username / ldap_uid / student_code  = คีย์ระบุตัวตน ถ้าเปลี่ยนผู้ใช้จะ login ไม่ได้
+#   - approval_status / is_active / บทบาท = เรื่องของระบบเรา ไม่ใช่ของ NPU
+#   - npu_last_login                      = endpoint lookup ไม่ได้คืนเวลา login มาด้วย
+#                                           ถ้าเขียนทับข้อมูลเดิมจะหาย
+NPU_RESYNC_FIELDS_STAFF = [
+    'npu_staff_id', 'prefix_name', 'first_name_th', 'last_name_th', 'full_name',
+    'birth_date', 'gender',
+    'department', 'position_title', 'staff_type', 'staff_sub_type', 'employment_status',
+]
+
+NPU_RESYNC_FIELDS_STUDENT = [
+    'prefix_name', 'first_name_th', 'last_name_th', 'full_name',
+    'student_level', 'student_program', 'student_faculty', 'student_degree',
+]
+
+NPU_RESYNC_FIELD_LABELS = {
+    'npu_staff_id': 'รหัสบุคลากร',
+    'prefix_name': 'คำนำหน้า',
+    'first_name_th': 'ชื่อ',
+    'last_name_th': 'นามสกุล',
+    'full_name': 'ชื่อ-นามสกุล',
+    'birth_date': 'วันเกิด',
+    'gender': 'เพศ',
+    'department': 'หน่วยงาน',
+    'position_title': 'ตำแหน่ง',
+    'staff_type': 'ประเภทบุคลากร',
+    'staff_sub_type': 'ประเภทย่อย',
+    'employment_status': 'สถานะการทำงาน',
+    'student_level': 'ระดับการศึกษา',
+    'student_program': 'สาขาวิชา',
+    'student_faculty': 'คณะ',
+    'student_degree': 'ระดับปริญญา',
+}
+
+
+@login_required
+def npu_resync_ajax(request, user_id):
+    """
+    ดึงข้อมูลจาก NPU มาอัปเดตผู้ใช้เป็นรายคน (แอดมินกดเอง)
+
+    ทำไมต้องมี: ข้อมูล NPU ถูกดึงมาแค่ครั้งเดียวตอนสร้างบัญชี
+    (`_create_staff_user()` ใน backends.py) ส่วนการ login ครั้งต่อ ๆ ไป
+    `_check_database_staff()` ตรวจแค่รหัสผ่าน ไม่เคย sync ซ้ำ
+    ผู้ใช้ที่ย้ายหน่วยงานจึงค้างอยู่หน่วยงานเดิมตลอดไป
+
+    GET  = ดูก่อนว่าจะเปลี่ยนอะไรบ้าง **ไม่เขียนอะไรลงฐานข้อมูล**
+    POST = เขียนจริง แล้วบันทึกลง UserActivityLog
+
+    ใช้ endpoint lookup ที่ยืนยันสิทธิ์ด้วย JWT อย่างเดียว จึงไม่ต้องมีรหัสผ่านของเจ้าตัว
+    """
+    if not (request.user.is_staff or request.user.is_superuser or request.user.has_permission('user_manage')):
+        return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์ในการดำเนินการ'}, status=403)
+
+    from django.db import transaction
+    from .npu_api import NPUApiClient, NPULookupError, extract_user_data
+    from .npu_student_api import NPUStudentApiClient, extract_student_data
+
+    try:
+        target_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'ไม่พบผู้ใช้'}, status=404)
+
+    if target_user.source != 'npu_api':
+        return JsonResponse({
+            'success': False,
+            'message': 'ผู้ใช้รายนี้ไม่ได้มาจาก NPU API (สร้างเองแบบ manual) จึงไม่มีต้นทางให้ดึงข้อมูล'
+        }, status=400)
+
+    # เลือก client กับชุดฟิลด์ตามประเภทผู้ใช้
+    try:
+        if target_user.user_type == 'student':
+            if not target_user.student_code:
+                return JsonResponse({'success': False, 'message': 'ผู้ใช้รายนี้ไม่มีรหัสนักศึกษา'}, status=400)
+            npu_response = NPUStudentApiClient().lookup_student(target_user.student_code)
+            fresh_data = extract_student_data(npu_response)
+            allowed_fields = NPU_RESYNC_FIELDS_STUDENT
+            department_field = 'student_faculty'
+        else:
+            if not target_user.ldap_uid:
+                return JsonResponse({'success': False, 'message': 'ผู้ใช้รายนี้ไม่มีเลขบัตรประชาชน'}, status=400)
+            npu_response = NPUApiClient().lookup_personnel(target_user.ldap_uid)
+            fresh_data = extract_user_data(npu_response)
+            allowed_fields = NPU_RESYNC_FIELDS_STAFF
+            department_field = 'department'
+    except NPULookupError as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=502)
+
+    if not fresh_data:
+        return JsonResponse({'success': False, 'message': 'NPU ตอบกลับมาแต่แปลงข้อมูลไม่ได้'}, status=502)
+
+    # เทียบทีละฟิลด์
+    changes = {}
+    for field in allowed_fields:
+        if field not in fresh_data:
+            continue
+        new_value = fresh_data[field]
+        # ค่าว่างจาก NPU แปลว่า "ไม่มีข้อมูล" ไม่ใช่ "ให้ลบของเดิมทิ้ง" จึงข้ามไป
+        if new_value in (None, ''):
+            continue
+        if getattr(target_user, field) != new_value:
+            changes[field] = (getattr(target_user, field), new_value)
+
+    # หน่วยงานต้องมีอยู่ในตาราง Department ไม่งั้นผู้ใช้จะออกใบสำคัญไม่ได้
+    # เพราะระบบจับคู่หน่วยงานด้วยชื่อตรงเป๊ะ (Department.objects.filter(name=...))
+    warnings = []
+    if department_field in changes:
+        new_department = changes[department_field][1]
+        if not Department.objects.filter(name=new_department).exists():
+            warnings.append(
+                f"หน่วยงาน '{new_department}' ยังไม่มีในตารางหน่วยงานของระบบ "
+                f"ต้องไปเพิ่มที่หน้า 'จัดการหน่วยงาน' ก่อน ไม่งั้นผู้ใช้รายนี้จะออกใบสำคัญไม่ได้"
+            )
+
+    changes_display = [
+        {
+            'field': field,
+            'label': NPU_RESYNC_FIELD_LABELS.get(field, field),
+            'old': str(old) if old not in (None, '') else '',
+            'new': str(new),
+        }
+        for field, (old, new) in changes.items()
+    ]
+
+    # GET = พรีวิวอย่างเดียว ไม่แตะฐานข้อมูล
+    if request.method != 'POST':
+        return JsonResponse({
+            'success': True,
+            'applied': False,
+            'user_display': target_user.get_display_name(),
+            'changes': changes_display,
+            'warnings': warnings,
+            'last_npu_sync': target_user.last_npu_sync.strftime('%d/%m/%Y %H:%M') if target_user.last_npu_sync else 'ไม่เคย',
+        })
+
+    # POST = เขียนจริง
+    try:
+        with transaction.atomic():
+            for field, (_old, new_value) in changes.items():
+                setattr(target_user, field, new_value)
+            target_user.last_npu_sync = timezone.now()
+            target_user.save(update_fields=list(changes.keys()) + ['last_npu_sync'])
+
+            UserActivityLog.log_npu_resync(
+                user=target_user,
+                performed_by=request.user,
+                changes=changes,
+                request=request,
+            )
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'บันทึกไม่สำเร็จ: {e}'}, status=500)
+
+    return JsonResponse({
+        'success': True,
+        'applied': True,
+        'user_display': target_user.get_display_name(),
+        'changes': changes_display,
+        'warnings': warnings,
+        'message': (
+            f'อัปเดตข้อมูลจาก NPU สำเร็จ ({len(changes_display)} รายการ)'
+            if changes_display else 'ข้อมูลตรงกับ NPU อยู่แล้ว ไม่มีอะไรเปลี่ยน'
+        ),
+    })
 
 
 @login_required

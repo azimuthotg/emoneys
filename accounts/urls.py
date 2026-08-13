@@ -28,6 +28,8 @@ urlpatterns = [
     path('management/change-password/<int:user_id>/', views.change_password_ajax, name='change_password_ajax'),
     path('management/remove-password-override/<int:user_id>/', views.remove_password_override_ajax, name='remove_password_override_ajax'),
     path('management/user-details/<int:user_id>/', views.user_details_ajax, name='user_details_ajax'),
+    # GET = พรีวิวว่าจะเปลี่ยนอะไร, POST = เขียนจริง
+    path('management/npu-resync/<int:user_id>/', views.npu_resync_ajax, name='npu_resync_ajax'),
     
     # Legacy admin URLs for backward compatibility
     path('admin/approve-user/<int:user_id>/', views.approve_user_ajax, name='admin_approve_user_ajax'),

@@ -2111,6 +2111,7 @@ class UserActivityLog(models.Model):
         ('login', 'เข้าสู่ระบบ'),
         ('logout', 'ออกจากระบบ'),
         ('login_failed', 'เข้าสู่ระบบล้มเหลว'),
+        ('npu_resync', 'ดึงข้อมูลจาก NPU ใหม่'),
     ]
 
     user = models.ForeignKey(
@@ -2189,6 +2190,37 @@ class UserActivityLog(models.Model):
             ip_address=cls._get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             notes=reason
+        )
+
+    @classmethod
+    def log_npu_resync(cls, user, performed_by, changes, request):
+        """
+        บันทึกการดึงข้อมูลจาก NPU มาทับ (แอดมินเป็นคนสั่ง)
+
+        เก็บว่าใครสั่ง และฟิลด์ไหนเปลี่ยนจากอะไรเป็นอะไร เพื่อให้ย้อนดูได้ภายหลัง
+        ว่าหน่วยงานของผู้ใช้ถูกเปลี่ยนเมื่อไหร่และโดยใคร
+
+        Args:
+            user: ผู้ใช้ที่ถูก re-sync
+            performed_by: แอดมินที่กดปุ่ม
+            changes (dict): {field_name: (ค่าเดิม, ค่าใหม่)}
+            request: HttpRequest
+        """
+        if changes:
+            detail = '; '.join(
+                f"{field}: '{old or '-'}' -> '{new or '-'}'"
+                for field, (old, new) in changes.items()
+            )
+        else:
+            detail = 'ไม่มีข้อมูลใดเปลี่ยนแปลง'
+
+        return cls.objects.create(
+            user=user,
+            username_attempted=user.username,
+            action='npu_resync',
+            ip_address=cls._get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+            notes=f"สั่งโดย {performed_by.username} | {detail}"[:2000]
         )
 
     @staticmethod
