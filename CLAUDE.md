@@ -25,7 +25,6 @@ next:
   - เพิ่ม receipt_cancel_approve / receipt_cancel_approve_manager เข้า Permission.PERMISSION_TYPES ให้ตรงกับที่ create_permissions.py สร้างจริง
   - ตั้ง EMAIL_BACKEND เป็น SMTP บน production (ตอนนี้เป็น console อีเมลแจ้งเตือนไม่ออกจริง)
   - ตัดสินใจเรื่อง push notification — ถอด pywebpush ออก หรือเขียนส่วนส่งให้เสร็จ
-  - แก้ deploy_path ใน nms_agent/docs/projects/emoneys.md เป็น C:\emoneys (ตอนนี้เขียน C:\projects\emoneys ผิด)
   - ถามเจ้าของว่า GitHub PAT ที่เคยหลุดถูก revoke แล้วหรือยัง (remote สะอาดทั้ง dev และ prod แล้วแต่ไม่ได้แปลว่า token ตาย)
 risks:
   - prod รัน DEBUG=True — หน้า error 500 โชว์ SECRET_KEY รหัส MySQL และ NPU token บนเว็บที่เปิด HTTP สาธารณะ
