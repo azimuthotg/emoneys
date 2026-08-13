@@ -18,7 +18,7 @@ deploy_notes:
   - backup อัตโนมัติทุกวัน 02:00 ผ่าน Scheduled Task emoneys-db-backup → C:\backup\*.zip เก็บ 30 วัน
   - restart service ใช้เวลาราว 15-20 วินาที (NSSM รอ Django+waitress บูต) ขึ้น WARNING "Waiting for service" เป็นเรื่องปกติ
 progress: 87
-phase: ส่งโค้ดชุดแรกขึ้น prod แล้ว (13 ส.ค. 2569) — ปุ่ม re-sync ข้อมูล NPU รายคน deploy สำเร็จและ verify แล้ว ก่อนหน้านั้นแก้เหตุ MySQL บล็อก host และตั้งระบบสำรองฐานข้อมูลที่เดิมไม่มีเลย คิวแก้บั๊กเดิมยังรออยู่
+phase: ส่งโค้ดชุดแรกขึ้น prod แล้ว (13 ส.ค. 2569) — ปุ่ม re-sync ข้อมูล NPU รายคน deploy สำเร็จ verify แล้ว และพิสูจน์บนสำเนา production จริงแล้วว่าย้ายหน่วยงานไม่กระทบใบสำคัญเก่า ระหว่างพิสูจน์พบว่า PDF v2 เป็นโค้ดตายทั้งก้อน (มติให้ลบทิ้ง) ก่อนหน้านั้นแก้เหตุ MySQL บล็อก host และตั้งระบบสำรองฐานข้อมูลที่เดิมไม่มีเลย คิวแก้บั๊กเดิมยังรออยู่
 next:
   - ทดสอบปุ่ม re-sync บนหน้าเว็บจริง แล้วกดอัปเดตหน่วยงานให้ user 1480100106549 (โค้ดขึ้น prod แล้ว ยังไม่มีใครกดใช้)
   - ลบ PDF v2 ทิ้งทั้งชุด (เจ้าของตัดสินใจแล้ว 13 ส.ค. 2569 — ต้องทำก่อนพัฒนาอะไรต่อในส่วน PDF) ลบ 5 จุด: view receipt_pdf_v2_view + receipt_pdf_v2_download_view ใน views.py, 2 route (receipt_pdf_v2, receipt_pdf_v2_download) ใน urls.py, ไฟล์ templates/accounts/receipt_pdf_v2.html, และ JS กำพร้า printReceiptV2()/downloadPDFV2() ใน receipt_detail.html — หลังลบต้องยืนยันว่า PDF จาก reportlab ยัง byte-identical (ตัด CreationDate/ModDate/ID) ดู MEM.md
