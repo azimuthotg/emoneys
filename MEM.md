@@ -39,6 +39,35 @@
 ที่ระบุชัดว่าห้ามใช้อ้างอิง เขียน `README.md` ใหม่จากการอ่านโค้ดจริง และประกาศใน `CLAUDE.md`
 ว่าอย่าอ่าน `_archive/` เหลือแหล่งอ้างอิงจริงแค่ `README.md` / `MEM.md` / `doc/INDEX.md`
 
+### 2026-08-13 — ต่อ MySQL prod จากข้างนอกไม่ได้ (`ERROR 1129` host is blocked)
+
+**อาการ** DBeaver จากเครื่องนอก prod ขึ้น
+`Host '110.78.83.1' is blocked because of many connection errors`
+
+**ต้นตอ** ทุก connection จากนอกเครื่องถูก NAT ยุบเป็น IP เดียว (`110.78.83.1` = gateway ของ
+subnet `110.78.83.0/25`) MySQL จึงนับ error ของทุกคนรวมกันในถังเดียว พอชน
+`max_connect_errors` = **100** (ค่า default) ก็บล็อก → **คนนอกเข้าไม่ได้พร้อมกันทั้งหมด**
+
+ยืนยันจาก `performance_schema.host_cache`: `SUM_CONNECT_ERRORS = COUNT_HANDSHAKE_ERRORS = 101`
+พอดีตัว = **เป็น handshake error ล้วน 100%** ไม่ใช่ DNS (`NAMEINFO_PERMANENT` แค่ 1 และ error
+ชนิด permanent ไม่ถูกนับเข้าโควตา) และไม่ใช่รหัสผ่านผิด — แถวของ `110.78.83.103` มี
+`AUTHENTICATION_ERRORS = 4` แต่ `SUM_CONNECT_ERRORS = 0` **พิสูจน์ว่า auth error ไม่ทำให้โดนบล็อก**
+
+**ไม่กระทบเว็บ** เพราะแอปต่อ DB จาก `110.78.83.103 → 110.78.83.103` วนในเครื่อง
+(NIC ถือ public IP ตัวนี้โดยตรง) ไม่ผ่าน NAT
+
+**วิธีแก้** `FLUSH HOSTS;` ด้วยสิทธิ์ root — ล้าง cache ในหน่วยความจำ ไม่แตะข้อมูล ไม่ต้อง restart
+
+**ยังไม่แก้ต้นเหตุ** `max_connect_errors` ยังเป็น 100 → จากสถิติจริง ~17 handshake error/วัน
+**จะกลับมาโดนบล็อกอีกในราว 6 วัน** เคยเกิดมาแล้ว 4 รอบ (4 มิ.ย. / 17 มิ.ย. / 20 ก.ค. / 7 ส.ค. 2569)
+
+**บทเรียน** อย่าด่วนสรุปสาเหตุจากข้อความ error — ตอนแรกเดาว่าเป็น DNS เพราะเห็น log
+`IP address '110.78.83.1' could not be resolved` แต่ตัวเลขใน `host_cache` ชี้ไปที่ handshake
+คนละเรื่องกัน และเดาว่าบอตสแกนจากอินเทอร์เน็ต ซึ่งก็ผิด — `host_cache` มีแค่ 2 แถวจากที่จุได้ 279
+แปลว่าไม่มีใครจากข้างนอกยิงเข้ามาเลยนอกจากผ่าน NAT ตัวนั้น
+
+รายละเอียดครบ + แผนย้อนกลับอยู่ที่ [doc/runbook-mysql-host-blocked.md](doc/runbook-mysql-host-blocked.md)
+
 ---
 
 ## บั๊กที่รู้แล้วแต่ยังไม่แก้
@@ -185,6 +214,55 @@ Django 4.2.25 ที่ `C:\emoneys\emoney_env\Lib\site-packages` ครบ **�
 
 `StartName = LocalSystem` — สูงกว่าที่เว็บแอปต้องการมาก ถ้าแอปมีช่องโหว่ ผู้โจมตีได้สิทธิ์สูงสุด
 ของเครื่องทันที ควรเปลี่ยนเป็น service account เฉพาะที่มีสิทธิ์เท่าที่จำเป็น (ไม่ด่วน)
+
+### SSH เข้า prod ได้แล้ว (13 ส.ค. 2569)
+
+เดิมเข้าได้ทาง RDP อย่างเดียว ตอนนี้ติดตั้ง OpenSSH Server แล้ว
+
+| หัวข้อ | ค่า |
+|---|---|
+| ปลายทาง | `Administrator@110.78.83.103` (Windows Server 2022, build 20348) |
+| private key | `C:\Users\azimuthotg\.ssh\emoneys_prod` — ed25519 **ไม่มี passphrase** |
+| public key อยู่ที่ | `C:\ProgramData\ssh\administrators_authorized_keys` บน prod |
+| service | `sshd` StartupType Automatic |
+
+**จุดที่พลาดกันบ่อยตอนตั้ง** (เจอมาแล้วทั้งคู่):
+
+1. บัญชีที่อยู่ในกลุ่ม Administrators **ไม่ใช้** `~\.ssh\authorized_keys` ต้องใส่ที่
+   `C:\ProgramData\ssh\administrators_authorized_keys` และตั้ง ACL ให้เหลือแค่
+   SYSTEM + Administrators (`icacls ... /inheritance:r`) ไม่งั้น sshd เมินไฟล์ทั้งไฟล์แบบเงียบ ๆ
+2. เขียนไฟล์ด้วย `-Encoding utf8` บน PowerShell 5.1 จะได้ **BOM** นำหน้า → sshd อ่าน key ไม่ออก
+   ต้องใช้ `-Encoding ascii`
+
+**shell ปลายทางยังเป็น `cmd.exe`** (ตั้ง `DefaultShell` ใน registry แล้วแต่ไม่มีผล) วิธีที่ใช้ได้จริงคือ
+ส่งเป็น `powershell -NoProfile -EncodedCommand <base64 ของ UTF-16LE>` เลี่ยงปัญหา quote ทั้งหมด
+และ **อย่าใส่ภาษาไทยในสคริปต์ฝั่ง remote** เพราะ encoding เพี้ยนตอนส่งกลับ
+
+`Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0` **ค้าง** บนเครื่องนี้
+(เครื่องถูก policy ชี้ไป WSUS) สุดท้ายติดตั้งสำเร็จด้วยวิธีอื่น
+
+### ระบบสำรองฐานข้อมูล (ตั้ง 13 ส.ค. 2569)
+
+ก่อนหน้านี้ **ไม่มีระบบสำรองใด ๆ เลย** — ไม่มี scheduled task ไม่มีไฟล์ dump
+มีแต่ binlog 6 ไฟล์ซึ่งกู้อะไรไม่ได้ถ้าไม่มี full backup เป็นฐานตั้งต้น
+
+| หัวข้อ | ค่า |
+|---|---|
+| Scheduled Task | `emoneys-db-backup` — ทุกวัน **02:00** (เครื่อง UTC+07:00 Bangkok) |
+| รันในนาม | `SYSTEM` RunLevel Highest — ไม่ต้องมีใคร login |
+| สคริปต์ | `C:\backup\backup-emoneys.ps1` (อ่านรหัสจาก `.env` ตอนรัน ไม่ hardcode) |
+| ผลลัพธ์ | `C:\backup\emoneys-YYYYMMDD-HHMMSS.zip` — dump 62.6 MB → zip **7.45 MB** |
+| log | `C:\backup\backup.log` + `LastTaskResult` ของ Task Scheduler |
+| retention | 30 วัน (ลบ `.zip` เก่าอัตโนมัติ) |
+
+ดึงไฟล์ออกนอกเครื่อง (เจ้าของระบบทำเองรายสัปดาห์):
+
+```powershell
+scp -i C:\Users\azimuthotg\.ssh\emoneys_prod Administrator@110.78.83.103:"C:/backup/emoneys-20260813-143406.zip" D:\
+```
+
+⚠️ **ข้อจำกัดที่ยังเหลือ** — ไฟล์อยู่บนดิสก์ลูกเดียวกับฐานข้อมูล (ดิสก์เสีย = หายทั้งคู่),
+**ยังไม่เคยทดสอบ restore จริง**, และไม่มีการแจ้งเตือนเมื่อ backup ล้ม
 
 ---
 
