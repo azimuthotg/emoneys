@@ -43,17 +43,35 @@
 
 ## บั๊กที่รู้แล้วแต่ยังไม่แก้
 
-### เลขที่ใบสำคัญซ้ำได้ (race condition)
+### race condition ตอนออกเลขที่ใบสำคัญ
 
 `Receipt.generate_receipt_number()` ([accounts/models.py:1254](accounts/models.py))
 เปิด `transaction.atomic()` ครอบแค่ตอนอ่าน `Max(receipt_number)` **แล้วปิดบล็อกก่อน
 `super().save()` จะ INSERT จริง** — lock ถูกปล่อยไปก่อนแถวใหม่จะถูกเขียน
-ยิ่ง `select_for_update().aggregate()` ไม่ได้ล็อกแถวที่ยังไม่มีอยู่ (ไม่มี gap lock)
-สองคนกด "เสร็จสิ้น" พร้อมกันในวันเดียวกัน หน่วยงานเดียวกัน มีโอกาสได้เลขเดียวกัน
+ยิ่ง `select_for_update().aggregate()` ไม่ได้ล็อกอะไรที่เป็นประโยชน์ เพราะแถวที่แย่งกัน
+ยังไม่มีอยู่ (MySQL ต้องใช้ gap lock)
 
-เอกสารการเงินที่เลขซ้ำแก้ย้อนหลังยาก — ควรแก้ก่อนงานอื่น
-แนวทาง: ขยาย atomic ให้ครอบถึง INSERT หรือย้ายไปใช้ตัวนับบนแถว `DocumentVolume`
-พร้อม `select_for_update()` ที่ล็อกแถวจริง
+**อย่าอธิบายบั๊กนี้แบบเหมารวมว่า "กดพร้อมกันแล้วเลขซ้ำ"** — มีตาข่ายรองรับอยู่ 2 ชั้น:
+
+1. DB มี `unique_together = (receipt_number, department)` บน `Receipt`
+2. `receipt_save_ajax` ดัก `IntegrityError` แล้วตอบ 409 "เลขที่ใบสำคัญซ้ำ กรุณาลองใหม่อีกครั้ง"
+   ([accounts/views.py:1884](accounts/views.py))
+
+ผลจริงจึงเป็น:
+
+| กรณี | ผลลัพธ์ |
+|---|---|
+| หน่วยงานเดียวกัน ผ่าน `receipt_save_ajax` | DB ปฏิเสธ → ผู้ใช้เห็นข้อความให้ลองใหม่ ข้อมูลไม่เสีย |
+| **คนละ department ที่ใช้ `code` เดียวกัน** | constraint ไม่ยิงเพราะ department ต่างกัน → **เลขซ้ำจริงในเล่มเดียวกัน** |
+| ผ่าน `receipt_complete_draft_ajax` | `receipt.save()` เปล่า ๆ ไม่ดัก IntegrityError → 500 |
+
+รูรั่วจริงเหลือแค่แถวกลาง — วัดจากฐาน test (`emoneys_testPO`) มีรหัสที่แชร์กันแค่
+`PO` (4 หน่วยงาน) กับ `EDU` (2) และยังไม่มีเลขซ้ำเลยใน 112 ใบ
+โอกาสเกิดต่ำแต่ผลกระทบสูงเพราะเป็นเอกสารการเงิน
+
+**แนวทางแก้ที่ตกลงกันไว้:** ย้ายตัวนับไปอยู่บนแถว `DocumentVolume` แล้ว `select_for_update()`
+แถวนั้น (ล็อกแถวที่มีอยู่จริง ได้ผล) พร้อมขยาย atomic ให้ครอบถึง INSERT
+และเพิ่มการดัก IntegrityError ใน `receipt_complete_draft_ajax` ด้วย
 
 ### last_document_number นับไม่ตรงกับตอนออกเลข
 

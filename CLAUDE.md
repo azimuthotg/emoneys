@@ -12,15 +12,18 @@ deploy_notes:
   - health check: http://110.78.83.103/health/ (verified โดย nms_agent)
   - HTTP ผ่าน IP ตรง ไม่มี domain/HTTPS
 progress: 85
-phase: ระบบใช้งานจริงอยู่ — เปิดรอบปรับปรุงใหม่ (ส.ค. 2569) เริ่มจากรื้อเอกสารให้ตรงปัจจุบันแล้ว ต่อด้วยแก้บั๊กเลขที่เอกสาร
+phase: รื้อเอกสารให้ตรงกับระบบจริงเสร็จแล้ว (13 ส.ค. 2569) — คิวแก้บั๊กรอเจ้าของว่างมาลงมือต่อ ระบบยังใช้งานจริงตามปกติ
 next:
-  - แก้ race condition ตอนออกเลขที่ใบสำคัญ — atomic block ใน Receipt.generate_receipt_number() ปิดก่อน INSERT จริง
+  - แก้ race condition ตอนออกเลขที่ใบสำคัญ — ย้ายตัวนับไปบนแถว DocumentVolume + select_for_update แถวนั้น + ขยาย atomic ให้ครอบ INSERT
+  - เพิ่มการดัก IntegrityError ใน receipt_complete_draft_ajax (ตอนนี้ receipt.save() เปล่า ๆ ชนแล้วได้ 500)
   - แก้การนับ last_document_number ให้กรองด้วยทุก department ที่ใช้ code เดียวกัน (ตอนนี้กรอง department เดียว ไม่ตรงกับตอนออกเลข)
   - เพิ่ม receipt_cancel_approve / receipt_cancel_approve_manager เข้า Permission.PERMISSION_TYPES ให้ตรงกับที่ create_permissions.py สร้างจริง
   - ตั้ง EMAIL_BACKEND เป็น SMTP บน production (ตอนนี้เป็น console อีเมลแจ้งเตือนไม่ออกจริง)
   - ตัดสินใจเรื่อง push notification — ถอด pywebpush ออก หรือเขียนส่วนส่งให้เสร็จ
+  - ตรวจบน prod ว่ามีเลขที่ซ้ำเกิดขึ้นแล้วหรือยัง (กลุ่มหน่วยงานที่แชร์ code เท่านั้นที่หลุด constraint)
+  - ถามเจ้าของว่า GitHub PAT ที่เคยหลุดถูก revoke แล้วหรือยัง (remote สะอาดแล้วแต่ไม่ได้แปลว่า token ตาย)
 risks:
-  - เลขที่ใบสำคัญซ้ำได้เมื่อมีคนกดเสร็จสิ้นพร้อมกัน (เอกสารการเงิน แก้ย้อนหลังยาก)
+  - เลขที่ใบสำคัญซ้ำได้เฉพาะกรณีหน่วยงานคนละ row ที่ใช้ code เดียวกันกดพร้อมกัน (กรณีอื่นมี unique_together กันไว้)
   - NPU API token อายุ 365 วัน ไม่มี auto-refresh ถ้าลืมต่อ ระบบล็อกอินตายทั้งระบบ
 updated: 2026-08-13
 -->
