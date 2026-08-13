@@ -156,18 +156,35 @@
 ทั้งหมดรวม `SECRET_KEY`, รหัส MySQL และ NPU API token ให้คนที่ทำให้เกิด error เห็น
 บนระบบที่เปิด HTTP สาธารณะทาง IP และ MySQL ก็ผูกกับ public IP ด้วย
 
-### สภาพแวดล้อม Python บนเครื่องยังไม่ชัด (ค้างตรวจ)
+### โครงสร้าง process — มีเซิร์ฟเวอร์ตัวเดียว (อย่าตกใจตอนเห็น python 2 ตัว)
 
-พบ Waitress รันอยู่ **2 process** สั่ง bind `0.0.0.0:80` เหมือนกัน:
-`C:\emoneys\emoney_env\Scripts\python.exe` (PID 3568) และ **`C:\Python312\python.exe`** (PID 3600)
-ทั้งที่ port 80 ผูกได้แค่ตัวเดียว
+```
+services.exe → nssm.exe (C:\nssm\win64\nssm.exe, LocalSystem)
+                 └─ python.exe  C:\emoneys\emoney_env\Scripts\python.exe   ← venv launcher
+                      └─ python.exe  C:\Python312\python.exe               ← ตัวที่ถือ port 80
+```
 
-และ `emoney_env\Scripts\python.exe -m pip list` ไม่เจอ Django/waitress/mysqlclient เลย
-ทั้งที่ interpreter ตัวเดียวกัน `import django` ได้ปกติ — อาจเป็นเพราะ venv ไม่มี pip
-หรือถูกสร้างแบบ `--system-site-packages` แล้วดึงของจาก `C:\Python312`
+`Get-CimInstance Win32_Process` จะโชว์ python 2 ตัวที่มี command line เหมือนกันเป๊ะ
+(`-m waitress --listen=0.0.0.0:80 edoc_system.wsgi:application`) **ไม่ใช่ของหลงเหลือ 2 ชุด** —
+เป็นคู่ parent/child ปกติของ venv บน Windows ที่ `Scripts\python.exe` ไป exec interpreter จริงที่
+`C:\Python312` โดยยังคง `sys.prefix` ของ venv ไว้ ยืนยันจาก `ParentProcessId` และเวลาสร้างที่ตรงกัน
 
-**ต้องเคลียร์ก่อนแตะ dependency ใด ๆ** (เช่นตอนติดตั้ง whitenoise) ไม่งั้นอาจ install ลง venv
-แล้วตัวที่รันจริงไม่เห็น
+NSSM ตั้งค่าไว้ถูกต้อง: `Application = C:\emoneys\emoney_env\Scripts\python.exe`,
+`AppDirectory = C:\emoneys` → **ระบบรันจาก venv จริง** ไม่ได้ข้ามไปใช้ system Python
+
+### venv ไม่มี pip
+
+`emoney_env` เป็น venv ที่แยกขาดปกติ (`include-system-site-packages = false`) และมี
+Django 4.2.25 ที่ `C:\emoneys\emoney_env\Lib\site-packages` ครบ **แต่ `python -m pip list` ไม่คืนอะไรเลย**
+แปลว่าไม่มี pip ในนั้น
+
+ก่อนจะติดตั้งอะไร (เช่น `whitenoise` ตอนแก้ DEBUG) ต้องกู้ pip ก่อน:
+`.\emoney_env\Scripts\python.exe -m ensurepip --upgrade`
+
+### NSSM รันด้วยสิทธิ์ LocalSystem
+
+`StartName = LocalSystem` — สูงกว่าที่เว็บแอปต้องการมาก ถ้าแอปมีช่องโหว่ ผู้โจมตีได้สิทธิ์สูงสุด
+ของเครื่องทันที ควรเปลี่ยนเป็น service account เฉพาะที่มีสิทธิ์เท่าที่จำเป็น (ไม่ด่วน)
 
 ---
 

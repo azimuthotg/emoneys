@@ -5,7 +5,7 @@ deployment: production
 deploy_url: http://110.78.83.103/
 deploy_server: 110.78.83.103
 deploy_os: Windows Server
-deploy_method: Windows Service ชื่อ emoneys (Automatic) รัน python -m waitress --listen=0.0.0.0:80 edoc_system.wsgi:application + git pull บนเครื่อง
+deploy_method: NSSM (C:\nssm\win64\nssm.exe) ห่อเป็น Windows Service ชื่อ emoneys (Automatic, LocalSystem) สั่ง C:\emoneys\emoney_env\Scripts\python.exe -m waitress --listen=0.0.0.0:80 edoc_system.wsgi:application + git pull บนเครื่อง
 deploy_path: C:\emoneys (ตรวจบนเครื่องจริง 2026-08-13 — เอกสารเก่าที่ระบุ C:\projects\emoneys หรือ C:\inetpub\wwwroot\emoneys ผิดทั้งคู่)
 deploy_db: MySQL ฐาน emoneys บนเครื่องเดียวกัน แต่ต่อผ่าน public IP 110.78.83.103 ไม่ใช่ localhost
 deploy_notes:
@@ -17,8 +17,8 @@ deploy_notes:
 progress: 85
 phase: รื้อเอกสารให้ตรงกับระบบจริงเสร็จแล้ว (13 ส.ค. 2569) — คิวแก้บั๊กรอเจ้าของว่างมาลงมือต่อ ระบบยังใช้งานจริงตามปกติ
 next:
-  - เคลียร์สภาพแวดล้อม Python บน prod — มี waitress 2 process (venv กับ C:\Python312) bind port 80 เหมือนกัน และ pip list ใน venv ไม่เจอ Django ต้องรู้ว่าตัวไหนให้บริการจริงก่อนแตะ dependency
-  - แก้ DEBUG=True บน prod แบบปลอดภัย — ติดตั้ง whitenoise ก่อน แล้วแยก SECURE_SSL_REDIRECT ออกจาก DEBUG ค่อยปิด DEBUG (ปิดเฉย ๆ เว็บล่มทันที ดู MEM.md)
+  - แก้ DEBUG=True บน prod แบบปลอดภัย — กู้ pip ใน venv ก่อน (ensurepip) แล้วติดตั้ง whitenoise แยก SECURE_SSL_REDIRECT ออกจาก DEBUG ค่อยปิด DEBUG (ปิดเฉย ๆ เว็บล่มทันที ดู MEM.md)
+  - เปลี่ยน service emoneys จาก LocalSystem เป็น service account ที่มีสิทธิ์เท่าที่จำเป็น
   - แก้ race condition ตอนออกเลขที่ใบสำคัญ — ย้ายตัวนับไปบนแถว DocumentVolume + select_for_update แถวนั้น + ขยาย atomic ให้ครอบ INSERT
   - เพิ่มการดัก IntegrityError ใน receipt_complete_draft_ajax (ตอนนี้ receipt.save() เปล่า ๆ ชนแล้วได้ 500)
   - แก้การนับ last_document_number ให้กรองด้วยทุก department ที่ใช้ code เดียวกัน (ตอนนี้กรอง department เดียว ไม่ตรงกับตอนออกเลข)
@@ -30,6 +30,7 @@ next:
 risks:
   - prod รัน DEBUG=True — หน้า error 500 โชว์ SECRET_KEY รหัส MySQL และ NPU token บนเว็บที่เปิด HTTP สาธารณะ
   - MySQL ผูกกับ public IP 110.78.83.103 ไม่ใช่ localhost
+  - service รันด้วยสิทธิ์ LocalSystem สูงเกินความจำเป็น
   - เลขที่ใบสำคัญซ้ำได้ทางทฤษฎีเฉพาะหน่วยงานคนละ row ที่ใช้ code เดียวกัน (จริงยังไม่เคยเกิดใน 10,484 ใบ)
   - NPU API token อายุ 365 วัน ไม่มี auto-refresh ถ้าลืมต่อ ระบบล็อกอินตายทั้งระบบ
 updated: 2026-08-13
