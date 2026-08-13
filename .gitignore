@@ -29,8 +29,6 @@ db.sqlite3-journal
 .idea/
 *.swp
 *.swo
-*.md.bak
-pp.md
 
 # OS
 .DS_Store
@@ -38,44 +36,20 @@ Thumbs.db
 
 # Logs
 logs/
-*.log
 
-# Data files
+# Data / working files
 data/
-
-# Capture files
 capture/
+pp.md
 
 # Claude
 .claude/
 
-# Testing and Analysis files
-test_*.py
-check_*.py
-analyze_*.py
-*_test_*.py
+# เอกสารเก่า/สคริปต์ครั้งเดียวที่ปลดระวางแล้ว (13 ส.ค. 2569)
+# เก็บไว้บนดิสก์เพื่อย้อนดู แต่ไม่ต้องขึ้น repo และไม่ต้องให้ AI อ่าน
+_archive/
+
+# ไฟล์สำรอง/ผลลัพธ์ชั่วคราว
+*.bak
 *.backup
 *_output.pdf
-
-# Database Reset Scripts (ไม่ควร commit ขึ้น production)
-reset_receipts.py
-reset_receipts.sql
-check_before_reset.sql
-verify_after_reset.sql
-backup_before_reset.sh
-FILES_LIST.txt
-README_RESET_*.md
-RESET_RECEIPTS_*.md
-create_online_other_template.py
-
-# Documentation (temporary)
-ANALYSIS_*.md
-CODEBASE_*.md
-DOCUMENTATION_INDEX*.md
-FILE_REFERENCE*.md
-PROGRESS_LOG*.md
-QUICK_REFERENCE*.md
-RECEIPTS_*.md
-RECEIPT_*.txt
-*_GUIDE.md
-*_ARCHITECTURE.txt
